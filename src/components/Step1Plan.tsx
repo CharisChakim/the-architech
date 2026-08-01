@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ProjectSession, FollowUpQuestion, ProjectPlan } from "../types";
 import { MermaidViewer } from "./MermaidViewer";
 import {
@@ -42,6 +42,20 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
 
   // Sub-view in Step 1: 'form' (Form & Questions) or 'plan_review' (Architecture & Diagram Review Page)
   const [subView, setSubView] = useState<"form" | "plan_review">(session.plan ? "plan_review" : "form");
+
+  // Sesi bisa berganti dari luar (buka riwayat, proyek baru, contoh template)
+  // sementara komponen ini tetap ter-mount, sehingga state form harus mengikuti.
+  // Dikunci ke session.id supaya tidak menimpa apa yang sedang diketik pengguna.
+  useEffect(() => {
+    setTitle(session.input.title || "");
+    setDescription(session.input.description || "");
+    setTargetAudience(session.input.targetAudience || "");
+    setTechStackPreference(session.input.techStackPreference || "");
+    setAnswers(session.input.answersToFollowUp || {});
+    setCustomAnswerActive({});
+    setErrorMessage(null);
+    setSubView(session.plan ? "plan_review" : "form");
+  }, [session.id]);
 
   // Klarifikasi bertahap: ronde pertama memulai dari nol, ronde lanjutan
   // mengirim jawaban yang sudah ada agar LLM bisa menilai apa yang masih kurang

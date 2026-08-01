@@ -109,18 +109,23 @@ export interface PRDExtraSection {
   content: string;
 }
 
+// Poin 2, 6, dan 7 bisa berupa data terstruktur dari LLM ATAU teks bebas setelah
+// pengguna mengeditnya di tab "Overview & Edit". Formatter di Step2PRD dan prompt
+// Step 3 sudah menerima kedua bentuk; tipe ini membuatnya eksplisit.
+export interface PRDRequirements {
+  functional: FunctionalRequirement[];
+  nonFunctional: NonFunctionalRequirement[];
+}
+
 export interface PRDData {
   projectTitle: string;
   overview: string; // Point 1
-  requirements: {   // Point 2
-    functional: FunctionalRequirement[];
-    nonFunctional: NonFunctionalRequirement[];
-  };
+  requirements: PRDRequirements | string; // Point 2
   coreFeatures: PRDSectionCoreFeatures; // Point 3
   userFlow: string; // Point 4
   architecture: string; // Point 5
-  databaseSchema: DataEntity[]; // Point 6
-  techStack: TechStackSpec[]; // Point 7
+  databaseSchema: DataEntity[] | string; // Point 6
+  techStack: TechStackSpec[] | string; // Point 7
   additionalSections?: PRDExtraSection[]; // Point 8+, opsional
 
   // Legacy / extra fields for compatibility

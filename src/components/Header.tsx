@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { ProjectSession, SessionSummary, LLMConfig } from "../types";
 import { Cpu, Settings, FolderOpen, Plus, Sparkles, Download, Layers, Check, Trash2 } from "lucide-react";
 import { SAMPLE_PROJECTS, SampleProject } from "../lib/sampleData";
@@ -26,6 +26,19 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const [showHistoryDropdown, setShowHistoryDropdown] = useState(false);
   const [showSamplesDropdown, setShowSamplesDropdown] = useState(false);
+  const actionsRef = useRef<HTMLDivElement>(null);
+
+  // Tutup dropdown saat klik di luar area aksi header.
+  useEffect(() => {
+    if (!showHistoryDropdown && !showSamplesDropdown) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      if (actionsRef.current?.contains(event.target as Node)) return;
+      setShowHistoryDropdown(false);
+      setShowSamplesDropdown(false);
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [showHistoryDropdown, showSamplesDropdown]);
 
   const getProviderBadge = (config: LLMConfig) => {
     if (config.provider === "ollama") return { name: `Ollama (${config.modelName})`, color: "bg-slate-800 text-slate-200" };
@@ -63,7 +76,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Right Actions */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        <div ref={actionsRef} className="flex items-center gap-2 sm:gap-3 shrink-0">
           {/* LLM Engine Indicator */}
           <button
             onClick={onOpenLLMConfig}

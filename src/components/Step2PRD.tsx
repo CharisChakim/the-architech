@@ -81,6 +81,42 @@ const formatTechStackToString = (ts: any): string => {
   return String(ts);
 };
 
+// Menyusun ulang markdown PRD dari isi yang sekarang, dipakai setelah pengguna
+// mengedit supaya ekspor .md tidak lagi tertinggal di versi lama.
+const buildPrdMarkdown = (p: PRDData): string => {
+  const lines: string[] = [`# PRD - ${p.projectTitle || "Project Requirements Document"}`, ""];
+
+  lines.push("## 1. Overview", p.overview || "", "");
+  lines.push("## 2. Requirements", formatRequirementsToString(p.requirements) || "", "");
+
+  lines.push("## 3. Core Features", "");
+  ([
+    ["Fase 1", "fase1"],
+    ["Fase 2", "fase2"],
+    ["Fase 3+", "fase3Plus"],
+  ] as const).forEach(([label, key]) => {
+    const feats = getPhaseFeatures(p.coreFeatures, key);
+    if (feats.length === 0) return;
+    lines.push(`### ${label}`);
+    feats.forEach((f) => lines.push(`- ${f}`));
+    lines.push("");
+  });
+
+  lines.push("## 4. User Flow", p.userFlow || "", "");
+  if (p.logicFlowMermaid) {
+    lines.push("```mermaid", p.logicFlowMermaid, "```", "");
+  }
+  lines.push("## 5. Architecture", p.architecture || "", "");
+  lines.push("## 6. Database Schema", formatDbSchemaToString(p.databaseSchema) || "", "");
+  lines.push("## 7. Tech Stack", formatTechStackToString(p.techStack) || "", "");
+
+  (p.additionalSections || []).forEach((s) => {
+    lines.push(`## ${s.number}. ${s.title}`, s.content || "", "");
+  });
+
+  return lines.join("\n");
+};
+
 export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, onGoToNextStep }) => {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -143,40 +179,33 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
   const handleSavePrdOverviewEdits = () => {
     if (!prd) return;
 
-    const reqLines = editRequirements
-      .split("\n")
-      .map((r) => r.trim())
-      .filter((r) => r.length > 0);
+    // Bidang terstruktur hanya diganti kalau teksnya benar-benar berubah. Kalau
+    // tidak disentuh, data asli dari LLM dibiarkan utuh — sebelumnya struktur itu
+    // selalu diruntuhkan jadi satu entri palsu meski pengguna tidak mengedit.
+    const keepOrReplace = <T,>(edited: string, original: T, serialized: string): T | string =>
+      edited.trim() === serialized.trim() ? original : edited;
 
     const updatedPrd: PRDData = {
       ...prd,
       overview: editOverview,
       userFlow: editUserFlow,
       architecture: editArchitecture,
-      requirements: {
-        functional: reqLines.map((line, idx) => ({
-          id: `FR-${idx + 1}`,
-          title: line,
-          description: line,
-          priority: "P0",
-        })),
-        nonFunctional: [],
-      },
-      databaseSchema: [
-        {
-          name: "CustomSchema",
-          description: editDatabaseSchema,
-          fields: [],
-        },
-      ],
-      techStack: [
-        {
-          layer: "Core Stack",
-          technology: editTechStack,
-          rationale: "Kustomisasi Pengguna",
-        },
-      ],
+      requirements: keepOrReplace(
+        editRequirements,
+        prd.requirements,
+        formatRequirementsToString(prd.requirements)
+      ),
+      databaseSchema: keepOrReplace(
+        editDatabaseSchema,
+        prd.databaseSchema,
+        formatDbSchemaToString(prd.databaseSchema)
+      ),
+      techStack: keepOrReplace(editTechStack, prd.techStack, formatTechStackToString(prd.techStack)),
     };
+
+    // Ekspor .md membaca fullMarkdownText. Tanpa dibangun ulang, Download/Copy MD
+    // akan mengekspor versi sebelum diedit.
+    updatedPrd.fullMarkdownText = buildPrdMarkdown(updatedPrd);
 
     onUpdateSession({ prd: updatedPrd });
     setSaveSuccess(true);

@@ -8,14 +8,17 @@ interface MermaidViewerProps {
   title?: string;
 }
 
+// Diagram datang dari keluaran LLM dan SVG hasilnya dipasang lewat
+// dangerouslySetInnerHTML, jadi securityLevel "strict" (bukan "loose") dipakai
+// agar Mermaid menyanitasi labelnya. Konsekuensinya htmlLabels harus mati.
 mermaid.initialize({
   startOnLoad: false,
   theme: "neutral",
-  securityLevel: "loose",
+  securityLevel: "strict",
   fontFamily: "ui-sans-serif, system-ui, sans-serif",
   flowchart: {
     useMaxWidth: false,
-    htmlLabels: true,
+    htmlLabels: false,
     curve: "basis",
   },
 });
