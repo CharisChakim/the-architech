@@ -235,8 +235,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
   return (
     <div className="space-y-8 pb-12">
       {/* Introduction Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-indigo-500/20 relative overflow-hidden">
-        <div className="absolute right-0 top-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+      <div className="bg-slate-900 text-white rounded-2xl p-6 sm:p-8 border border-slate-800">
         <div className="relative z-10 max-w-3xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-semibold mb-4 border border-indigo-500/30">
             <FileText className="w-3.5 h-3.5" />
@@ -263,7 +262,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
 
       {/* Generate Action Card if no PRD */}
       {!prd ? (
-        <div className="bg-white rounded-3xl border border-slate-200 p-8 text-center space-y-4 shadow-sm">
+        <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-4 shadow-sm">
           <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl mx-auto flex items-center justify-center">
             <Sparkles className="w-8 h-8" />
           </div>
@@ -296,7 +295,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
       ) : (
         <div className="space-y-8 animate-in fade-in duration-300">
           {/* PRD Header & Toolbar */}
-          <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 flex flex-wrap items-center justify-between gap-4 border border-slate-800 shadow-xl">
+          <div className="bg-slate-900 text-white rounded-2xl p-6 sm:p-8 flex flex-wrap items-center justify-between gap-4 border border-slate-800 shadow-sm">
             <div>
               <div className="flex items-center gap-2 text-indigo-400 text-xs font-bold uppercase tracking-wider mb-1">
                 <FileText className="w-4 h-4" /> Product Requirement Document (PRD 7-Point)
@@ -380,7 +379,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
           {activeTab === "7point" && (
             <div className="space-y-8">
               {/* 1. Overview */}
-              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-3">
+              <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-3">
                 <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2 border-b border-slate-100 pb-3">
                   <span className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center justify-center">1</span>
                   Overview
@@ -389,7 +388,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
               </div>
 
               {/* 2. Requirements */}
-              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-3">
+              <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-3">
                 <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2 border-b border-slate-100 pb-3">
                   <span className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center justify-center">2</span>
                   Requirements (Kebutuhan Fungsional & Non-Fungsional)
@@ -405,7 +404,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
               </div>
 
               {/* 3. Core Features by Phase */}
-              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-4">
+              <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-4">
                 <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2 border-b border-slate-100 pb-3">
                   <span className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center justify-center">3</span>
                   Core Features (Tahapan Fase 1, 2, 3+)
@@ -451,7 +450,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
               </div>
 
               {/* 4. User Flow & Diagram Logika Horizontal */}
-              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-4">
+              <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-4">
                 <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2 border-b border-slate-100 pb-3">
                   <span className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center justify-center">4</span>
                   User Flow & Horizontal Logic Diagram
@@ -470,7 +469,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
               </div>
 
               {/* 5. Architecture */}
-              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-3">
+              <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-3">
                 <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2 border-b border-slate-100 pb-3">
                   <span className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center justify-center">5</span>
                   Architecture
@@ -481,7 +480,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
               </div>
 
               {/* 6. Database Schema */}
-              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-3">
+              <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-3">
                 <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2 border-b border-slate-100 pb-3">
                   <span className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center justify-center">6</span>
                   Database Schema
@@ -492,7 +491,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
               </div>
 
               {/* 7. Tech Stack */}
-              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-3">
+              <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-3">
                 <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2 border-b border-slate-100 pb-3">
                   <span className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center justify-center">7</span>
                   Tech Stack
@@ -506,7 +505,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
               {extraSections.map((section) => (
                 <div
                   key={section.number}
-                  className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-3"
+                  className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-3"
                 >
                   <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2 border-b border-slate-100 pb-3">
                     <span className="w-6 h-6 rounded-lg bg-purple-100 text-purple-700 font-bold text-xs flex items-center justify-center">
@@ -527,7 +526,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
 
           {/* TAB 2: OVERVIEW & EDITABLE REVIEW BEFORE TASK GENERATION */}
           {activeTab === "overview_edit" && (
-            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-indigo-200 shadow-md space-y-6">
+            <div className="bg-white rounded-2xl p-6 sm:p-8 border border-indigo-200 shadow-md space-y-6">
               <div className="flex items-center justify-between border-b border-slate-200 pb-4">
                 <div>
                   <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
@@ -632,7 +631,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
 
           {/* TAB 3: RAW MARKDOWN DOCUMENT */}
           {activeTab === "markdown" && (
-            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-2xs prose prose-slate max-w-none text-xs sm:text-sm leading-relaxed">
+            <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-2xs prose prose-slate max-w-none text-xs sm:text-sm leading-relaxed">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{prd.fullMarkdownText}</ReactMarkdown>
             </div>
           )}

@@ -196,8 +196,7 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
   return (
     <div className="space-y-8 pb-12">
       {/* Introduction Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-indigo-500/20 relative overflow-hidden">
-        <div className="absolute right-0 top-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+      <div className="bg-slate-900 text-white rounded-2xl p-6 sm:p-8 border border-slate-800">
         <div className="relative z-10 max-w-3xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-semibold mb-4 border border-indigo-500/30">
             <Compass className="w-3.5 h-3.5" />
@@ -249,7 +248,7 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
       {subView === "form" && (
         <div className="space-y-8">
           {/* Input Form */}
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-xs p-6 sm:p-8">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 sm:p-8">
             <form onSubmit={handleAnalyzeQuestions} className="space-y-6">
               <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                 <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
@@ -333,7 +332,7 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
 
           {/* Follow-up Questions with Options + 1 Custom Field */}
           {session.followUps.length > 0 && (
-            <div className="bg-gradient-to-b from-slate-50 to-indigo-50/30 rounded-3xl border border-indigo-100 p-6 sm:p-8 space-y-6">
+            <div className="bg-slate-50 rounded-2xl border border-slate-200 p-6 sm:p-8 space-y-6">
               <div className="flex flex-wrap items-center justify-between gap-4 border-b border-indigo-100 pb-4">
                 <div>
                   <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
@@ -512,7 +511,7 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
       {subView === "plan_review" && plan && (
         <div className="space-y-8 animate-in fade-in duration-300">
           {/* Plan Header & Action Banner */}
-          <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 flex flex-wrap items-center justify-between gap-4 border border-slate-800 shadow-lg">
+          <div className="bg-slate-900 text-white rounded-2xl p-6 sm:p-8 flex flex-wrap items-center justify-between gap-4 border border-slate-800 shadow-lg">
             <div>
               <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold uppercase tracking-wider mb-1">
                 <CheckCircle2 className="w-4 h-4" /> Plan & Arsitektur Berhasil Disusun
@@ -561,7 +560,7 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
           {/* Grid Core Features & Tech Stack */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Core Features */}
-            <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-2xs space-y-4">
+            <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-2xs space-y-4">
               <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2 border-b border-slate-100 pb-3">
                 <ListTodo className="w-4 h-4 text-indigo-600" />
                 Prioritas Fitur Utama
@@ -590,7 +589,7 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
             </div>
 
             {/* Tech Stack */}
-            <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-2xs space-y-4">
+            <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-2xs space-y-4">
               <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2 border-b border-slate-100 pb-3">
                 <Cpu className="w-4 h-4 text-indigo-600" />
                 Rekomendasi Stack Teknologi
@@ -612,7 +611,7 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
           </div>
 
           {/* Draf Arsitektur Details */}
-          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-6">
+          <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-6">
             <h4 className="font-bold text-slate-900 text-base flex items-center gap-2 border-b border-slate-100 pb-4">
               <Layers className="w-5 h-5 text-indigo-600" />
               Detail Komponen & Keamanan
@@ -657,7 +656,7 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
 
           {/* Roadmap & Estimasi */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 bg-white rounded-3xl p-6 border border-slate-200 shadow-2xs space-y-4">
+            <div className="lg:col-span-2 bg-white rounded-2xl p-6 border border-slate-200 shadow-2xs space-y-4">
               <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2 border-b border-slate-100 pb-3">
                 <Compass className="w-4 h-4 text-indigo-600" />
                 Roadmap Tahapan Pengerjaan
@@ -686,7 +685,7 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
               </div>
             </div>
 
-            <div className="bg-slate-900 text-white rounded-3xl p-6 border border-slate-800 shadow-md space-y-5">
+            <div className="bg-slate-900 text-white rounded-2xl p-6 border border-slate-800 shadow-md space-y-5">
               <h4 className="font-bold text-white text-sm flex items-center gap-2 border-b border-slate-800 pb-3">
                 <Clock className="w-4 h-4 text-emerald-400" />
                 Estimasi & Sumber Daya

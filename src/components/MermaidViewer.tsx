@@ -87,7 +87,7 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({ chart, explanation
   };
 
   return (
-    <div className={`bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all ${isFullscreen ? "fixed inset-4 z-50 flex flex-col shadow-2xl" : ""}`}>
+    <div className={`bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all ${isFullscreen ? "fixed inset-4 z-50 flex flex-col shadow-lg" : ""}`}>
       {/* Header Toolbar */}
       <div className="flex flex-wrap items-center justify-between px-5 py-3.5 bg-slate-50 border-b border-slate-200 gap-3">
         <div className="flex items-center gap-2">
