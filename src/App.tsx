@@ -16,7 +16,7 @@ import { Step2PRD } from "./components/Step2PRD";
 import { Step3AgentTasks } from "./components/Step3AgentTasks";
 import { LLMConfigModal } from "./components/LLMConfigModal";
 import { ExportModal } from "./components/ExportModal";
-import { Sparkles, Cpu, Database, AlertTriangle, RefreshCw } from "lucide-react";
+import { Cpu, Database, AlertTriangle, RefreshCw } from "lucide-react";
 
 export default function App() {
   const [session, setSession] = useState<ProjectSession | null>(null);
@@ -149,8 +149,8 @@ export default function App() {
 
   if (!session) {
     return (
-      <div className="min-h-screen bg-slate-100/70 flex items-center justify-center">
-        <div className="flex items-center gap-3 text-slate-600 text-sm">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="flex items-center gap-3 text-sm text-slate-500">
           <RefreshCw className="w-4 h-4 animate-spin text-indigo-600" />
           Memuat riwayat proyek...
         </div>
@@ -159,7 +159,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100/70 text-slate-900 font-sans antialiased flex flex-col selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen bg-slate-50 text-sm text-slate-900 font-sans antialiased flex flex-col selection:bg-indigo-500 selection:text-white">
       {/* Top Header */}
       <Header
         session={session}
@@ -176,17 +176,17 @@ export default function App() {
       <StepNavigator session={session} onSelectStep={handleSelectStep} />
 
       {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="flex-1 w-full max-w-6xl mx-auto px-6 lg:px-8 py-10">
         {storeError && (
-          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl text-xs flex items-start gap-3">
+          <div className="mb-8 p-4 bg-amber-50 rounded-xl ring-1 ring-amber-200 text-amber-900 flex items-start gap-3">
             <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
             <div className="flex-1">
-              <strong className="font-semibold block mb-0.5">Penyimpanan riwayat bermasalah:</strong>
-              {storeError}
+              <p className="font-medium">Penyimpanan riwayat bermasalah</p>
+              <p className="text-amber-800 mt-0.5">{storeError}</p>
             </div>
             <button
               onClick={() => setStoreError(null)}
-              className="text-amber-700 hover:text-amber-900 font-semibold shrink-0"
+              className="text-xs text-amber-700 hover:text-amber-900 font-medium shrink-0"
             >
               Tutup
             </button>
@@ -232,24 +232,20 @@ export default function App() {
       />
 
       {/* Footer */}
-      <footer className="bg-slate-900 text-slate-400 border-t border-slate-800 text-xs py-6 mt-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-indigo-400" />
-            <span className="font-semibold text-slate-200">AI Plan Architect</span>
-            <span>• Workflow: Perencanaan ➔ PRD ➔ Task Agent</span>
-          </div>
-
-          <div className="flex items-center gap-4 text-[11px]">
+      <footer className="border-t border-slate-200 text-xs text-slate-500 py-6 mt-16">
+        <div className="max-w-6xl mx-auto px-6 lg:px-8 flex flex-wrap items-center justify-between gap-3">
+          <span>Perencanaan → PRD → Task Agent</span>
+          <div className="flex items-center gap-5">
             <button
               onClick={() => setIsLLMModalOpen(true)}
-              className="hover:text-indigo-300 transition-colors flex items-center gap-1"
+              className="flex items-center gap-1.5 hover:text-slate-900 transition-colors"
             >
               <Cpu className="w-3.5 h-3.5" />
-              Engine: {session.llmConfig.provider.toUpperCase()} ({session.llmConfig.modelName})
+              {session.llmConfig.provider} · {session.llmConfig.modelName}
             </button>
-            <span className="flex items-center gap-1 text-emerald-400">
-              <Database className="w-3.5 h-3.5" /> Riwayat: SQLite ({historySessions.length} proyek)
+            <span className="flex items-center gap-1.5">
+              <Database className="w-3.5 h-3.5" />
+              {historySessions.length} proyek tersimpan
             </span>
           </div>
         </div>

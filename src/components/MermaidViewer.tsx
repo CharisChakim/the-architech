@@ -87,11 +87,10 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({ chart, explanation
   };
 
   return (
-    <div className={`bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all ${isFullscreen ? "fixed inset-4 z-50 flex flex-col shadow-lg" : ""}`}>
+    <div className={`bg-white rounded-2xl ring-1 ring-slate-200 overflow-hidden transition-all ${isFullscreen ? "fixed inset-4 z-50 flex flex-col shadow-lg" : ""}`}>
       {/* Header Toolbar */}
       <div className="flex flex-wrap items-center justify-between px-5 py-3.5 bg-slate-50 border-b border-slate-200 gap-3">
         <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
           <h4 className="font-semibold text-slate-800 text-sm">{title || "Diagram Logika Sistem"}</h4>
         </div>
 
@@ -188,7 +187,7 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({ chart, explanation
       </div>
 
       {explanation && (
-        <div className="p-4 bg-slate-50 border-t border-slate-200 text-xs text-slate-600 leading-relaxed">
+        <div className="p-4 bg-slate-50 border-t border-slate-200 text-sm text-slate-600 leading-relaxed">
           <strong className="text-slate-800 font-semibold block mb-1">Penjelasan Alur Logika:</strong>
           {explanation}
         </div>

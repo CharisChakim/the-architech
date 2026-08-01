@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Compass, FileText, CheckCircle2, ArrowRight, Bot, Lock } from "lucide-react";
+import { Check, ChevronRight, Lock } from "lucide-react";
 import { ProjectSession } from "../types";
 
 interface StepNavigatorProps {
@@ -19,33 +19,30 @@ export const StepNavigator: React.FC<StepNavigatorProps> = ({ session, onSelectS
   const steps = [
     {
       num: 1 as const,
-      title: "1. Bikin Plan",
-      subtitle: "Klarifikasi Ide & Spec Arsitektur",
-      icon: Compass,
+      title: "Bikin Plan",
+      hint: "Klarifikasi ide, arsitektur, dan diagram logika",
       isCompleted: hasPlan,
       isAvailable: true,
     },
     {
       num: 2 as const,
-      title: "2. Bikin PRD",
-      subtitle: "7 Poin Spesifikasi & Diagram Horizontal",
-      icon: FileText,
+      title: "Bikin PRD",
+      hint: "Tujuh poin spesifikasi dan diagram alur",
       isCompleted: hasPrd,
-      isAvailable: hasPlan, // Must complete Step 1 first
+      isAvailable: hasPlan,
       unlockRequirement: "Selesaikan Step 1 (Bikin Plan) terlebih dahulu",
     },
     {
       num: 3 as const,
-      title: "3. Task AI Agent",
-      subtitle: "Kanban Board & Smart Prompts",
-      icon: Bot,
+      title: "Task AI Agent",
+      hint: "Kanban board dan prompt siap eksekusi",
       isCompleted: hasTasks,
-      isAvailable: hasPrd, // Must complete Step 2 first
+      isAvailable: hasPrd,
       unlockRequirement: "Selesaikan Step 2 (Bikin PRD) terlebih dahulu",
     },
   ];
 
-  const handleStepClick = (step: typeof steps[0]) => {
+  const handleStepClick = (step: (typeof steps)[0]) => {
     if (step.isAvailable) {
       setLockNotice(null);
       onSelectStep(step.num);
@@ -56,90 +53,61 @@ export const StepNavigator: React.FC<StepNavigatorProps> = ({ session, onSelectS
   };
 
   return (
-    <div className="bg-slate-900 border-b border-slate-800 sticky top-16 z-30 shadow-md">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-        {lockNotice && (
-          <div className="mb-2 p-2.5 bg-amber-500/20 border border-amber-500/40 text-amber-200 rounded-xl text-xs flex items-center gap-2 animate-in fade-in">
-            <Lock className="w-4 h-4 text-amber-400 shrink-0" />
-            <span>{lockNotice}</span>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+    <div className="bg-white border-b border-slate-200 sticky top-14 z-30">
+      <div className="max-w-6xl mx-auto px-6 lg:px-8">
+        <nav className="flex items-center gap-1 overflow-x-auto">
           {steps.map((step, idx) => {
-            const Icon = step.icon;
             const isActive = currentStep === step.num;
             const isLocked = !step.isAvailable;
 
             return (
-              <button
-                key={step.num}
-                onClick={() => handleStepClick(step)}
-                className={`relative text-left p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-3 group ${
-                  isActive
-                    ? "bg-indigo-600 text-white border-indigo-500 shadow-lg ring-2 ring-indigo-500/30"
-                    : step.isCompleted
-                    ? "bg-slate-800/80 border-slate-700 text-slate-100 hover:bg-slate-800"
-                    : isLocked
-                    ? "bg-slate-900/50 border-slate-800/80 text-slate-500 cursor-not-allowed opacity-75"
-                    : "bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800/50"
-                }`}
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div
-                    className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 transition-colors ${
+              <React.Fragment key={step.num}>
+                <button
+                  onClick={() => handleStepClick(step)}
+                  title={step.hint}
+                  aria-current={isActive ? "step" : undefined}
+                  className={`flex items-center gap-2.5 shrink-0 py-4 px-1 border-b-2 transition-colors ${
+                    isActive
+                      ? "border-indigo-600 text-slate-900"
+                      : isLocked
+                        ? "border-transparent text-slate-400 cursor-not-allowed"
+                        : "border-transparent text-slate-500 hover:text-slate-900"
+                  }`}
+                >
+                  <span
+                    className={`w-6 h-6 rounded-full grid place-items-center text-xs font-semibold shrink-0 ${
                       isActive
-                        ? "bg-white/20 text-white"
+                        ? "bg-indigo-600 text-white"
                         : step.isCompleted
-                        ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                        : isLocked
-                        ? "bg-slate-800 text-slate-600"
-                        : "bg-slate-800 text-slate-400"
+                          ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                          : "bg-slate-100 text-slate-500"
                     }`}
                   >
                     {isLocked ? (
-                      <Lock className="w-4 h-4 text-slate-500" />
+                      <Lock className="w-3 h-3" />
                     ) : step.isCompleted && !isActive ? (
-                      <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                      <Check className="w-3.5 h-3.5" />
                     ) : (
-                      <Icon className="w-4 h-4" />
+                      step.num
                     )}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-bold text-xs sm:text-sm tracking-tight truncate">{step.title}</h3>
-                      {step.isCompleted && (
-                        <span
-                          className={`text-[10px] font-semibold px-1.5 py-0.2 rounded ${
-                            isActive ? "bg-white/20 text-white" : "bg-emerald-500/20 text-emerald-300"
-                          }`}
-                        >
-                          Selesai
-                        </span>
-                      )}
-                      {isLocked && (
-                        <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-slate-800 text-slate-500 border border-slate-700/50">
-                          Terkunci
-                        </span>
-                      )}
-                    </div>
-                    <p className={`text-[11px] truncate mt-0.5 ${isActive ? "text-indigo-100" : isLocked ? "text-slate-600" : "text-slate-400"}`}>
-                      {step.subtitle}
-                    </p>
-                  </div>
-                </div>
+                  </span>
+                  <span className="text-sm font-medium whitespace-nowrap">{step.title}</span>
+                </button>
 
                 {idx < steps.length - 1 && (
-                  <div className="hidden md:block absolute -right-3 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
-                    <div className="w-6 h-6 rounded-full bg-slate-800 border border-slate-700 shadow-xs flex items-center justify-center text-slate-400">
-                      <ArrowRight className="w-3 h-3" />
-                    </div>
-                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-300 shrink-0 mx-1" aria-hidden />
                 )}
-              </button>
+              </React.Fragment>
             );
           })}
-        </div>
+        </nav>
+
+        {lockNotice && (
+          <div className="pb-3 -mt-1 flex items-center gap-2 text-xs text-amber-700">
+            <Lock className="w-3.5 h-3.5 shrink-0" />
+            {lockNotice}
+          </div>
+        )}
       </div>
     </div>
   );

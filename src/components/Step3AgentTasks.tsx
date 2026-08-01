@@ -121,8 +121,8 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
       md += `- **Prioritas**: ${t.priority}\n`;
       md += `- **File Target**: \`${(t.targetFiles || []).join("`, `")}\` \n`;
       md += `- **Dependensi**: ${(t.dependencies || []).length > 0 ? t.dependencies.join(", ") : "Tidak Ada"}\n\n`;
-      md += `#### 📋 Instruksi Prompt AI Agent:\n\`\`\`\n${t.promptInstructions}\n\`\`\`\n\n`;
-      md += `#### ✅ Langkah Verifikasi:\n${t.verificationSteps}\n\n`;
+      md += `#### Instruksi Prompt AI Agent:\n\`\`\`\n${t.promptInstructions}\n\`\`\`\n\n`;
+      md += `#### Langkah Verifikasi:\n${t.verificationSteps}\n\n`;
       md += `===================================================\n\n`;
     });
 
@@ -155,26 +155,18 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
 
   return (
     <div className="space-y-8 pb-12">
-      {/* Introduction Banner */}
-      <div className="bg-slate-900 text-white rounded-2xl p-6 sm:p-8 border border-slate-800">
-        <div className="relative z-10 max-w-3xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-semibold mb-4 border border-emerald-500/30">
-            <Bot className="w-3.5 h-3.5" />
-            Part 3: Kanban Board & Smart Prompt AI Agent
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white mb-3">
-            Kanban Board & Smart Prompts Siap Exec
-          </h2>
-          <p className="text-slate-300 text-xs sm:text-sm leading-relaxed">
-            Daftar tugas dipecah menjadi kartu Kanban interaktif. Setiap kartu dilengkapi instruksi prompt spesifik & verifikasi.
-            Gunakan tombol **Copy Task Prompt** atau **Download AGENTS.md** untuk diberikan ke AI Agent (Cursor, Antigravity, Gemini).
-          </p>
-        </div>
+      {/* Page heading */}
+      <div className="max-w-2xl">
+        <h2 className="text-2xl font-semibold tracking-tight text-slate-900">Task untuk AI Agent</h2>
+        <p className="text-slate-500 mt-2 leading-relaxed">
+          PRD dipecah jadi task atomik dengan file target, dependensi, prompt, dan langkah verifikasi. Salin satu task,
+          atau unduh AGENTS.md untuk diberikan ke Cursor, Claude Code, atau Gemini.
+        </p>
       </div>
 
       {/* Error Alert */}
       {errorMessage && (
-        <div className="p-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl text-xs sm:text-sm">
+        <div className="p-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl text-sm">
           <strong>Error:</strong> {errorMessage}
         </div>
       )}
@@ -186,15 +178,15 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
             <Bot className="w-8 h-8" />
           </div>
           <div className="max-w-md mx-auto space-y-2">
-            <h3 className="font-bold text-slate-900 text-lg">Generate Kanban Task Board untuk AI Agent</h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
+            <h3 className="font-semibold text-slate-900 text-lg">Generate Kanban Task Board untuk AI Agent</h3>
+            <p className="text-sm text-slate-500 leading-relaxed">
               LLM akan memecah PRD 7 Poin & Arsitektur menjadi urutan task modular siap eksekusi dengan status To Do, In Progress, & Done.
             </p>
           </div>
           <button
             onClick={handleGenerateTasks}
             disabled={loading}
-            className="px-8 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs sm:text-sm transition-all shadow-md hover:shadow-lg disabled:opacity-50 inline-flex items-center gap-2"
+            className="px-8 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold text-sm transition-all shadow-md hover:shadow-lg disabled:opacity-50 inline-flex items-center gap-2"
           >
             {loading ? (
               <>
@@ -212,29 +204,29 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
       ) : (
         <div className="space-y-8 animate-in fade-in duration-300">
           {/* Header Action Bar */}
-          <div className="bg-slate-900 text-white rounded-2xl p-6 sm:p-8 flex flex-wrap items-center justify-between gap-4 border border-slate-800 shadow-sm">
-            <div>
-              <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold uppercase tracking-wider mb-1">
-                <CheckCircle2 className="w-4 h-4" /> {tasks.length} Executable Task Siap Digunakan
+          <div className="bg-white rounded-2xl ring-1 ring-slate-200 p-6 flex flex-wrap items-start justify-between gap-5">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 text-emerald-700 text-xs font-medium mb-2">
+                <CheckCircle2 className="w-4 h-4" /> {tasks.length} task siap dieksekusi
               </div>
-              <h3 className="text-xl sm:text-2xl font-extrabold text-white">AI Agent Task Board (.md Export)</h3>
-              <p className="text-slate-300 text-xs mt-1">
-                Gunakan file `AGENTS.md` ini di AI Agent Anda atau kelola status task langsung di Kanban Board di bawah.
+              <h3 className="text-lg font-semibold text-slate-900">Task board</h3>
+              <p className="text-slate-500 mt-1.5 max-w-xl leading-relaxed">
+                Kelola status task di board di bawah, atau unduh AGENTS.md untuk dijalankan oleh AI Agent Anda.
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
               <button
                 onClick={handleCopyAllMd}
-                className="flex items-center gap-1.5 px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 rounded-xl text-xs font-semibold transition-all"
+                className="flex items-center gap-1.5 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg text-sm font-medium transition-colors"
               >
-                {copiedAll ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                {copiedAll ? "Semua Tersalin!" : "Copy All Tasks"}
+                {copiedAll ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                {copiedAll ? "Tersalin" : "Copy semua"}
               </button>
 
               <button
                 onClick={handleDownloadMdFile}
-                className="flex items-center gap-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl text-xs sm:text-sm transition-all shadow-md"
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg text-sm transition-colors"
               >
                 <Download className="w-4 h-4" />
                 Download AGENTS.md
@@ -280,9 +272,9 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
           {viewMode === "kanban" && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Column 1: To Do */}
-              <div className="bg-slate-100/70 border border-slate-200 rounded-2xl p-4 space-y-3">
+              <div className="bg-slate-100/60 rounded-2xl p-4 space-y-3">
                 <div className="flex items-center justify-between pb-2 border-b border-slate-200 px-2">
-                  <div className="flex items-center gap-2 font-bold text-slate-800 text-xs uppercase tracking-wider">
+                  <div className="flex items-center gap-2 font-semibold text-slate-800 text-xs uppercase tracking-wider">
                     <span className="w-3 h-3 rounded-full bg-slate-400"></span>
                     To Do ({todoTasks.length})
                   </div>
@@ -293,14 +285,14 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
                     <div
                       key={task.id}
                       onClick={() => setSelectedTaskForModal(task)}
-                      className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs hover:border-indigo-400 cursor-pointer transition-all space-y-2 group"
+                      className="bg-white p-4 rounded-2xl ring-1 ring-slate-200 hover:border-indigo-400 cursor-pointer transition-all space-y-2 group"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-900 text-emerald-400">
+                        <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-600">
                           {task.id}
                         </span>
                         <span
-                          className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full ${
+                          className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
                             task.priority === "High" ? "bg-rose-100 text-rose-800" : "bg-amber-100 text-amber-800"
                           }`}
                         >
@@ -308,20 +300,20 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
                         </span>
                       </div>
 
-                      <h5 className="font-bold text-slate-900 text-xs leading-snug group-hover:text-indigo-600 transition-colors">
+                      <h5 className="font-semibold text-slate-900 text-xs leading-snug group-hover:text-indigo-600 transition-colors">
                         {task.title}
                       </h5>
 
-                      <p className="text-[11px] text-slate-500 line-clamp-2">{task.promptInstructions}</p>
+                      <p className="text-xs text-slate-500 line-clamp-2">{task.promptInstructions}</p>
 
                       <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                        <span className="text-[10px] text-slate-400 font-medium">{task.targetFiles?.[0] || "File"}</span>
+                        <span className="text-xs text-slate-400 font-medium">{task.targetFiles?.[0] || "File"}</span>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleTaskStatusChange(task.id, "in_progress");
                           }}
-                          className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                          className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
                         >
                           Mulai <ArrowRight className="w-3 h-3" />
                         </button>
@@ -332,9 +324,9 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
               </div>
 
               {/* Column 2: In Progress */}
-              <div className="bg-indigo-50/50 border border-indigo-200/80 rounded-2xl p-4 space-y-3">
-                <div className="flex items-center justify-between pb-2 border-b border-indigo-200/80 px-2">
-                  <div className="flex items-center gap-2 font-bold text-indigo-900 text-xs uppercase tracking-wider">
+              <div className="bg-slate-100/60 rounded-2xl p-4 space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-200 px-2">
+                  <div className="flex items-center gap-2 font-semibold text-slate-700 text-xs uppercase tracking-wider">
                     <span className="w-3 h-3 rounded-full bg-amber-500 animate-pulse"></span>
                     In Progress ({inProgressTasks.length})
                   </div>
@@ -348,19 +340,19 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
                       className="bg-white p-4 rounded-2xl border border-indigo-200 shadow-2xs hover:border-indigo-500 cursor-pointer transition-all space-y-2 group"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-indigo-950 text-indigo-300">
+                        <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-600">
                           {task.id}
                         </span>
-                        <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800">
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-amber-100 text-amber-800">
                           Eksekusi
                         </span>
                       </div>
 
-                      <h5 className="font-bold text-slate-900 text-xs leading-snug group-hover:text-indigo-600 transition-colors">
+                      <h5 className="font-semibold text-slate-900 text-xs leading-snug group-hover:text-indigo-600 transition-colors">
                         {task.title}
                       </h5>
 
-                      <p className="text-[11px] text-slate-500 line-clamp-2">{task.promptInstructions}</p>
+                      <p className="text-xs text-slate-500 line-clamp-2">{task.promptInstructions}</p>
 
                       <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
                         <button
@@ -368,7 +360,7 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
                             e.stopPropagation();
                             handleTaskStatusChange(task.id, "todo");
                           }}
-                          className="text-[10px] text-slate-400 hover:text-slate-600"
+                          className="text-xs text-slate-400 hover:text-slate-600"
                         >
                           Kembali
                         </button>
@@ -377,7 +369,7 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
                             e.stopPropagation();
                             handleTaskStatusChange(task.id, "done");
                           }}
-                          className="text-[10px] font-bold text-emerald-600 hover:text-emerald-800 flex items-center gap-1"
+                          className="text-xs font-semibold text-emerald-600 hover:text-emerald-800 flex items-center gap-1"
                         >
                           Tandai Selesai <Check className="w-3 h-3" />
                         </button>
@@ -393,9 +385,9 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
               </div>
 
               {/* Column 3: Done */}
-              <div className="bg-emerald-50/50 border border-emerald-200/80 rounded-2xl p-4 space-y-3">
-                <div className="flex items-center justify-between pb-2 border-b border-emerald-200/80 px-2">
-                  <div className="flex items-center gap-2 font-bold text-emerald-900 text-xs uppercase tracking-wider">
+              <div className="bg-slate-100/60 rounded-2xl p-4 space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-200 px-2">
+                  <div className="flex items-center gap-2 font-semibold text-slate-700 text-xs uppercase tracking-wider">
                     <span className="w-3 h-3 rounded-full bg-emerald-500"></span>
                     Done ({doneTasks.length})
                   </div>
@@ -409,26 +401,26 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
                       className="bg-white p-4 rounded-2xl border border-emerald-200 shadow-2xs hover:border-emerald-400 cursor-pointer transition-all space-y-2 opacity-90"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                        <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-600">
                           {task.id}
                         </span>
-                        <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 flex items-center gap-1">
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-600 flex items-center gap-1">
                           <Check className="w-3 h-3" /> Selesai
                         </span>
                       </div>
 
-                      <h5 className="font-bold text-slate-900 text-xs leading-snug line-through text-slate-600">
+                      <h5 className="font-semibold text-slate-900 text-xs leading-snug line-through text-slate-600">
                         {task.title}
                       </h5>
 
                       <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                        <span className="text-[10px] text-slate-400 font-medium">Verified</span>
+                        <span className="text-xs text-slate-400 font-medium">Verified</span>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleTaskStatusChange(task.id, "in_progress");
                           }}
-                          className="text-[10px] text-slate-400 hover:text-slate-600"
+                          className="text-xs text-slate-400 hover:text-slate-600"
                         >
                           Buka Kembali
                         </button>
@@ -455,35 +447,30 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
                 return (
                   <div
                     key={task.id || idx}
-                    className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden transition-all hover:border-slate-300"
+                    className="bg-white rounded-2xl ring-1 ring-slate-200 overflow-hidden transition-all hover:border-slate-300"
                   >
                     <div
                       onClick={() => toggleExpand(task.id)}
                       className="p-4 sm:p-5 bg-slate-50 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-3 cursor-pointer select-none hover:bg-slate-100/80 transition-colors"
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <span className="w-9 h-9 rounded-xl bg-slate-900 text-emerald-400 font-mono font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs">
+                        <span className="px-2 py-1 rounded-md bg-slate-100 text-slate-600 font-mono font-medium text-xs shrink-0 whitespace-nowrap">
                           {task.id}
                         </span>
 
                         <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-indigo-100 text-indigo-800">
-                              {task.phase || "Fase Utama"}
-                            </span>
+                          <div className="flex flex-wrap items-baseline gap-x-2.5 text-xs text-slate-500">
+                            <span>{task.phase || "Fase utama"}</span>
+                            <span className="text-slate-300">&middot;</span>
                             <span
-                              className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
-                                task.priority === "High"
-                                  ? "bg-rose-100 text-rose-800"
-                                  : task.priority === "Medium"
-                                  ? "bg-amber-100 text-amber-800"
-                                  : "bg-slate-200 text-slate-700"
-                              }`}
+                              className={
+                                task.priority === "High" ? "text-rose-700 font-medium" : "text-slate-500"
+                              }
                             >
                               Prioritas {task.priority}
                             </span>
                           </div>
-                          <h5 className="font-bold text-slate-900 text-xs sm:text-sm mt-1 truncate">{task.title}</h5>
+                          <h5 className="font-medium text-slate-900 mt-0.5 truncate">{task.title}</h5>
                         </div>
                       </div>
 
@@ -509,10 +496,10 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
                       <div className="p-5 sm:p-6 space-y-4 text-xs">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-50/80 rounded-2xl border border-slate-100">
                           <div>
-                            <span className="text-[10px] font-semibold text-slate-500 uppercase block mb-1">File Target:</span>
+                            <span className="text-xs font-semibold text-slate-500 uppercase block mb-1">File Target:</span>
                             <div className="flex flex-wrap gap-1">
                               {task.targetFiles?.map((f, fIdx) => (
-                                <span key={fIdx} className="font-mono text-[11px] bg-white border border-slate-200 text-slate-800 px-2 py-0.5 rounded">
+                                <span key={fIdx} className="font-mono text-xs bg-white border border-slate-200 text-slate-800 px-2 py-0.5 rounded">
                                   {f}
                                 </span>
                               ))}
@@ -520,7 +507,7 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
                           </div>
 
                           <div>
-                            <span className="text-[10px] font-semibold text-slate-500 uppercase block mb-1">Dependensi:</span>
+                            <span className="text-xs font-semibold text-slate-500 uppercase block mb-1">Dependensi:</span>
                             <div className="text-slate-700 font-medium">
                               {task.dependencies && task.dependencies.length > 0 ? (
                                 task.dependencies.join(", ")
@@ -533,17 +520,17 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
 
                         <div>
                           <div className="flex items-center justify-between mb-1.5">
-                            <label className="font-bold text-slate-800 flex items-center gap-1.5">
+                            <label className="font-semibold text-slate-800 flex items-center gap-1.5">
                               <Code2 className="w-3.5 h-3.5 text-indigo-600" /> Instruksi Prompt Siap Eksekusi AI Agent:
                             </label>
                           </div>
-                          <div className="bg-slate-900 text-slate-100 font-mono text-[11px] leading-relaxed p-4 rounded-2xl border border-slate-800 overflow-x-auto whitespace-pre-wrap select-all">
+                          <div className="bg-slate-900 text-slate-100 font-mono text-xs leading-relaxed p-4 rounded-2xl border border-slate-800 overflow-x-auto whitespace-pre-wrap select-all">
                             {task.promptInstructions}
                           </div>
                         </div>
 
                         <div className="p-3.5 bg-emerald-50/60 rounded-2xl border border-emerald-100/80 text-emerald-950">
-                          <strong className="font-bold block mb-1 text-emerald-900 flex items-center gap-1.5">
+                          <strong className="font-semibold block mb-1 text-emerald-900 flex items-center gap-1.5">
                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Langkah Verifikasi Task:
                           </strong>
                           <p className="text-xs leading-relaxed text-emerald-900/90">{task.verificationSteps}</p>
@@ -565,16 +552,16 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
             <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-slate-900 text-emerald-400">
+                  <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-600">
                     {selectedTaskForModal.id}
                   </span>
                   <span className="text-xs font-semibold text-slate-500">{selectedTaskForModal.phase}</span>
                 </div>
-                <h3 className="text-base sm:text-lg font-extrabold text-slate-900">{selectedTaskForModal.title}</h3>
+                <h3 className="text-base sm:text-lg font-semibold text-slate-900">{selectedTaskForModal.title}</h3>
               </div>
               <button
                 onClick={() => setSelectedTaskForModal(null)}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold flex items-center justify-center"
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold flex items-center justify-center"
               >
                 ✕
               </button>
@@ -582,11 +569,11 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
 
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">Status Pekerjaan:</label>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">Status Pekerjaan:</label>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => handleTaskStatusChange(selectedTaskForModal.id, "todo")}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                       selectedTaskForModal.status === "todo" || !selectedTaskForModal.status
                         ? "bg-slate-900 text-white"
                         : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -596,7 +583,7 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
                   </button>
                   <button
                     onClick={() => handleTaskStatusChange(selectedTaskForModal.id, "in_progress")}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                       selectedTaskForModal.status === "in_progress"
                         ? "bg-amber-600 text-white"
                         : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -606,7 +593,7 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
                   </button>
                   <button
                     onClick={() => handleTaskStatusChange(selectedTaskForModal.id, "done")}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                       selectedTaskForModal.status === "done"
                         ? "bg-emerald-600 text-white"
                         : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -618,7 +605,7 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">File Target:</label>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">File Target:</label>
                 <div className="flex flex-wrap gap-1">
                   {selectedTaskForModal.targetFiles?.map((f, i) => (
                     <span key={i} className="font-mono text-xs bg-slate-100 px-2.5 py-1 rounded-lg text-slate-800">
@@ -629,14 +616,14 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">Prompt Instruksi untuk AI Agent:</label>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">Prompt Instruksi untuk AI Agent:</label>
                 <div className="p-4 bg-slate-900 text-slate-100 font-mono text-xs rounded-2xl whitespace-pre-wrap leading-relaxed select-all">
                   {selectedTaskForModal.promptInstructions}
                 </div>
               </div>
 
               <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 text-emerald-950">
-                <strong className="text-xs font-bold block mb-1 text-emerald-900">Langkah Verifikasi:</strong>
+                <strong className="text-xs font-semibold block mb-1 text-emerald-900">Langkah Verifikasi:</strong>
                 <p className="text-xs">{selectedTaskForModal.verificationSteps}</p>
               </div>
             </div>
@@ -644,7 +631,7 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
             <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
               <button
                 onClick={() => handleCopyTaskPrompt(selectedTaskForModal)}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm"
               >
                 {copiedTaskId === selectedTaskForModal.id ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                 {copiedTaskId === selectedTaskForModal.id ? "Tersalin!" : "Copy Task Prompt"}

@@ -255,28 +255,18 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
 
   return (
     <div className="space-y-8 pb-12">
-      {/* Introduction Banner */}
-      <div className="bg-slate-900 text-white rounded-2xl p-6 sm:p-8 border border-slate-800">
-        <div className="relative z-10 max-w-3xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-semibold mb-4 border border-indigo-500/30">
-            <FileText className="w-3.5 h-3.5" />
-            Part 2: Bikin PRD 7 Poin & Overview
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white mb-3">
-            Product Requirement Document (7 Poin Standar)
-          </h2>
-          <p className="text-slate-300 text-xs sm:text-sm leading-relaxed">
-            AI menyusun PRD lengkap dengan 7 Poin Standar: Overview, Requirements, Core Features (Fase 1-3+), User Flow,
-            Architecture, Database Schema, & Tech Stack. Tujuh poin itu adalah minimum — jika analisis menilai ada aspek
-            penting di luarnya, AI menambahkannya sebagai poin 8 dan seterusnya. Anda dapat meninjau & mengedit sebelum
-            memproses ke Task AI Agent.
-          </p>
-        </div>
+      {/* Page heading */}
+      <div className="max-w-2xl">
+        <h2 className="text-2xl font-semibold tracking-tight text-slate-900">Product Requirement Document</h2>
+        <p className="text-slate-500 mt-2 leading-relaxed">
+          Tujuh poin baku — Overview, Requirements, Core Features, User Flow, Architecture, Database Schema, Tech Stack —
+          dan poin tambahan bila analisis menuntutnya. Bisa Anda tinjau dan ubah sebelum dipecah jadi task.
+        </p>
       </div>
 
       {/* Error Alert */}
       {errorMessage && (
-        <div className="p-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl text-xs sm:text-sm">
+        <div className="p-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl text-sm">
           <strong>Error:</strong> {errorMessage}
         </div>
       )}
@@ -288,8 +278,8 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
             <Sparkles className="w-8 h-8" />
           </div>
           <div className="max-w-md mx-auto space-y-2">
-            <h3 className="font-bold text-slate-900 text-lg">Siap Membuat PRD 7 Poin Otomatis?</h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
+            <h3 className="font-semibold text-slate-900 text-lg">Siap Membuat PRD 7 Poin Otomatis?</h3>
+            <p className="text-sm text-slate-500 leading-relaxed">
               {session.plan
                 ? "Sistem akan mengekstrak data dari Project Plan & Arsitektur yang telah disetujui untuk menyusun PRD 7 poin."
                 : "Langsung buat PRD berdasarkan deskripsi proyek yang dimasukkan."}
@@ -298,7 +288,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
           <button
             onClick={handleGeneratePRD}
             disabled={loading}
-            className="px-8 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs sm:text-sm transition-all shadow-md hover:shadow-lg disabled:opacity-50 inline-flex items-center gap-2"
+            className="px-8 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold text-sm transition-all shadow-md hover:shadow-lg disabled:opacity-50 inline-flex items-center gap-2"
           >
             {loading ? (
               <>
@@ -316,27 +306,29 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
       ) : (
         <div className="space-y-8 animate-in fade-in duration-300">
           {/* PRD Header & Toolbar */}
-          <div className="bg-slate-900 text-white rounded-2xl p-6 sm:p-8 flex flex-wrap items-center justify-between gap-4 border border-slate-800 shadow-sm">
-            <div>
-              <div className="flex items-center gap-2 text-indigo-400 text-xs font-bold uppercase tracking-wider mb-1">
-                <FileText className="w-4 h-4" /> Product Requirement Document (PRD 7-Point)
+          <div className="bg-white rounded-2xl ring-1 ring-slate-200 p-6 flex flex-wrap items-start justify-between gap-5">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 text-emerald-700 text-xs font-medium mb-2">
+                <CheckCircle2 className="w-4 h-4" /> PRD tersusun
               </div>
-              <h3 className="text-xl sm:text-2xl font-extrabold text-white">{prd.projectTitle || session.title}</h3>
-              <p className="text-slate-300 text-xs mt-1 max-w-xl line-clamp-2">{prd.overview || prd.executiveSummary}</p>
+              <h3 className="text-lg font-semibold text-slate-900">{prd.projectTitle || session.title}</h3>
+              <p className="text-slate-500 mt-1.5 max-w-xl line-clamp-2 leading-relaxed">
+                {prd.overview || prd.executiveSummary}
+              </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
               <button
                 onClick={handleCopyMarkdown}
-                className="flex items-center gap-1.5 px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 rounded-xl text-xs font-semibold transition-all"
+                className="flex items-center gap-1.5 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg text-sm font-medium transition-colors"
               >
-                {copiedMd ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                {copiedMd ? "Tersalin!" : "Copy MD"}
+                {copiedMd ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                {copiedMd ? "Tersalin" : "Copy MD"}
               </button>
 
               <button
                 onClick={handleDownloadMarkdown}
-                className="flex items-center gap-1.5 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition-all shadow-xs"
+                className="flex items-center gap-1.5 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg text-sm font-medium transition-colors"
               >
                 <Download className="w-4 h-4" />
                 Download .md
@@ -344,9 +336,9 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
 
               <button
                 onClick={onGoToNextStep}
-                className="flex items-center gap-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl text-xs sm:text-sm transition-all shadow-md ml-1"
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg text-sm transition-colors"
               >
-                Setujui & Lanjut ke Task Agent
+                Lanjut ke task
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
@@ -400,24 +392,24 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
           {activeTab === "7point" && (
             <div className="space-y-8">
               {/* 1. Overview */}
-              <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-3">
-                <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2 border-b border-slate-100 pb-3">
-                  <span className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center justify-center">1</span>
+              <div className="bg-white rounded-2xl p-6 sm:p-8 ring-1 ring-slate-200 space-y-3">
+                <h4 className="font-semibold text-slate-900 text-base flex items-center gap-2 border-b border-slate-100 pb-3">
+                  <span className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 font-semibold text-xs flex items-center justify-center">1</span>
                   Overview
                 </h4>
-                <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">{prd.overview}</p>
+                <p className="text-sm text-slate-700 leading-relaxed">{prd.overview}</p>
               </div>
 
               {/* 2. Requirements */}
-              <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-3">
-                <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2 border-b border-slate-100 pb-3">
-                  <span className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center justify-center">2</span>
+              <div className="bg-white rounded-2xl p-6 sm:p-8 ring-1 ring-slate-200 space-y-3">
+                <h4 className="font-semibold text-slate-900 text-base flex items-center gap-2 border-b border-slate-100 pb-3">
+                  <span className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 font-semibold text-xs flex items-center justify-center">2</span>
                   Requirements (Kebutuhan Fungsional & Non-Fungsional)
                 </h4>
-                <ul className="space-y-2">
+                <ul className="space-y-2 text-slate-700">
                   {getRequirementsList(prd.requirements).map((req, idx) => (
-                    <li key={idx} className="flex items-start gap-2.5 text-xs text-slate-700 p-2.5 bg-slate-50 rounded-xl border border-slate-200/60">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <li key={idx} className="flex gap-2.5">
+                      <span className="text-slate-300 shrink-0">&middot;</span>
                       <span>{req}</span>
                     </li>
                   ))}
@@ -425,58 +417,45 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
               </div>
 
               {/* 3. Core Features by Phase */}
-              <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-4">
-                <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2 border-b border-slate-100 pb-3">
-                  <span className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center justify-center">3</span>
+              <div className="bg-white rounded-2xl p-6 sm:p-8 ring-1 ring-slate-200 space-y-4">
+                <h4 className="font-semibold text-slate-900 text-base flex items-center gap-2 border-b border-slate-100 pb-3">
+                  <span className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 font-semibold text-xs flex items-center justify-center">3</span>
                   Core Features (Tahapan Fase 1, 2, 3+)
                 </h4>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-200/80 space-y-2">
-                    <div className="font-bold text-emerald-900 text-xs flex items-center gap-2">
-                      <span className="px-2 py-0.5 bg-emerald-600 text-white rounded text-[10px]">Fase 1</span>
-                      Fase MVP Utama
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-6">
+                  {(
+                    [
+                      ["Fase 1", "MVP utama", "fase1"],
+                      ["Fase 2", "Pengayaan", "fase2"],
+                      ["Fase 3+", "Tingkat lanjut", "fase3Plus"],
+                    ] as const
+                  ).map(([label, caption, key]) => (
+                    <div key={key} className="space-y-2">
+                      <div className="flex items-baseline gap-2 pb-2 border-b border-slate-100">
+                        <span className="font-medium text-slate-900">{label}</span>
+                        <span className="text-xs text-slate-500">{caption}</span>
+                      </div>
+                      <ul className="space-y-1.5 text-slate-700">
+                        {getPhaseFeatures(prd.coreFeatures, key).map((f, idx) => (
+                          <li key={idx} className="flex gap-2">
+                            <span className="text-slate-300 shrink-0">&middot;</span>
+                            {f}
+                          </li>
+                        ))}
+                      </ul>
                     </div>
-                    <ul className="space-y-1.5 text-xs text-slate-700 list-disc list-inside">
-                      {getPhaseFeatures(prd.coreFeatures, "fase1").map((f, idx) => (
-                        <li key={idx}>{f}</li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-200/80 space-y-2">
-                    <div className="font-bold text-indigo-900 text-xs flex items-center gap-2">
-                      <span className="px-2 py-0.5 bg-indigo-600 text-white rounded text-[10px]">Fase 2</span>
-                      Fitur Pengayaan
-                    </div>
-                    <ul className="space-y-1.5 text-xs text-slate-700 list-disc list-inside">
-                      {getPhaseFeatures(prd.coreFeatures, "fase2").map((f, idx) => (
-                        <li key={idx}>{f}</li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div className="p-4 bg-purple-50/50 rounded-2xl border border-purple-200/80 space-y-2">
-                    <div className="font-bold text-purple-900 text-xs flex items-center gap-2">
-                      <span className="px-2 py-0.5 bg-purple-600 text-white rounded text-[10px]">Fase 3+</span>
-                      Pengembangan Tingkat Lanjut
-                    </div>
-                    <ul className="space-y-1.5 text-xs text-slate-700 list-disc list-inside">
-                      {getPhaseFeatures(prd.coreFeatures, "fase3Plus").map((f, idx) => (
-                        <li key={idx}>{f}</li>
-                      ))}
-                    </ul>
-                  </div>
+                  ))}
                 </div>
               </div>
 
               {/* 4. User Flow & Diagram Logika Horizontal */}
-              <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-4">
-                <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2 border-b border-slate-100 pb-3">
-                  <span className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center justify-center">4</span>
+              <div className="bg-white rounded-2xl p-6 sm:p-8 ring-1 ring-slate-200 space-y-4">
+                <h4 className="font-semibold text-slate-900 text-base flex items-center gap-2 border-b border-slate-100 pb-3">
+                  <span className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 font-semibold text-xs flex items-center justify-center">4</span>
                   User Flow & Horizontal Logic Diagram
                 </h4>
-                <p className="text-xs sm:text-sm text-slate-700 leading-relaxed bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                <p className="text-sm text-slate-700 leading-relaxed bg-slate-50 p-4 rounded-2xl border border-slate-200">
                   {prd.userFlow}
                 </p>
 
@@ -490,34 +469,32 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
               </div>
 
               {/* 5. Architecture */}
-              <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-3">
-                <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2 border-b border-slate-100 pb-3">
-                  <span className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center justify-center">5</span>
+              <div className="bg-white rounded-2xl p-6 sm:p-8 ring-1 ring-slate-200 space-y-3">
+                <h4 className="font-semibold text-slate-900 text-base flex items-center gap-2 border-b border-slate-100 pb-3">
+                  <span className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 font-semibold text-xs flex items-center justify-center">5</span>
                   Architecture
                 </h4>
-                <div className="p-4 bg-slate-900 text-slate-100 rounded-2xl text-xs sm:text-sm leading-relaxed border border-slate-800 font-mono">
-                  {prd.architecture}
-                </div>
+                <p className="text-slate-700 leading-relaxed">{prd.architecture}</p>
               </div>
 
               {/* 6. Database Schema */}
-              <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-3">
-                <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2 border-b border-slate-100 pb-3">
-                  <span className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center justify-center">6</span>
+              <div className="bg-white rounded-2xl p-6 sm:p-8 ring-1 ring-slate-200 space-y-3">
+                <h4 className="font-semibold text-slate-900 text-base flex items-center gap-2 border-b border-slate-100 pb-3">
+                  <span className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 font-semibold text-xs flex items-center justify-center">6</span>
                   Database Schema
                 </h4>
-                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-xs sm:text-sm font-mono leading-relaxed whitespace-pre-wrap text-slate-800">
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-sm font-mono leading-relaxed whitespace-pre-wrap text-slate-800">
                   {formatDbSchemaToString(prd.databaseSchema)}
                 </div>
               </div>
 
               {/* 7. Tech Stack */}
-              <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-3">
-                <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2 border-b border-slate-100 pb-3">
-                  <span className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center justify-center">7</span>
+              <div className="bg-white rounded-2xl p-6 sm:p-8 ring-1 ring-slate-200 space-y-3">
+                <h4 className="font-semibold text-slate-900 text-base flex items-center gap-2 border-b border-slate-100 pb-3">
+                  <span className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 font-semibold text-xs flex items-center justify-center">7</span>
                   Tech Stack
                 </h4>
-                <div className="p-4 bg-indigo-50/60 rounded-2xl border border-indigo-100 text-xs sm:text-sm text-indigo-950 font-medium whitespace-pre-wrap">
+                <div className="p-4 bg-indigo-50/60 rounded-2xl border border-indigo-100 text-sm text-indigo-950 font-medium whitespace-pre-wrap">
                   {formatTechStackToString(prd.techStack)}
                 </div>
               </div>
@@ -526,18 +503,18 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
               {extraSections.map((section) => (
                 <div
                   key={section.number}
-                  className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-3"
+                  className="bg-white rounded-2xl p-6 sm:p-8 ring-1 ring-slate-200 space-y-3"
                 >
-                  <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2 border-b border-slate-100 pb-3">
-                    <span className="w-6 h-6 rounded-lg bg-purple-100 text-purple-700 font-bold text-xs flex items-center justify-center">
+                  <h4 className="font-semibold text-slate-900 text-base flex items-center gap-2 border-b border-slate-100 pb-3">
+                    <span className="w-6 h-6 rounded-lg bg-purple-100 text-purple-700 font-semibold text-xs flex items-center justify-center">
                       {section.number}
                     </span>
                     {section.title}
-                    <span className="ml-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-100">
+                    <span className="ml-1 text-xs font-semibold uppercase tracking-wider px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-100">
                       Poin Tambahan
                     </span>
                   </h4>
-                  <div className="text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                  <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
                     {section.content}
                   </div>
                 </div>
@@ -550,8 +527,8 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
             <div className="bg-white rounded-2xl p-6 sm:p-8 border border-indigo-200 shadow-md space-y-6">
               <div className="flex items-center justify-between border-b border-slate-200 pb-4">
                 <div>
-                  <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                    <SlidersHorizontal className="w-5 h-5 text-indigo-600" />
+                  <h3 className="font-semibold text-slate-900 text-base flex items-center gap-2">
+                    <SlidersHorizontal className="w-4 h-4 text-slate-400" />
                     Overview & Modifikasi PRD Sebelum Build Task
                   </h3>
                   <p className="text-xs text-slate-500 mt-1">
@@ -560,7 +537,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
                 </div>
 
                 {saveSuccess && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold animate-in fade-in">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 text-emerald-800 rounded-xl text-xs font-semibold animate-in fade-in">
                     <Check className="w-4 h-4 text-emerald-600" /> Perubahan Disimpan!
                   </span>
                 )}
@@ -568,7 +545,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
 
               <div className="space-y-5">
                 <div>
-                  <label className="block text-xs font-bold text-slate-800 mb-1.5">1. Overview Proyek</label>
+                  <label className="block text-xs font-semibold text-slate-800 mb-1.5">1. Overview Proyek</label>
                   <textarea
                     rows={3}
                     value={editOverview}
@@ -578,7 +555,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-800 mb-1.5">
                     2. Requirements (Satu poin per baris)
                   </label>
                   <textarea
@@ -590,7 +567,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-800 mb-1.5">4. User Flow</label>
+                  <label className="block text-xs font-semibold text-slate-800 mb-1.5">4. User Flow</label>
                   <textarea
                     rows={3}
                     value={editUserFlow}
@@ -600,7 +577,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-800 mb-1.5">5. Architecture</label>
+                  <label className="block text-xs font-semibold text-slate-800 mb-1.5">5. Architecture</label>
                   <textarea
                     rows={3}
                     value={editArchitecture}
@@ -610,7 +587,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-800 mb-1.5">6. Database Schema</label>
+                  <label className="block text-xs font-semibold text-slate-800 mb-1.5">6. Database Schema</label>
                   <textarea
                     rows={3}
                     value={editDatabaseSchema}
@@ -620,7 +597,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-800 mb-1.5">7. Tech Stack</label>
+                  <label className="block text-xs font-semibold text-slate-800 mb-1.5">7. Tech Stack</label>
                   <textarea
                     rows={2}
                     value={editTechStack}
@@ -633,8 +610,8 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
                 <div className="pt-4 border-t border-slate-100 space-y-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
-                      <label className="block text-xs font-bold text-slate-800">Poin Tambahan (8 dan seterusnya)</label>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
+                      <label className="block text-xs font-semibold text-slate-800">Poin Tambahan (8 dan seterusnya)</label>
+                      <p className="text-xs text-slate-500 mt-0.5">
                         Poin di luar tujuh poin wajib. Nomornya diurutkan ulang otomatis saat disimpan.
                       </p>
                     </div>
@@ -649,7 +626,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
                   </div>
 
                   {editExtraSections.length === 0 ? (
-                    <p className="text-[11px] text-slate-500 italic bg-slate-50 border border-dashed border-slate-200 rounded-2xl p-3">
+                    <p className="text-xs text-slate-500 italic bg-slate-50 border border-dashed border-slate-200 rounded-2xl p-3">
                       Belum ada poin tambahan. AI akan menambahkannya sendiri bila analisis menuntut, atau Anda bisa
                       menambahkan manual.
                     </p>
@@ -657,7 +634,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
                     editExtraSections.map((section, idx) => (
                       <div key={idx} className="p-3.5 bg-purple-50/40 border border-purple-100 rounded-2xl space-y-2">
                         <div className="flex items-center gap-2">
-                          <span className="w-6 h-6 shrink-0 rounded-lg bg-purple-100 text-purple-700 font-bold text-xs flex items-center justify-center">
+                          <span className="w-6 h-6 shrink-0 rounded-lg bg-purple-100 text-purple-700 font-semibold text-xs flex items-center justify-center">
                             {8 + idx}
                           </span>
                           <input
@@ -692,7 +669,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
               <div className="flex flex-wrap items-center justify-between pt-4 border-t border-slate-100 gap-3">
                 <button
                   onClick={handleSavePrdOverviewEdits}
-                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
+                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition-all shadow-sm flex items-center gap-1.5"
                 >
                   <Check className="w-4 h-4" />
                   Simpan Perubahan PRD
@@ -700,7 +677,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
 
                 <button
                   onClick={onGoToNextStep}
-                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs sm:text-sm transition-all shadow-md flex items-center gap-2"
+                  className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold text-sm transition-all shadow-md flex items-center gap-2"
                 >
                   Setujui & Lanjut ke Step 3: Task Agent
                   <ArrowRight className="w-4 h-4" />
@@ -711,7 +688,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
 
           {/* TAB 3: RAW MARKDOWN DOCUMENT */}
           {activeTab === "markdown" && (
-            <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-2xs prose prose-slate max-w-none text-xs sm:text-sm leading-relaxed">
+            <div className="bg-white rounded-2xl p-6 sm:p-8 ring-1 ring-slate-200 prose prose-slate max-w-none text-sm leading-relaxed">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{prd.fullMarkdownText}</ReactMarkdown>
             </div>
           )}

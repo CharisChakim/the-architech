@@ -86,7 +86,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, sessi
         <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <Download className="w-5 h-5 text-indigo-400" />
-            <h3 className="font-bold text-base">Export Bundle Dokumen Proyek</h3>
+            <h3 className="font-semibold text-base">Export Bundle Dokumen Proyek</h3>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-white p-1 rounded-lg">
             <X className="w-5 h-5" />
@@ -94,7 +94,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, sessi
         </div>
 
         <div className="p-6 space-y-4">
-          <p className="text-xs text-slate-600 leading-relaxed">
+          <p className="text-sm text-slate-600 leading-relaxed">
             Unduh semua artifact hasil perencanaan AI Anda. Pilih dokumen spesifik yang ingin di-download atau ekspor seluruh bundle JSON.
           </p>
 
@@ -111,7 +111,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, sessi
                 </div>
                 <div>
                   <div className="font-semibold text-xs text-slate-900">Project Plan & Arsitektur (.md)</div>
-                  <div className="text-[11px] text-slate-500">Spesifikasi, tech stack, dan roadmap.</div>
+                  <div className="text-xs text-slate-500">Spesifikasi, tech stack, dan roadmap.</div>
                 </div>
               </div>
               <Download className="w-4 h-4 text-slate-400" />
@@ -129,7 +129,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, sessi
                 </div>
                 <div>
                   <div className="font-semibold text-xs text-slate-900">Product Requirement Document (.md)</div>
-                  <div className="text-[11px] text-slate-500">PRD lengkap + diagram logika.</div>
+                  <div className="text-xs text-slate-500">PRD lengkap + diagram logika.</div>
                 </div>
               </div>
               <Download className="w-4 h-4 text-slate-400" />
@@ -147,7 +147,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, sessi
                 </div>
                 <div>
                   <div className="font-semibold text-xs text-slate-900">AI Agent Executable Tasks (AGENTS.md)</div>
-                  <div className="text-[11px] text-slate-500">Task list atomik siap untuk AI Coding Agent.</div>
+                  <div className="text-xs text-slate-500">Task list atomik siap untuk AI Coding Agent.</div>
                 </div>
               </div>
               <Download className="w-4 h-4 text-slate-400" />
@@ -164,7 +164,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, sessi
                 </div>
                 <div>
                   <div className="font-semibold text-xs text-indigo-950">Full Backup Project Session (.json)</div>
-                  <div className="text-[11px] text-indigo-700">Format JSON utuh berisi seluruh state perencanaan.</div>
+                  <div className="text-xs text-indigo-700">Format JSON utuh berisi seluruh state perencanaan.</div>
                 </div>
               </div>
               <Download className="w-4 h-4 text-indigo-600" />

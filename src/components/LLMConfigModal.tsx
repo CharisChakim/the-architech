@@ -114,11 +114,11 @@ export const LLMConfigModal: React.FC<LLMConfigModalProps> = ({ isOpen, onClose,
               >
                 <div className="flex items-center justify-between">
                   <Sparkles className={`w-4 h-4 ${provider === "gemini" ? "text-indigo-600" : "text-slate-400"}`} />
-                  <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">Default</span>
+                  <span className="text-xs uppercase font-semibold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">Default</span>
                 </div>
                 <div>
                   <div className="font-semibold text-xs">Gemini AI</div>
-                  <div className="text-[11px] text-slate-500 font-normal">Google Gemini 3.6 Flash</div>
+                  <div className="text-xs text-slate-500 font-normal">Google Gemini 3.6 Flash</div>
                 </div>
               </button>
 
@@ -133,11 +133,11 @@ export const LLMConfigModal: React.FC<LLMConfigModalProps> = ({ isOpen, onClose,
               >
                 <div className="flex items-center justify-between">
                   <Terminal className={`w-4 h-4 ${provider === "ollama" ? "text-indigo-600" : "text-slate-400"}`} />
-                  <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">Lokal</span>
+                  <span className="text-xs uppercase font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">Lokal</span>
                 </div>
                 <div>
                   <div className="font-semibold text-xs">Ollama</div>
-                  <div className="text-[11px] text-slate-500 font-normal">Llama3 / Qwen / Mistral</div>
+                  <div className="text-xs text-slate-500 font-normal">Llama3 / Qwen / Mistral</div>
                 </div>
               </button>
 
@@ -152,11 +152,11 @@ export const LLMConfigModal: React.FC<LLMConfigModalProps> = ({ isOpen, onClose,
               >
                 <div className="flex items-center justify-between">
                   <Server className={`w-4 h-4 ${provider === "custom" ? "text-indigo-600" : "text-slate-400"}`} />
-                  <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">Custom</span>
+                  <span className="text-xs uppercase font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">Custom</span>
                 </div>
                 <div>
                   <div className="font-semibold text-xs">Custom API</div>
-                  <div className="text-[11px] text-slate-500 font-normal">OpenAI Compatible</div>
+                  <div className="text-xs text-slate-500 font-normal">OpenAI Compatible</div>
                 </div>
               </button>
             </div>
@@ -176,7 +176,7 @@ export const LLMConfigModal: React.FC<LLMConfigModalProps> = ({ isOpen, onClose,
                   <option value="gemini-3.1-pro-preview">gemini-3.1-pro-preview (Model Penalaran Kompleks)</option>
                   <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite (Ultra Fast Lightweight)</option>
                 </select>
-                <p className="mt-1.5 text-[11px] text-slate-500">
+                <p className="mt-1.5 text-xs text-slate-500">
                   Secara default Gemini API Key disediakan oleh lingkungan AI Studio.
                 </p>
               </div>
@@ -193,7 +193,7 @@ export const LLMConfigModal: React.FC<LLMConfigModalProps> = ({ isOpen, onClose,
                     placeholder="http://localhost:11434"
                     className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
                   />
-                  <p className="mt-1 text-[11px] text-slate-500">Contoh: http://localhost:11434 atau IP Server Ollama Anda.</p>
+                  <p className="mt-1 text-xs text-slate-500">Contoh: http://localhost:11434 atau IP Server Ollama Anda.</p>
                 </div>
                 <div>
                   <label className="block font-medium text-slate-700 mb-1">Nama Model Ollama</label>
@@ -204,7 +204,7 @@ export const LLMConfigModal: React.FC<LLMConfigModalProps> = ({ isOpen, onClose,
                     placeholder="llama3, qwen2.5-coder, mistral"
                     className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
                   />
-                  <p className="mt-1 text-[11px] text-slate-500">Pastikan model telah di-pull via 'ollama run &lt;model&gt;'.</p>
+                  <p className="mt-1 text-xs text-slate-500">Pastikan model telah di-pull via 'ollama run &lt;model&gt;'.</p>
                 </div>
               </div>
             )}
