@@ -1,6 +1,6 @@
-import React, { useState } from "react";
-import { LLMConfig } from "../types";
-import { Cpu, Server, Key, CheckCircle2, AlertCircle, RefreshCw, X, Sparkles, Terminal } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { LLMConfig, LLMProvider } from "../types";
+import { Cpu, CheckCircle2, AlertCircle, RefreshCw, X, Sparkles, Terminal, Server } from "lucide-react";
 
 interface LLMConfigModalProps {
   isOpen: boolean;
@@ -9,29 +9,77 @@ interface LLMConfigModalProps {
   onSave: (newConfig: LLMConfig) => void;
 }
 
-export const LLMConfigModal: React.FC<LLMConfigModalProps> = ({ isOpen, onClose, config, onSave }) => {
-  const [provider, setProvider] = useState<"gemini" | "ollama" | "custom">(config.provider || "gemini");
-  const [modelName, setModelName] = useState<string>(config.modelName || "gemini-3.6-flash");
-  const [baseUrl, setBaseUrl] = useState<string>(config.baseUrl || "http://localhost:11434");
-  const [apiKey, setApiKey] = useState<string>(config.apiKey || "");
+// Setiap provider punya isiannya sendiri. Disimpan terpisah supaya berpindah
+// provider lalu kembali tidak menghapus apa yang sudah diketik.
+interface ProviderDraft {
+  modelName: string;
+  baseUrl: string;
+  apiKey: string;
+}
 
-  const [testing, setTesting] = useState<boolean>(false);
+const EMPTY_DRAFT: ProviderDraft = { modelName: "", baseUrl: "", apiKey: "" };
+
+const PROVIDERS: { id: LLMProvider; name: string; hint: string; icon: typeof Cpu }[] = [
+  { id: "gemini", name: "Gemini", hint: "Google AI Studio", icon: Sparkles },
+  { id: "ollama", name: "Ollama", hint: "Model lokal", icon: Terminal },
+  { id: "custom", name: "Custom API", hint: "OpenAI compatible", icon: Server },
+];
+
+const inputClass =
+  "w-full px-3 py-2 bg-white dark:bg-[#262c3b] border border-slate-300 dark:border-[#4a5169] rounded-lg " +
+  "text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 " +
+  "focus:outline-hidden focus:ring-2 focus:ring-indigo-500";
+
+const labelClass = "block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5";
+const hintClass = "mt-1.5 text-xs text-slate-500 dark:text-slate-400";
+
+export const LLMConfigModal: React.FC<LLMConfigModalProps> = ({ isOpen, onClose, config, onSave }) => {
+  const [provider, setProvider] = useState<LLMProvider>(config.provider || "gemini");
+  const [drafts, setDrafts] = useState<Record<LLMProvider, ProviderDraft>>({
+    gemini: { ...EMPTY_DRAFT },
+    ollama: { ...EMPTY_DRAFT },
+    custom: { ...EMPTY_DRAFT },
+  });
+  const [saveApiKey, setSaveApiKey] = useState<boolean>(config.saveApiKey ?? false);
+
+  const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  // Saat modal dibuka, tarik ulang dari konfigurasi tersimpan. Tanpa ini isian
+  // bisa tertinggal di nilai lama ketika konfigurasi berubah dari luar.
+  useEffect(() => {
+    if (!isOpen) return;
+    const active = config.provider || "gemini";
+    setProvider(active);
+    setSaveApiKey(config.saveApiKey ?? false);
+    setTestResult(null);
+    setDrafts({
+      gemini: { ...EMPTY_DRAFT },
+      ollama: { ...EMPTY_DRAFT },
+      custom: { ...EMPTY_DRAFT },
+      [active]: {
+        modelName: config.modelName || "",
+        baseUrl: config.baseUrl || "",
+        apiKey: config.apiKey || "",
+      },
+    } as Record<LLMProvider, ProviderDraft>);
+  }, [isOpen, config]);
 
   if (!isOpen) return null;
 
-  const handleProviderChange = (newProvider: "gemini" | "ollama" | "custom") => {
-    setProvider(newProvider);
-    setTestResult(null);
-    if (newProvider === "gemini") {
-      setModelName("gemini-3.6-flash");
-    } else if (newProvider === "ollama") {
-      setModelName("llama3");
-      if (!baseUrl) setBaseUrl("http://localhost:11434");
-    } else if (newProvider === "custom") {
-      setModelName("gpt-4o-mini");
-    }
-  };
+  const draft = drafts[provider];
+  const patchDraft = (patch: Partial<ProviderDraft>) =>
+    setDrafts((prev) => ({ ...prev, [provider]: { ...prev[provider], ...patch } }));
+
+  const hasApiKeyField = provider === "gemini" || provider === "custom";
+
+  const currentConfig = (): LLMConfig => ({
+    provider,
+    modelName: draft.modelName.trim(),
+    baseUrl: draft.baseUrl.trim(),
+    apiKey: draft.apiKey.trim(),
+    saveApiKey,
+  });
 
   const handleTestConnection = async () => {
     setTesting(true);
@@ -40,216 +88,165 @@ export const LLMConfigModal: React.FC<LLMConfigModalProps> = ({ isOpen, onClose,
       const res = await fetch("/api/test-llm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          llmConfig: { provider, modelName, baseUrl, apiKey },
-        }),
+        body: JSON.stringify({ llmConfig: currentConfig() }),
       });
       const data = await res.json();
       if (res.ok && data.success) {
         setTestResult({
           success: true,
-          message: `Koneksi berhasil! Model: ${modelName} terhubung.`,
+          message: `Koneksi berhasil${draft.modelName ? ` ke ${draft.modelName}` : ""}.`,
         });
       } else {
-        setTestResult({
-          success: false,
-          message: data.error || "Gagal menghubungi model LLM.",
-        });
+        setTestResult({ success: false, message: data.error || "Gagal menghubungi model LLM." });
       }
     } catch (err: any) {
-      setTestResult({
-        success: false,
-        message: err.message || "Gagal menghubungi server lokal.",
-      });
+      setTestResult({ success: false, message: err.message || "Gagal menghubungi server lokal." });
     } finally {
       setTesting(false);
     }
   };
 
   const handleSave = () => {
-    onSave({
-      provider,
-      modelName,
-      baseUrl: provider !== "gemini" ? baseUrl : "",
-      apiKey: provider === "custom" ? apiKey : "",
-    });
+    onSave(currentConfig());
     onClose();
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-[#2f3546] rounded-2xl shadow-lg border border-slate-200 dark:border-[#3f4557] w-full max-w-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        {/* Modal Header */}
-        <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+      <div className="bg-white dark:bg-[#2f3546] rounded-2xl shadow-lg ring-1 ring-slate-200 dark:ring-[#3f4557] w-full max-w-xl overflow-hidden">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-slate-200 dark:border-[#3f4557] flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-indigo-500/20 text-indigo-400 rounded-lg border border-indigo-500/30">
-              <Cpu className="w-5 h-5" />
-            </div>
+            <Cpu className="w-4 h-4 text-slate-400" />
             <div>
-              <h3 className="font-semibold text-base">Pengaturan LLM & Custom Engine</h3>
-              <p className="text-xs text-slate-400 dark:text-slate-500">Pilih Gemini AI Studio atau ganti dengan Ollama / LLM kustom.</p>
+              <h3 className="font-semibold text-slate-900 dark:text-slate-100">Pengaturan LLM</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Semua isian dimulai kosong. Yang dibiarkan kosong memakai bawaan server.
+              </p>
             </div>
           </div>
-          <button onClick={onClose} className="text-slate-400 dark:text-slate-500 hover:text-white p-1 rounded-lg transition-colors">
-            <X className="w-5 h-5" />
+          <button
+            onClick={onClose}
+            className="p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 rounded-lg transition-colors"
+          >
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Modal Content */}
         <div className="p-6 space-y-6">
-          {/* Provider Selection Cards */}
+          {/* Provider */}
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">
-              Pilih Provider LLM
-            </label>
-            <div className="grid grid-cols-3 gap-3">
-              <button
-                type="button"
-                onClick={() => handleProviderChange("gemini")}
-                className={`p-3.5 rounded-xl border text-left transition-all flex flex-col justify-between gap-2 ${
-                  provider === "gemini"
-                    ? "bg-indigo-50/80 dark:bg-indigo-500/15 border-indigo-500 ring-2 ring-indigo-500/20 text-indigo-950 dark:text-indigo-200"
-                    : "bg-white dark:bg-[#2f3546] border-slate-200 dark:border-[#3f4557] text-slate-700 dark:text-slate-200 hover:border-slate-300 dark:hover:border-[#4a5169] hover:bg-slate-50 dark:hover:bg-slate-700/40"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <Sparkles className={`w-4 h-4 ${provider === "gemini" ? "text-indigo-600 dark:text-indigo-300" : "text-slate-400 dark:text-slate-500"}`} />
-                  <span className="text-xs uppercase font-semibold px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300">Default</span>
-                </div>
-                <div>
-                  <div className="font-semibold text-xs">Gemini AI</div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400 font-normal">Google Gemini 3.6 Flash</div>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleProviderChange("ollama")}
-                className={`p-3.5 rounded-xl border text-left transition-all flex flex-col justify-between gap-2 ${
-                  provider === "ollama"
-                    ? "bg-indigo-50/80 dark:bg-indigo-500/15 border-indigo-500 ring-2 ring-indigo-500/20 text-indigo-950 dark:text-indigo-200"
-                    : "bg-white dark:bg-[#2f3546] border-slate-200 dark:border-[#3f4557] text-slate-700 dark:text-slate-200 hover:border-slate-300 dark:hover:border-[#4a5169] hover:bg-slate-50 dark:hover:bg-slate-700/40"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <Terminal className={`w-4 h-4 ${provider === "ollama" ? "text-indigo-600 dark:text-indigo-300" : "text-slate-400 dark:text-slate-500"}`} />
-                  <span className="text-xs uppercase font-semibold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-300">Lokal</span>
-                </div>
-                <div>
-                  <div className="font-semibold text-xs">Ollama</div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400 font-normal">Llama3 / Qwen / Mistral</div>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleProviderChange("custom")}
-                className={`p-3.5 rounded-xl border text-left transition-all flex flex-col justify-between gap-2 ${
-                  provider === "custom"
-                    ? "bg-indigo-50/80 dark:bg-indigo-500/15 border-indigo-500 ring-2 ring-indigo-500/20 text-indigo-950 dark:text-indigo-200"
-                    : "bg-white dark:bg-[#2f3546] border-slate-200 dark:border-[#3f4557] text-slate-700 dark:text-slate-200 hover:border-slate-300 dark:hover:border-[#4a5169] hover:bg-slate-50 dark:hover:bg-slate-700/40"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <Server className={`w-4 h-4 ${provider === "custom" ? "text-indigo-600 dark:text-indigo-300" : "text-slate-400 dark:text-slate-500"}`} />
-                  <span className="text-xs uppercase font-semibold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-300">Custom</span>
-                </div>
-                <div>
-                  <div className="font-semibold text-xs">Custom API</div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400 font-normal">OpenAI Compatible</div>
-                </div>
-              </button>
+            <label className={labelClass}>Provider</label>
+            <div className="grid grid-cols-3 gap-2">
+              {PROVIDERS.map(({ id, name, hint, icon: Icon }) => {
+                const active = provider === id;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => {
+                      setProvider(id);
+                      setTestResult(null);
+                    }}
+                    className={`p-3 rounded-xl text-left transition-colors ring-1 ${
+                      active
+                        ? "bg-indigo-50 dark:bg-indigo-500/15 ring-indigo-500 text-indigo-900 dark:text-indigo-200"
+                        : "bg-white dark:bg-[#262c3b] ring-slate-200 dark:ring-[#4a5169] text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/40"
+                    }`}
+                  >
+                    <Icon className={`w-4 h-4 mb-2 ${active ? "text-indigo-600 dark:text-indigo-300" : "text-slate-400"}`} />
+                    <div className="text-sm font-medium">{name}</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{hint}</div>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Detailed Inputs */}
-          <div className="space-y-4 bg-slate-50 dark:bg-slate-700/40 p-4 rounded-xl border border-slate-200 dark:border-[#3f4557] text-xs">
-            {provider === "gemini" && (
+          {/* Isian per provider — semuanya kosong, placeholder hanya contoh */}
+          <div className="space-y-4">
+            {provider !== "gemini" && (
               <div>
-                <label className="block font-medium text-slate-700 dark:text-slate-200 mb-1">Model Gemini</label>
-                <select
-                  value={modelName}
-                  onChange={(e) => setModelName(e.target.value)}
-                  className="w-full px-3 py-2 bg-white dark:bg-[#2f3546] border border-slate-300 dark:border-[#4a5169] rounded-lg text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value="gemini-3.6-flash">gemini-3.6-flash (Direkomendasikan - Cepat & Cerdas)</option>
-                  <option value="gemini-3.1-pro-preview">gemini-3.1-pro-preview (Model Penalaran Kompleks)</option>
-                  <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite (Ultra Fast Lightweight)</option>
-                </select>
-                <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
-                  Secara default Gemini API Key disediakan oleh lingkungan AI Studio.
+                <label className={labelClass}>Base URL</label>
+                <input
+                  type="text"
+                  value={draft.baseUrl}
+                  onChange={(e) => patchDraft({ baseUrl: e.target.value })}
+                  placeholder={provider === "ollama" ? "contoh: http://localhost:11434" : "contoh: https://api.openai.com"}
+                  className={inputClass}
+                />
+                {provider === "ollama" && (
+                  <p className={hintClass}>Dikosongkan berarti http://localhost:11434.</p>
+                )}
+                {provider === "custom" && <p className={hintClass}>Wajib diisi. Endpoint OpenAI-compatible.</p>}
+              </div>
+            )}
+
+            <div>
+              <label className={labelClass}>Nama model</label>
+              <input
+                type="text"
+                value={draft.modelName}
+                onChange={(e) => patchDraft({ modelName: e.target.value })}
+                placeholder={
+                  provider === "gemini"
+                    ? "contoh: gemini-3.6-flash"
+                    : provider === "ollama"
+                      ? "contoh: llama3"
+                      : "contoh: gpt-4o-mini"
+                }
+                className={inputClass}
+              />
+              {provider === "gemini" && (
+                <p className={hintClass}>
+                  Contoh lain: gemini-3.1-pro-preview, gemini-3.1-flash-lite. Kosong berarti gemini-3.6-flash.
                 </p>
-              </div>
-            )}
+              )}
+            </div>
 
-            {provider === "ollama" && (
-              <div className="space-y-3">
-                <div>
-                  <label className="block font-medium text-slate-700 dark:text-slate-200 mb-1">Ollama Base URL</label>
-                  <input
-                    type="text"
-                    value={baseUrl}
-                    onChange={(e) => setBaseUrl(e.target.value)}
-                    placeholder="http://localhost:11434"
-                    className="w-full px-3 py-2 bg-white dark:bg-[#2f3546] border border-slate-300 dark:border-[#4a5169] rounded-lg text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
-                  />
-                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Contoh: http://localhost:11434 atau IP Server Ollama Anda.</p>
-                </div>
-                <div>
-                  <label className="block font-medium text-slate-700 dark:text-slate-200 mb-1">Nama Model Ollama</label>
-                  <input
-                    type="text"
-                    value={modelName}
-                    onChange={(e) => setModelName(e.target.value)}
-                    placeholder="llama3, qwen2.5-coder, mistral"
-                    className="w-full px-3 py-2 bg-white dark:bg-[#2f3546] border border-slate-300 dark:border-[#4a5169] rounded-lg text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
-                  />
-                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Pastikan model telah di-pull via 'ollama run &lt;model&gt;'.</p>
-                </div>
-              </div>
-            )}
+            {hasApiKeyField && (
+              <div>
+                <label className={labelClass}>API key</label>
+                <input
+                  type="password"
+                  value={draft.apiKey}
+                  onChange={(e) => patchDraft({ apiKey: e.target.value })
+                  }
+                  placeholder={provider === "gemini" ? "contoh: AIza..." : "contoh: sk-..."}
+                  className={`${inputClass} font-mono`}
+                  autoComplete="off"
+                />
+                <p className={hintClass}>
+                  {provider === "gemini"
+                    ? "Kosong berarti memakai GEMINI_API_KEY dari environment server."
+                    : "Kosongkan bila endpoint tidak memerlukan otentikasi."}
+                </p>
 
-            {provider === "custom" && (
-              <div className="space-y-3">
-                <div>
-                  <label className="block font-medium text-slate-700 dark:text-slate-200 mb-1">Base Endpoint URL</label>
+                <label className="mt-3 flex items-start gap-2.5 cursor-pointer">
                   <input
-                    type="text"
-                    value={baseUrl}
-                    onChange={(e) => setBaseUrl(e.target.value)}
-                    placeholder="https://api.openai.com atau custom proxy"
-                    className="w-full px-3 py-2 bg-white dark:bg-[#2f3546] border border-slate-300 dark:border-[#4a5169] rounded-lg text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                    type="checkbox"
+                    checked={saveApiKey}
+                    onChange={(e) => setSaveApiKey(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded border-slate-300 dark:border-[#4a5169] text-indigo-600 focus:ring-indigo-500"
                   />
-                </div>
-                <div>
-                  <label className="block font-medium text-slate-700 dark:text-slate-200 mb-1">Model Name</label>
-                  <input
-                    type="text"
-                    value={modelName}
-                    onChange={(e) => setModelName(e.target.value)}
-                    placeholder="gpt-4o-mini, deepseek-coder"
-                    className="w-full px-3 py-2 bg-white dark:bg-[#2f3546] border border-slate-300 dark:border-[#4a5169] rounded-lg text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-                <div>
-                  <label className="block font-medium text-slate-700 dark:text-slate-200 mb-1">API Key (Opsional)</label>
-                  <input
-                    type="password"
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    placeholder="sk-..."
-                    className="w-full px-3 py-2 bg-white dark:bg-[#2f3546] border border-slate-300 dark:border-[#4a5169] rounded-lg text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 font-mono"
-                  />
-                </div>
+                  <span className="text-xs text-slate-600 dark:text-slate-300">
+                    Simpan API key di browser ini
+                    <span className="block text-slate-500 dark:text-slate-400 mt-0.5">
+                      Kalau tidak dicentang, key hanya dipakai selama tab ini terbuka dan tidak ditulis ke
+                      localStorage. Key tidak pernah ikut tersimpan ke riwayat proyek.
+                    </span>
+                  </span>
+                </label>
               </div>
             )}
           </div>
 
-          {/* Test connection alert box */}
           {testResult && (
             <div
-              className={`p-3.5 rounded-xl border flex items-start gap-2 text-xs ${
-                testResult.success ? "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30 text-emerald-900 dark:text-emerald-200" : "bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/30 text-rose-900 dark:text-rose-200"
+              className={`p-3.5 rounded-xl ring-1 flex items-start gap-2.5 text-sm ${
+                testResult.success
+                  ? "bg-emerald-50 dark:bg-emerald-500/10 ring-emerald-200 dark:ring-emerald-500/30 text-emerald-900 dark:text-emerald-200"
+                  : "bg-rose-50 dark:bg-rose-500/10 ring-rose-200 dark:ring-rose-500/30 text-rose-900 dark:text-rose-200"
               }`}
             >
               {testResult.success ? (
@@ -257,35 +254,35 @@ export const LLMConfigModal: React.FC<LLMConfigModalProps> = ({ isOpen, onClose,
               ) : (
                 <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
               )}
-              <div className="leading-snug">{testResult.message}</div>
+              <div className="leading-relaxed break-words">{testResult.message}</div>
             </div>
           )}
         </div>
 
-        {/* Modal Footer */}
-        <div className="px-6 py-4 bg-slate-50 dark:bg-slate-700/40 border-t border-slate-200 dark:border-[#3f4557] flex items-center justify-between">
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-slate-200 dark:border-[#3f4557] flex items-center justify-between">
           <button
             type="button"
             onClick={handleTestConnection}
             disabled={testing}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-white dark:bg-[#2f3546] border border-slate-300 dark:border-[#4a5169] text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded-xl text-xs font-semibold transition-all disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded-lg transition-colors disabled:opacity-50"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${testing ? "animate-spin" : ""}`} />
-            {testing ? "Pengujian..." : "Uji Koneksi LLM"}
+            <RefreshCw className={`w-4 h-4 ${testing ? "animate-spin" : ""}`} />
+            {testing ? "Menguji..." : "Uji koneksi"}
           </button>
 
           <div className="flex items-center gap-2">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 text-xs font-semibold rounded-xl transition-all"
+              className="px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 rounded-lg transition-colors"
             >
               Batal
             </button>
             <button
               onClick={handleSave}
-              className="px-5 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl text-xs font-semibold transition-all shadow-xs"
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors"
             >
-              Simpan Pengaturan
+              Simpan
             </button>
           </div>
         </div>

@@ -51,7 +51,7 @@ export const Header: React.FC<HeaderProps> = ({
   const engineLabel = (config: LLMConfig) => {
     const provider =
       config.provider === "ollama" ? "Ollama" : config.provider === "custom" ? "Custom" : "Gemini";
-    return `${provider} · ${config.modelName}`;
+    return `${provider} · ${config.modelName || "model bawaan"}`;
   };
 
   const activeTitle = session.input.title || session.title;
@@ -64,7 +64,7 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="w-7 h-7 rounded-lg bg-indigo-600 grid place-items-center shrink-0">
             <Sparkles className="w-4 h-4 text-white" />
           </div>
-          <h1 className="text-sm font-semibold tracking-tight text-slate-900 dark:text-slate-100 truncate">AI Plan Architect</h1>
+          <h1 className="text-sm font-semibold tracking-tight text-slate-900 dark:text-slate-100 truncate">The Architech</h1>
           {activeTitle && (
             <>
               <span className="hidden md:inline text-slate-300 dark:text-slate-600" aria-hidden>

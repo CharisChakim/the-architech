@@ -1,8 +1,13 @@
+export type LLMProvider = 'gemini' | 'ollama' | 'custom';
+
 export interface LLMConfig {
-  provider: 'gemini' | 'ollama' | 'custom';
+  provider: LLMProvider;
   modelName: string;
   baseUrl?: string;
   apiKey?: string;
+  // Bila false, API key hanya dipakai selama sesi browser ini dan tidak
+  // dituliskan ke localStorage.
+  saveApiKey?: boolean;
 }
 
 export interface ProjectInput {

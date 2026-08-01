@@ -250,7 +250,7 @@ export default function App() {
               className="flex items-center gap-1.5 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
             >
               <Cpu className="w-3.5 h-3.5" />
-              {session.llmConfig.provider} · {session.llmConfig.modelName}
+              {session.llmConfig.provider} · {session.llmConfig.modelName || "model bawaan"}
             </button>
             <span className="flex items-center gap-1.5">
               <Database className="w-3.5 h-3.5" />

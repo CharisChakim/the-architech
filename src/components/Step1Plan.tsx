@@ -29,11 +29,16 @@ interface Step1PlanProps {
   onGoToNextStep: () => void;
 }
 
+// Sampai AI mengusulkan judul, riwayat perlu sesuatu untuk ditampilkan. Potongan
+// awal ide dipakai sebagai nama sementara.
+const provisionalTitle = (idea: string): string => {
+  const firstLine = idea.trim().split("\n")[0].trim();
+  if (firstLine.length <= 60) return firstLine;
+  return firstLine.slice(0, 57).trimEnd() + "...";
+};
+
 export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, onGoToNextStep }) => {
-  const [title, setTitle] = useState(session.input.title || "");
   const [description, setDescription] = useState(session.input.description || "");
-  const [targetAudience, setTargetAudience] = useState(session.input.targetAudience || "");
-  const [techStackPreference, setTechStackPreference] = useState(session.input.techStackPreference || "");
 
   const [answers, setAnswers] = useState<Record<string, string>>(session.input.answersToFollowUp || {});
   const [customAnswerActive, setCustomAnswerActive] = useState<Record<string, boolean>>({});
@@ -49,10 +54,7 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
   // sementara komponen ini tetap ter-mount, sehingga state form harus mengikuti.
   // Dikunci ke session.id supaya tidak menimpa apa yang sedang diketik pengguna.
   useEffect(() => {
-    setTitle(session.input.title || "");
     setDescription(session.input.description || "");
-    setTargetAudience(session.input.targetAudience || "");
-    setTechStackPreference(session.input.techStackPreference || "");
     setAnswers(session.input.answersToFollowUp || {});
     setCustomAnswerActive({});
     setErrorMessage(null);
@@ -78,10 +80,8 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: title || "Aplikasi AI",
+          title: session.input.title || provisionalTitle(description),
           description,
-          targetAudience,
-          techStackPreference,
           previousAnswers: isFirstRound ? {} : answers,
           round: nextRound,
           llmConfig: session.llmConfig,
@@ -109,10 +109,9 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
       setAnswers(mergedAnswers);
       onUpdateSession({
         input: {
-          title,
+          ...session.input,
+          title: session.input.title || provisionalTitle(description),
           description,
-          targetAudience,
-          techStackPreference,
           answersToFollowUp: mergedAnswers,
         },
         followUps: mergedQuestions,
@@ -142,10 +141,8 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: title || "Aplikasi AI Baru",
+          title: session.input.title || provisionalTitle(description),
           description,
-          targetAudience,
-          techStackPreference,
           answers,
           llmConfig: session.llmConfig,
         }),
@@ -155,13 +152,15 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
       if (!res.ok) throw new Error(data.error || "Gagal membuat Project Plan.");
 
       const plan: ProjectPlan = data;
+      // Judul diambil dari usulan AI; nama sementara dari potongan ide hanya
+      // dipakai kalau AI tidak mengirim apa pun.
+      const resolvedTitle = (data.suggestedTitle || "").trim() || provisionalTitle(description);
       onUpdateSession({
-        title: title || "Aplikasi AI Baru",
+        title: resolvedTitle,
         input: {
-          title,
+          ...session.input,
+          title: resolvedTitle,
           description,
-          targetAudience,
-          techStackPreference,
           answersToFollowUp: answers,
         },
         plan,
@@ -246,88 +245,44 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
       {/* SUBVIEW 1: FORM & FOLLOW UP QUESTIONS */}
       {subView === "form" && (
         <div className="space-y-8">
-          {/* Input Form */}
-          <div className="bg-white dark:bg-[#2f3546] rounded-2xl border border-slate-200 dark:border-[#3f4557] shadow-xs p-6 sm:p-8">
-            <form onSubmit={handleAnalyzeQuestions} className="space-y-6">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-[#3f4557] pb-4">
-                <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-base flex items-center gap-2">
-                  <span className="w-7 h-7 rounded-lg bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 flex items-center justify-center text-xs font-semibold">
-                    1
-                  </span>
-                  Input Deskripsi Proyek
-                </h3>
-                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">LLM: {session.llmConfig.provider.toUpperCase()}</span>
-              </div>
+          {/* Satu kolom ide. Judul, target pengguna, dan stack tidak lagi ditanya
+              di sini — AI menyimpulkannya, atau menanyakannya saat klarifikasi. */}
+          <form
+            onSubmit={handleAnalyzeQuestions}
+            className="bg-white dark:bg-[#2f3546] rounded-2xl ring-1 ring-slate-200 dark:ring-[#3f4557] p-2"
+          >
+            <textarea
+              rows={5}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder={'Contoh: "Aplikasi tracking pengeluaran harian, bisa input lewat WhatsApp, ada dashboard ringkasan bulanan..."'}
+              className="w-full px-4 py-3 bg-transparent text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-hidden resize-none leading-relaxed"
+            />
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1.5">Judul Proyek</label>
-                  <input
-                    type="text"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="misal: AI Code Reviewer Bot, Smart LMS POS..."
-                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-700/40 border border-slate-200 dark:border-[#3f4557] rounded-xl text-sm text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
-                  />
-                </div>
+            <div className="flex items-center justify-between gap-3 px-2 pb-1">
+              <span className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                {session.llmConfig.provider} · {session.llmConfig.modelName || "model bawaan"}
+              </span>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1.5">Target Pengguna (Opsional)</label>
-                  <input
-                    type="text"
-                    value={targetAudience}
-                    onChange={(e) => setTargetAudience(e.target.value)}
-                    placeholder="misal: Tech Lead, Mahasiswa, UMKM Kasir..."
-                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-700/40 border border-slate-200 dark:border-[#3f4557] rounded-xl text-sm text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1.5">
-                  Deskripsi Detail Proyek <span className="text-rose-500">*</span>
-                </label>
-                <textarea
-                  rows={4}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Jelaskan ide aplikasi Anda secara mendalam. Apa masalah yang diselesaikan? Fitur utama apa saja yang dibayangkan? Bagaimana ekspektasi cara kerjanya?"
-                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700/40 border border-slate-200 dark:border-[#3f4557] rounded-2xl text-sm text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all leading-relaxed"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1.5">Ekspektasi Tech Stack (Opsional)</label>
-                <input
-                  type="text"
-                  value={techStackPreference}
-                  onChange={(e) => setTechStackPreference(e.target.value)}
-                  placeholder="misal: React, Node.js, PostgreSQL, Gemini API..."
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-700/40 border border-slate-200 dark:border-[#3f4557] rounded-xl text-sm text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
-                />
-              </div>
-
-              <div className="flex justify-end pt-2">
-                <button
-                  type="submit"
-                  disabled={loadingQuestions || !description.trim()}
-                  className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition-all shadow-md hover:shadow-lg disabled:opacity-50"
-                >
-                  {loadingQuestions ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                      Menganalisis Proyek dengan AI...
-                    </>
-                  ) : (
-                    <>
-                      <Wand2 className="w-4 h-4" />
-                      Analisis ide & buat pertanyaan
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
+              <button
+                type="submit"
+                disabled={loadingQuestions || !description.trim()}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-40 shrink-0"
+              >
+                {loadingQuestions ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Menganalisis...
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="w-4 h-4" />
+                    Analisis ide
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
 
           {/* Follow-up Questions with Options + 1 Custom Field */}
           {session.followUps.length > 0 && (
@@ -515,7 +470,7 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
               <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300 text-xs font-medium mb-2">
                 <CheckCircle2 className="w-4 h-4" /> Plan &amp; arsitektur tersusun
               </div>
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{session.input.title || title}</h3>
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{session.input.title || session.title}</h3>
               <p className="text-slate-500 dark:text-slate-400 mt-1.5 max-w-2xl leading-relaxed">{plan.summary}</p>
             </div>
 
@@ -550,7 +505,7 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
               </span>
             </div>
 
-            <PlanCanvas title={session.input.title || title || "Perencanaan"} features={plan.specs.coreFeatures} />
+            <PlanCanvas title={session.input.title || session.title || "Perencanaan"} features={plan.specs.coreFeatures} />
           </div>
 
           {/* Dedicated Horizontal Logic Diagram Section */}
@@ -564,7 +519,7 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
               <MermaidViewer
                 chart={plan.architectureDraft.diagramMermaid}
                 explanation={plan.architectureDraft.dataFlow}
-                title={`Arsitektur System: ${title || session.title}`}
+                title={`Arsitektur sistem: ${session.input.title || session.title}`}
               />
             </div>
           )}

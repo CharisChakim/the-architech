@@ -5,11 +5,14 @@ import { ProjectSession, LLMConfig } from "../types";
 const ACTIVE_SESSION_ID_KEY = "ai_plan_architect_active_session_id";
 const DEFAULT_LLM_CONFIG_KEY = "ai_plan_architect_llm_config";
 
+// Semua isian kosong: pengguna yang mengisi, dan yang dibiarkan kosong memakai
+// bawaan server (model default, GEMINI_API_KEY dari environment).
 export const DEFAULT_LLM_CONFIG: LLMConfig = {
   provider: "gemini",
-  modelName: "gemini-3.6-flash",
+  modelName: "",
   baseUrl: "",
   apiKey: "",
+  saveApiKey: false,
 };
 
 export function createEmptySession(llmConfig: LLMConfig): ProjectSession {
@@ -42,7 +45,10 @@ export function loadSavedLLMConfig(): LLMConfig {
 
 export function saveLLMConfig(config: LLMConfig): void {
   try {
-    localStorage.setItem(DEFAULT_LLM_CONFIG_KEY, JSON.stringify(config));
+    // API key hanya ikut tertulis kalau pengguna memintanya. Kalau tidak, ia
+    // tetap hidup di state sesi tapi hilang saat tab ditutup.
+    const stored = config.saveApiKey ? config : { ...config, apiKey: "" };
+    localStorage.setItem(DEFAULT_LLM_CONFIG_KEY, JSON.stringify(stored));
   } catch (e) {
     console.warn("Failed to save LLM config:", e);
   }
