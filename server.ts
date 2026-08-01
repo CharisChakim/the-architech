@@ -213,21 +213,49 @@ app.post("/api/test-llm", async (req, res) => {
 });
 
 // Fitur 1: Follow-up Questions (Mengklarifikasi Ide & Spesifikasi Proyek)
+// Bisa dipanggil berulang: jika masih ada keraguan material, LLM mengajukan
+// ronde pertanyaan berikutnya. Tidak ada batas jumlah pertanyaan.
 app.post("/api/followup-questions", async (req, res) => {
   try {
-    const { title, description, targetAudience, techStackPreference, llmConfig } = req.body;
-    
+    const {
+      title,
+      description,
+      targetAudience,
+      techStackPreference,
+      previousAnswers,
+      round,
+      llmConfig,
+    } = req.body;
+
+    const currentRound = Number(round) || 1;
+    const priorQa =
+      previousAnswers && typeof previousAnswers === "object" && Object.keys(previousAnswers).length > 0
+        ? Object.entries(previousAnswers)
+            .map(([q, a]) => `- ${q}\n  Jawaban: ${a}`)
+            .join("\n")
+        : "";
+
     const systemInstruction = `Anda adalah Lead Software Architect & Product Manager Senior.
-Tugas Anda adalah menganalisis ide/deskripsi aplikasi awal pengguna dan menghasilkan 3 hingga 5 pertanyaan follow-up kritis untuk memperjelas kebutuhan teknis, batasan ruang lingkup, target pengguna, dan prioritas fitur utama.
+Tugas Anda adalah mengklarifikasi ide/deskripsi aplikasi pengguna sampai Anda benar-benar yakin bisa menyusun arsitektur dan rencana proyek tanpa menebak.
 Gunakan Bahasa Indonesia yang profesional, jelas, dan ramah.
+
+ATURAN JUMLAH PERTANYAAN:
+- TIDAK ADA batas jumlah pertanyaan. Ajukan sebanyak yang benar-benar Anda perlukan, tidak lebih.
+- Proses ini bertahap (multi-ronde). Anda akan dipanggil ulang beserta jawaban pengguna sebelumnya.
+- Jika setelah membaca jawaban yang ada MASIH ADA keraguan material (hal yang akan membuat Anda menebak saat menyusun arsitektur, skema data, atau prioritas fitur), ajukan pertanyaan lanjutan pada ronde ini.
+- Jika informasi sudah CUKUP untuk menyusun rencana yang matang, kembalikan "questions": [] dan "needsMoreInfo": false.
+- JANGAN mengulang pertanyaan yang sudah dijawab, dan jangan bertanya hal yang jawabannya sudah tersirat di deskripsi.
+- Jangan bertanya hanya untuk memenuhi kuota. Satu pertanyaan tajam lebih baik daripada lima pertanyaan basa-basi.
 
 WAJIB SERTAKAN 3 hingga 4 pilihan jawaban terstruktur (options) untuk setiap pertanyaan agar pengguna tinggal memilih dengan 1 klik atau mengisi jawaban kustom.
 
 Kembalikan respon PERSIS dalam format JSON berikut tanpa teks tambahan di luar JSON:
 {
+  "needsMoreInfo": true,
+  "readinessNote": "Penjelasan singkat: apa yang masih kurang, atau alasan mengapa informasi sudah cukup.",
   "questions": [
     {
-      "id": "q1",
+      "id": "r${currentRound}q1",
       "category": "scope",
       "question": "Pertanyaan terarah...",
       "explanation": "Alasan mengapa pertanyaan ini penting untuk pengembangan...",
@@ -239,20 +267,41 @@ Kembalikan respon PERSIS dalam format JSON berikut tanpa teks tambahan di luar J
       ]
     }
   ]
-}`;
+}
 
-    const prompt = `Informasi Proyek Awal:
+Gunakan prefix "r${currentRound}q" pada setiap id agar id tetap unik antar ronde.`;
+
+    const prompt = `Informasi Proyek:
 Judul Proyek: ${title || "Aplikasi Baru"}
 Deskripsi Proyek:
 ${description}
 Target Pengguna (Jika Ada): ${targetAudience || "Belum ditentukan"}
 Ekspektasi Stack Teknologi (Jika Ada): ${techStackPreference || "Bebas / Rekomendasi AI"}
 
-Silakan hasilkan 3-5 pertanyaan follow-up terarah dalam format JSON yang telah ditentukan. Sertakan bidang "options" dengan minimal 3 pilihan ringkas untuk setiap pertanyaan.`;
+Ini adalah RONDE KLARIFIKASI KE-${currentRound}.
+${
+  priorQa
+    ? `Pertanyaan yang SUDAH dijawab pengguna pada ronde sebelumnya:\n${priorQa}\n\nNilai apakah jawaban di atas sudah cukup. Jika masih ada keraguan material, ajukan pertanyaan lanjutan yang BELUM pernah ditanyakan. Jika sudah cukup, kembalikan questions kosong dengan needsMoreInfo: false.`
+    : `Belum ada jawaban sebelumnya. Ajukan pertanyaan klarifikasi awal sebanyak yang Anda perlukan.`
+}
+
+Jawab dalam format JSON yang telah ditentukan. Sertakan bidang "options" dengan minimal 3 pilihan ringkas untuk setiap pertanyaan.`;
 
     const rawText = await callLlm(prompt, systemInstruction, llmConfig);
     const data = parseJsonFromLlm(rawText);
-    res.json(data);
+
+    const questions = (data.questions || []).map((q: any) => ({
+      ...q,
+      round: currentRound,
+    }));
+
+    res.json({
+      questions,
+      // Kalau LLM tidak menyebut needsMoreInfo, turunkan dari ada/tidaknya pertanyaan.
+      needsMoreInfo: typeof data.needsMoreInfo === "boolean" ? data.needsMoreInfo : questions.length > 0,
+      readinessNote: data.readinessNote || "",
+      round: currentRound,
+    });
   } catch (err: any) {
     console.error("Error /api/followup-questions:", err);
     res.status(500).json({ error: err.message || "Gagal membuat pertanyaan follow-up." });

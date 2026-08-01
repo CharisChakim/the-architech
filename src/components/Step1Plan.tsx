@@ -43,9 +43,10 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
   // Sub-view in Step 1: 'form' (Form & Questions) or 'plan_review' (Architecture & Diagram Review Page)
   const [subView, setSubView] = useState<"form" | "plan_review">(session.plan ? "plan_review" : "form");
 
-  // Analyze and generate follow-up questions
-  const handleAnalyzeQuestions = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+  // Klarifikasi bertahap: ronde pertama memulai dari nol, ronde lanjutan
+  // mengirim jawaban yang sudah ada agar LLM bisa menilai apa yang masih kurang
+  // dan menambah pertanyaan hanya jika benar-benar masih ragu.
+  const requestFollowUps = async (isFirstRound: boolean) => {
     if (!description.trim()) {
       setErrorMessage("Silakan masukkan deskripsi proyek terlebih dahulu.");
       return;
@@ -55,6 +56,8 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
     setLoadingQuestions(true);
 
     try {
+      const nextRound = isFirstRound ? 1 : (session.clarificationRound || 1) + 1;
+
       const res = await fetch("/api/followup-questions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -63,6 +66,8 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
           description,
           targetAudience,
           techStackPreference,
+          previousAnswers: isFirstRound ? {} : answers,
+          round: nextRound,
           llmConfig: session.llmConfig,
         }),
       });
@@ -70,32 +75,45 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Gagal membuat pertanyaan follow-up.");
 
-      const questions: FollowUpQuestion[] = data.questions || [];
-      const initialAnswers: Record<string, string> = {};
-      questions.forEach((q) => {
+      const newQuestions: FollowUpQuestion[] = data.questions || [];
+
+      // Jawaban lama dipertahankan; hanya pertanyaan baru yang diberi nilai awal.
+      const mergedAnswers: Record<string, string> = isFirstRound ? {} : { ...answers };
+      newQuestions.forEach((q) => {
+        if (mergedAnswers[q.question] !== undefined) return;
         if (q.options && q.options.length > 0) {
-          initialAnswers[q.question] = q.options[0];
+          mergedAnswers[q.question] = q.options[0];
         } else if (q.suggestedAnswer) {
-          initialAnswers[q.question] = q.suggestedAnswer;
+          mergedAnswers[q.question] = q.suggestedAnswer;
         }
       });
 
-      setAnswers(initialAnswers);
+      const mergedQuestions = isFirstRound ? newQuestions : [...session.followUps, ...newQuestions];
+
+      setAnswers(mergedAnswers);
       onUpdateSession({
         input: {
           title,
           description,
           targetAudience,
           techStackPreference,
-          answersToFollowUp: initialAnswers,
+          answersToFollowUp: mergedAnswers,
         },
-        followUps: questions,
+        followUps: mergedQuestions,
+        clarificationRound: nextRound,
+        clarificationComplete: data.needsMoreInfo === false,
+        readinessNote: data.readinessNote || "",
       });
     } catch (err: any) {
       setErrorMessage(err.message || "Terjadi kesalahan saat berkomunikasi dengan LLM.");
     } finally {
       setLoadingQuestions(false);
     }
+  };
+
+  const handleAnalyzeQuestions = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    requestFollowUps(true);
   };
 
   // Generate full Project Plan
@@ -322,6 +340,31 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
                 </button>
               </div>
 
+              {/* Penilaian kesiapan dari LLM pada ronde klarifikasi terakhir */}
+              {session.readinessNote && (
+                <div
+                  className={`p-3.5 rounded-2xl border text-xs flex items-start gap-2.5 ${
+                    session.clarificationComplete
+                      ? "bg-emerald-50 border-emerald-200 text-emerald-900"
+                      : "bg-amber-50 border-amber-200 text-amber-900"
+                  }`}
+                >
+                  {session.clarificationComplete ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  ) : (
+                    <HelpCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  )}
+                  <div className="leading-relaxed">
+                    <strong className="font-semibold block mb-0.5">
+                      {session.clarificationComplete
+                        ? `Ronde ${session.clarificationRound}: AI menilai informasi sudah cukup.`
+                        : `Ronde ${session.clarificationRound}: AI masih punya pertanyaan.`}
+                    </strong>
+                    {session.readinessNote}
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-5">
                 {session.followUps.map((q, idx) => {
                   const currentAnswer = answers[q.question] || "";
@@ -332,9 +375,16 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
                     <div key={q.id || idx} className="bg-white rounded-2xl p-5 border border-slate-200 shadow-2xs space-y-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="space-y-1">
-                          <span className="inline-block px-2 py-0.5 rounded bg-indigo-100 text-indigo-800 text-[10px] font-bold uppercase tracking-wider">
-                            {q.category}
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="inline-block px-2 py-0.5 rounded bg-indigo-100 text-indigo-800 text-[10px] font-bold uppercase tracking-wider">
+                              {q.category}
+                            </span>
+                            {q.round && q.round > 1 && (
+                              <span className="inline-block px-2 py-0.5 rounded bg-slate-200 text-slate-700 text-[10px] font-bold uppercase tracking-wider">
+                                Ronde {q.round}
+                              </span>
+                            )}
+                          </div>
                           <h4 className="font-semibold text-slate-900 text-xs sm:text-sm">{q.question}</h4>
                         </div>
                       </div>
@@ -401,10 +451,29 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
                 })}
               </div>
 
-              <div className="flex justify-end pt-2">
+              <div className="flex flex-wrap justify-end gap-3 pt-2">
+                <button
+                  onClick={() => requestFollowUps(false)}
+                  disabled={loadingQuestions || loadingPlan}
+                  className="flex items-center gap-2 px-5 py-3.5 bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 rounded-xl text-xs sm:text-sm font-semibold transition-all disabled:opacity-50"
+                  title="Kirim jawaban saat ini agar AI menilai apakah masih ada yang perlu ditanyakan"
+                >
+                  {loadingQuestions ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Menilai jawaban Anda...
+                    </>
+                  ) : (
+                    <>
+                      <HelpCircle className="w-4 h-4" />
+                      Lanjutkan Klarifikasi (Ronde {(session.clarificationRound || 1) + 1})
+                    </>
+                  )}
+                </button>
+
                 <button
                   onClick={handleGeneratePlan}
-                  disabled={loadingPlan}
+                  disabled={loadingPlan || loadingQuestions}
                   className="flex items-center gap-2 px-7 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold transition-all shadow-md hover:shadow-lg disabled:opacity-50"
                 >
                   {loadingPlan ? (

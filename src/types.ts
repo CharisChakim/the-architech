@@ -20,6 +20,8 @@ export interface FollowUpQuestion {
   explanation: string;
   suggestedAnswer: string;
   options?: string[];
+  // Ronde klarifikasi ke berapa pertanyaan ini muncul.
+  round?: number;
 }
 
 export interface FeatureSpec {
@@ -147,6 +149,10 @@ export interface ProjectSession {
   prd?: PRDData;
   tasks?: AgentTask[];
   currentStep: 1 | 2 | 3;
+  // Hasil penilaian LLM pada ronde klarifikasi terakhir.
+  clarificationRound?: number;
+  clarificationComplete?: boolean;
+  readinessNote?: string;
 }
 
 // Baris riwayat dari SQLite — cukup untuk daftar, tanpa memuat payload penuh.
