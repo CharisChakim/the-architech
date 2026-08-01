@@ -102,6 +102,9 @@ async function callLlm(prompt: string, systemInstruction: string, llmConfig?: an
         headers,
         body: JSON.stringify({
           model: model,
+          // Eksplisit non-streaming: sebagian gateway OpenAI-compatible mengirim
+          // SSE bila bidang ini tidak ada, dan respons itu bukan JSON valid.
+          stream: false,
           messages: [
             { role: "system", content: systemInstruction },
             { role: "user", content: prompt },

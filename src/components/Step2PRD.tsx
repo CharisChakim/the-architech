@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ProjectSession, PRDData } from "../types";
+import { ProjectSession, PRDData, PRDExtraSection } from "../types";
 import { MermaidViewer } from "./MermaidViewer";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -16,6 +16,8 @@ import {
   ListOrdered,
   SlidersHorizontal,
   FileCode,
+  Plus,
+  Trash2,
 } from "lucide-react";
 
 interface Step2PRDProps {
@@ -133,7 +135,17 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
   const [editArchitecture, setEditArchitecture] = useState(prd?.architecture || "");
   const [editDatabaseSchema, setEditDatabaseSchema] = useState(formatDbSchemaToString(prd?.databaseSchema));
   const [editTechStack, setEditTechStack] = useState(formatTechStackToString(prd?.techStack));
+  const [editExtraSections, setEditExtraSections] = useState<PRDExtraSection[]>(prd?.additionalSections || []);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  const updateExtraSection = (idx: number, patch: Partial<PRDExtraSection>) =>
+    setEditExtraSections((prev) => prev.map((s, i) => (i === idx ? { ...s, ...patch } : s)));
+
+  const addExtraSection = () =>
+    setEditExtraSections((prev) => [...prev, { number: 8 + prev.length, title: "", content: "" }]);
+
+  const removeExtraSection = (idx: number) =>
+    setEditExtraSections((prev) => prev.filter((_, i) => i !== idx));
 
   // Synchronize edit states when PRD is updated
   useEffect(() => {
@@ -144,6 +156,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
       setEditArchitecture(prd.architecture || "");
       setEditDatabaseSchema(formatDbSchemaToString(prd.databaseSchema));
       setEditTechStack(formatTechStackToString(prd.techStack));
+      setEditExtraSections(prd.additionalSections || []);
     }
   }, [prd]);
 
@@ -201,6 +214,14 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
         formatDbSchemaToString(prd.databaseSchema)
       ),
       techStack: keepOrReplace(editTechStack, prd.techStack, formatTechStackToString(prd.techStack)),
+      // Poin kosong dibuang, sisanya dinomori ulang berurutan dari 8.
+      additionalSections: editExtraSections
+        .filter((s) => s.title.trim() !== "" || s.content.trim() !== "")
+        .map((s, idx) => ({
+          number: 8 + idx,
+          title: s.title.trim() || `Poin Tambahan ${8 + idx}`,
+          content: s.content,
+        })),
     };
 
     // Ekspor .md membaca fullMarkdownText. Tanpa dibangun ulang, Download/Copy MD
@@ -606,6 +627,65 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
                     onChange={(e) => setEditTechStack(e.target.value)}
                     className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
                   />
+                </div>
+
+                {/* Poin 8+ : bisa diubah, dihapus, atau ditambah sendiri */}
+                <div className="pt-4 border-t border-slate-100 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-800">Poin Tambahan (8 dan seterusnya)</label>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Poin di luar tujuh poin wajib. Nomornya diurutkan ulang otomatis saat disimpan.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={addExtraSection}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-purple-200 text-purple-700 hover:bg-purple-50 rounded-xl text-xs font-semibold transition-all"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Tambah Poin
+                    </button>
+                  </div>
+
+                  {editExtraSections.length === 0 ? (
+                    <p className="text-[11px] text-slate-500 italic bg-slate-50 border border-dashed border-slate-200 rounded-2xl p-3">
+                      Belum ada poin tambahan. AI akan menambahkannya sendiri bila analisis menuntut, atau Anda bisa
+                      menambahkan manual.
+                    </p>
+                  ) : (
+                    editExtraSections.map((section, idx) => (
+                      <div key={idx} className="p-3.5 bg-purple-50/40 border border-purple-100 rounded-2xl space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="w-6 h-6 shrink-0 rounded-lg bg-purple-100 text-purple-700 font-bold text-xs flex items-center justify-center">
+                            {8 + idx}
+                          </span>
+                          <input
+                            type="text"
+                            value={section.title}
+                            onChange={(e) => updateExtraSection(idx, { title: e.target.value })}
+                            placeholder="Judul poin, misal: Rencana Pengujian"
+                            className="flex-1 min-w-0 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeExtraSection(idx)}
+                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-white rounded-xl transition-all shrink-0"
+                            title="Hapus poin ini"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <textarea
+                          rows={3}
+                          value={section.content}
+                          onChange={(e) => updateExtraSection(idx, { content: e.target.value })}
+                          placeholder="Isi poin ini..."
+                          className="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                        />
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
 
