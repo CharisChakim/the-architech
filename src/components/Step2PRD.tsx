@@ -88,6 +88,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
   const [activeTab, setActiveTab] = useState<"7point" | "overview_edit" | "markdown">("7point");
 
   const prd = session.prd;
+  const extraSections = prd?.additionalSections || [];
 
   // Editable state for PRD Overview phase
   const [editOverview, setEditOverview] = useState(prd?.overview || "");
@@ -217,7 +218,9 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
           </h2>
           <p className="text-slate-300 text-xs sm:text-sm leading-relaxed">
             AI menyusun PRD lengkap dengan 7 Poin Standar: Overview, Requirements, Core Features (Fase 1-3+), User Flow,
-            Architecture, Database Schema, & Tech Stack. Anda dapat meninjau & mengedit sebelum memproses ke Task AI Agent.
+            Architecture, Database Schema, & Tech Stack. Tujuh poin itu adalah minimum — jika analisis menilai ada aspek
+            penting di luarnya, AI menambahkannya sebagai poin 8 dan seterusnya. Anda dapat meninjau & mengedit sebelum
+            memproses ke Task AI Agent.
           </p>
         </div>
       </div>
@@ -310,7 +313,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
                 }`}
               >
                 <ListOrdered className="w-4 h-4" />
-                1. Tampilan PRD 7 Poin
+                1. Tampilan PRD {7 + extraSections.length} Poin
               </button>
 
               <button
@@ -469,6 +472,27 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
                   {formatTechStackToString(prd.techStack)}
                 </div>
               </div>
+
+              {/* 8+. Poin tambahan yang dinilai perlu oleh AI setelah analisis */}
+              {extraSections.map((section) => (
+                <div
+                  key={section.number}
+                  className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-3"
+                >
+                  <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2 border-b border-slate-100 pb-3">
+                    <span className="w-6 h-6 rounded-lg bg-purple-100 text-purple-700 font-bold text-xs flex items-center justify-center">
+                      {section.number}
+                    </span>
+                    {section.title}
+                    <span className="ml-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-100">
+                      Poin Tambahan
+                    </span>
+                  </h4>
+                  <div className="text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                    {section.content}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 

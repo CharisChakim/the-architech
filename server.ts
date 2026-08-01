@@ -425,6 +425,13 @@ PRD - Project Requirements Document
 6. Database Schema
 7. Tech Stack
 
+POIN TAMBAHAN (OPSIONAL, DI LUAR 7 POIN WAJIB):
+- Tujuh poin di atas adalah lantai minimum, bukan plafon.
+- Jika setelah menganalisis proyek ini Anda menilai ada aspek penting yang tidak tertampung di 7 poin tersebut, TAMBAHKAN sebagai poin 8, 9, dan seterusnya melalui bidang "additionalSections".
+- Contoh poin tambahan yang sering relevan: Integrasi Pihak Ketiga, Strategi Migrasi Data, Observability & Monitoring, Kepatuhan & Regulasi, Rencana Pengujian, Strategi Deployment & Rollback, Model Perizinan/Peran Pengguna.
+- Hanya tambahkan poin yang benar-benar dibutuhkan proyek ini. Jangan menambah poin agar dokumen terlihat lengkap. Jika 7 poin sudah memadai, kembalikan "additionalSections": [].
+- Setiap poin tambahan WAJIB ikut tertulis di "fullMarkdownText" dengan nomor urut yang sama.
+
 Aturan khusus untuk Diagram Logika Mermaid.js:
 - Gunakan HORIZONTAL DIAGRAM dengan sintaks 'graph LR' atau 'flowchart LR' (kiri ke kanan).
 - Pastikan sintaks Mermaid VALID tanpa karakter ilegal.
@@ -473,9 +480,16 @@ Kembalikan respon PERSIS dalam format JSON berikut:
       "rationale": "UI cepat, modern, dan responsif"
     }
   ],
+  "additionalSections": [
+    {
+      "number": 8,
+      "title": "Integrasi Pihak Ketiga",
+      "content": "Isi poin tambahan dalam teks/markdown. Kosongkan array ini jika 7 poin sudah memadai."
+    }
+  ],
   "logicFlowMermaid": "graph LR\\n  A[Pengguna] -->|1. Buka App| B[Landing Page]\\n  B -->|2. Input Ide| C[Plan Generator]\\n  C -->|3. Konfirmasi| D[PRD & Diagram Review]\\n  D -->|4. Build| E[Task AI Agent]",
   "logicFlowExplanation": "Penjelasan alur diagram horizontal dari kiri ke kanan...",
-  "fullMarkdownText": "# PRD - Project Requirements Document\\n\\n## 1. Overview\\n...\\n\\n## 2. Requirements\\n...\\n\\n## 3. Core Features\\n- **Fase 1**:\\n  - ...\\n- **Fase 2**:\\n  - ...\\n- **Fase 3**:\\n  - ...\\n\\n## 4. User Flow\\n...\\n\\n## 5. Architecture\\n...\\n\\n## 6. Database Schema\\n...\\n\\n## 7. Tech Stack\\n..."
+  "fullMarkdownText": "# PRD - Project Requirements Document\\n\\n## 1. Overview\\n...\\n\\n## 2. Requirements\\n...\\n\\n## 3. Core Features\\n- **Fase 1**:\\n  - ...\\n- **Fase 2**:\\n  - ...\\n- **Fase 3**:\\n  - ...\\n\\n## 4. User Flow\\n...\\n\\n## 5. Architecture\\n...\\n\\n## 6. Database Schema\\n...\\n\\n## 7. Tech Stack\\n...\\n\\n## 8. (Poin tambahan bila ada)\\n..."
 }`;
 
     const prompt = `Data Project Plan yang telah disetujui:
@@ -485,16 +499,26 @@ Fitur Utama: ${JSON.stringify(plan?.specs?.coreFeatures || [])}
 Stack Teknologi: ${JSON.stringify(plan?.specs?.techStack || [])}
 Arsitektur: ${JSON.stringify(plan?.architectureDraft || {})}
 
-Susunkan dokumen PRD yang Wajib memuat 7 poin standar secara lengkap beserta diagram horizontal (graph LR) dalam format JSON yang diminta.`;
+Susunkan dokumen PRD yang Wajib memuat 7 poin standar secara lengkap beserta diagram horizontal (graph LR) dalam format JSON yang diminta.
+Setelah menyusun 7 poin wajib, nilai apakah proyek ini memerlukan poin tambahan (8, 9, dst). Tambahkan lewat "additionalSections" hanya jika benar-benar perlu, dan pastikan ikut tertulis di "fullMarkdownText".`;
 
     const rawText = await callLlm(prompt, systemInstruction, llmConfig);
     const data = parseJsonFromLlm(rawText);
-    
+
     // Ensure fallback properties for legacy component support if needed
     data.executiveSummary = data.executiveSummary || data.overview;
     data.functionalRequirements = data.functionalRequirements || data.requirements?.functional || [];
     data.nonFunctionalRequirements = data.nonFunctionalRequirements || data.requirements?.nonFunctional || [];
     data.dataSchema = data.dataSchema || data.databaseSchema || [];
+
+    // Poin tambahan: buang yang kosong dan beri nomor urut lanjutan dari 7.
+    data.additionalSections = (Array.isArray(data.additionalSections) ? data.additionalSections : [])
+      .filter((s: any) => s && (s.title || s.content))
+      .map((s: any, idx: number) => ({
+        number: Number(s.number) > 7 ? Number(s.number) : 8 + idx,
+        title: s.title || `Poin Tambahan ${8 + idx}`,
+        content: typeof s.content === "string" ? s.content : String(s.content ?? ""),
+      }));
 
     res.json(data);
   } catch (err: any) {

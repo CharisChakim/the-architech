@@ -102,6 +102,13 @@ export interface PRDSectionCoreFeatures {
   futurePhases?: string[];
 }
 
+// Poin PRD di luar 7 poin wajib, ditambahkan LLM bila analisis menuntutnya.
+export interface PRDExtraSection {
+  number: number;
+  title: string;
+  content: string;
+}
+
 export interface PRDData {
   projectTitle: string;
   overview: string; // Point 1
@@ -114,7 +121,8 @@ export interface PRDData {
   architecture: string; // Point 5
   databaseSchema: DataEntity[]; // Point 6
   techStack: TechStackSpec[]; // Point 7
-  
+  additionalSections?: PRDExtraSection[]; // Point 8+, opsional
+
   // Legacy / extra fields for compatibility
   executiveSummary?: string;
   userPersonas?: UserPersona[];
