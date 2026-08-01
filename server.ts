@@ -3,6 +3,7 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
+import { listSessions, getSession, saveSession, deleteSession } from "./db.ts";
 
 dotenv.config();
 
@@ -146,6 +147,55 @@ async function callLlm(prompt: string, systemInstruction: string, llmConfig?: an
 // Health check
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
+// Riwayat Proyek (SQLite) — daftar, buka, simpan, hapus
+app.get("/api/sessions", (_req, res) => {
+  try {
+    res.json({ sessions: listSessions() });
+  } catch (err: any) {
+    console.error("Error GET /api/sessions:", err);
+    res.status(500).json({ error: err.message || "Gagal memuat riwayat proyek." });
+  }
+});
+
+app.get("/api/sessions/:id", (req, res) => {
+  try {
+    const session = getSession(req.params.id);
+    if (!session) {
+      res.status(404).json({ error: "Sesi proyek tidak ditemukan." });
+      return;
+    }
+    res.json(session);
+  } catch (err: any) {
+    console.error("Error GET /api/sessions/:id:", err);
+    res.status(500).json({ error: err.message || "Gagal memuat sesi proyek." });
+  }
+});
+
+app.put("/api/sessions/:id", (req, res) => {
+  try {
+    const session = req.body;
+    if (!session || session.id !== req.params.id) {
+      res.status(400).json({ error: "ID sesi pada URL dan body tidak cocok." });
+      return;
+    }
+    saveSession(session);
+    res.json({ success: true });
+  } catch (err: any) {
+    console.error("Error PUT /api/sessions/:id:", err);
+    res.status(500).json({ error: err.message || "Gagal menyimpan sesi proyek." });
+  }
+});
+
+app.delete("/api/sessions/:id", (req, res) => {
+  try {
+    deleteSession(req.params.id);
+    res.json({ success: true });
+  } catch (err: any) {
+    console.error("Error DELETE /api/sessions/:id:", err);
+    res.status(500).json({ error: err.message || "Gagal menghapus sesi proyek." });
+  }
 });
 
 // Test LLM Connection

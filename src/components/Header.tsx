@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ProjectSession, LLMConfig } from "../types";
+import { ProjectSession, SessionSummary, LLMConfig } from "../types";
 import { Cpu, Settings, FolderOpen, Plus, Sparkles, Download, Layers, Check, Trash2 } from "lucide-react";
 import { SAMPLE_PROJECTS, SampleProject } from "../lib/sampleData";
 
@@ -8,8 +8,8 @@ interface HeaderProps {
   onOpenLLMConfig: () => void;
   onNewProject: () => void;
   onSelectSample: (sample: SampleProject) => void;
-  onSelectHistorySession: (session: ProjectSession) => void;
-  historySessions: ProjectSession[];
+  onSelectHistorySession: (id: string) => void;
+  historySessions: SessionSummary[];
   onDeleteHistory: (id: string) => void;
   onOpenExport: () => void;
 }
@@ -150,13 +150,13 @@ export const Header: React.FC<HeaderProps> = ({
                     <div key={hist.id} className="flex items-center justify-between p-2 hover:bg-slate-800 rounded-xl group transition-all">
                       <button
                         onClick={() => {
-                          onSelectHistorySession(hist);
+                          onSelectHistorySession(hist.id);
                           setShowHistoryDropdown(false);
                         }}
                         className="text-left flex-1 min-w-0 pr-2"
                       >
                         <div className="font-semibold text-white group-hover:text-indigo-300 truncate">
-                          {hist.input.title || hist.title || "Proyek Tanpa Judul"}
+                          {hist.title || "Proyek Tanpa Judul"}
                         </div>
                         <div className="text-[10px] text-slate-400 flex items-center gap-2">
                           <span>{new Date(hist.updatedAt).toLocaleDateString()}</span>

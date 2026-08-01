@@ -148,3 +148,11 @@ export interface ProjectSession {
   tasks?: AgentTask[];
   currentStep: 1 | 2 | 3;
 }
+
+// Baris riwayat dari SQLite — cukup untuk daftar, tanpa memuat payload penuh.
+export interface SessionSummary {
+  id: string;
+  title: string;
+  updatedAt: string;
+  currentStep: number;
+}
