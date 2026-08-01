@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { ProjectSession, SessionSummary, LLMConfig } from "../types";
-import { Cpu, FolderOpen, Plus, Sparkles, Download, Layers, Trash2, Sun, Moon } from "lucide-react";
+import { Cpu, FolderOpen, Plus, DraftingCompass, Download, Layers, Trash2, Sun, Moon } from "lucide-react";
 import { SAMPLE_PROJECTS, SampleProject } from "../lib/sampleData";
 import { Theme } from "../lib/theme";
 
@@ -17,8 +17,13 @@ interface HeaderProps {
   onToggleTheme: () => void;
 }
 
-const ghostButton =
-  "flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors";
+// Tinggi 32px dipatok eksplisit: tombol yang hanya berisi ikon tadinya 28px
+// karena tak ada teks yang menetapkan line-height, jadi tidak sebaris dengan
+// tetangganya yang berlabel.
+const ghostBase =
+  "h-8 rounded-lg text-sm text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors";
+const ghostButton = `flex items-center gap-2 px-2.5 ${ghostBase}`;
+const ghostIconButton = `grid place-items-center w-8 shrink-0 ${ghostBase}`;
 
 export const Header: React.FC<HeaderProps> = ({
   session,
@@ -61,8 +66,8 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="max-w-6xl mx-auto px-6 lg:px-8 h-14 flex items-center justify-between gap-6">
         {/* Brand & Active Title */}
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-7 h-7 rounded-lg bg-indigo-600 grid place-items-center shrink-0">
-            <Sparkles className="w-4 h-4 text-white" />
+          <div className="w-7 h-7 rounded-lg bg-slate-900 dark:bg-slate-100 grid place-items-center shrink-0">
+            <DraftingCompass className="w-4 h-4 text-white dark:text-slate-900" strokeWidth={2} />
           </div>
           <h1 className="text-sm font-semibold tracking-tight text-slate-900 dark:text-slate-100 truncate">The Architech</h1>
           {activeTitle && (
@@ -182,7 +187,7 @@ export const Header: React.FC<HeaderProps> = ({
 
           <button
             onClick={onToggleTheme}
-            className={ghostButton}
+            className={ghostIconButton}
             title={theme === "dark" ? "Ganti ke mode terang" : "Ganti ke mode gelap"}
             aria-label={theme === "dark" ? "Ganti ke mode terang" : "Ganti ke mode gelap"}
           >

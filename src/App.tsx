@@ -247,7 +247,7 @@ export default function App() {
           <div className="flex items-center gap-5">
             <button
               onClick={() => setIsLLMModalOpen(true)}
-              className="flex items-center gap-1.5 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
+              className="flex items-center gap-1.5 -mx-1.5 px-1.5 py-1 rounded hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
             >
               <Cpu className="w-3.5 h-3.5" />
               {session.llmConfig.provider} · {session.llmConfig.modelName || "model bawaan"}

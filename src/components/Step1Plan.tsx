@@ -29,8 +29,15 @@ interface Step1PlanProps {
   onGoToNextStep: () => void;
 }
 
-// Sampai AI mengusulkan judul, riwayat perlu sesuatu untuk ditampilkan. Potongan
-// awal ide dipakai sebagai nama sementara.
+const fieldLabel = "block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5";
+const fieldInput =
+  "w-full px-3 py-2 bg-white dark:bg-[#262c3b] border border-slate-300 dark:border-[#4a5169] rounded-lg " +
+  "text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 " +
+  "focus:outline-hidden focus:ring-2 focus:ring-indigo-500";
+const fieldHint = "mt-1.5 text-xs text-slate-500 dark:text-slate-400";
+
+// Kalau kolom judul dibiarkan kosong, riwayat masih perlu sesuatu untuk
+// ditampilkan sebelum AI mengusulkan nama. Potongan awal ide dipakai sementara.
 const provisionalTitle = (idea: string): string => {
   const firstLine = idea.trim().split("\n")[0].trim();
   if (firstLine.length <= 60) return firstLine;
@@ -38,7 +45,10 @@ const provisionalTitle = (idea: string): string => {
 };
 
 export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, onGoToNextStep }) => {
+  const [title, setTitle] = useState(session.input.title || "");
   const [description, setDescription] = useState(session.input.description || "");
+  const [targetAudience, setTargetAudience] = useState(session.input.targetAudience || "");
+  const [techStackPreference, setTechStackPreference] = useState(session.input.techStackPreference || "");
 
   const [answers, setAnswers] = useState<Record<string, string>>(session.input.answersToFollowUp || {});
   const [customAnswerActive, setCustomAnswerActive] = useState<Record<string, boolean>>({});
@@ -47,18 +57,27 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Sub-view in Step 1: 'form' (Form & Questions) or 'plan_review' (Architecture & Diagram Review Page)
-  const [subView, setSubView] = useState<"form" | "plan_review">(session.plan ? "plan_review" : "form");
+  // Tiga tahap di dalam Step 1, masing-masing halamannya sendiri: isi data ->
+  // jawab pertanyaan klarifikasi -> tinjau arsitektur.
+  const initialSubView = (): "form" | "clarify" | "plan_review" => {
+    if (session.plan) return "plan_review";
+    if (session.followUps.length > 0) return "clarify";
+    return "form";
+  };
+  const [subView, setSubView] = useState<"form" | "clarify" | "plan_review">(initialSubView);
 
   // Sesi bisa berganti dari luar (buka riwayat, proyek baru, contoh template)
   // sementara komponen ini tetap ter-mount, sehingga state form harus mengikuti.
   // Dikunci ke session.id supaya tidak menimpa apa yang sedang diketik pengguna.
   useEffect(() => {
+    setTitle(session.input.title || "");
     setDescription(session.input.description || "");
+    setTargetAudience(session.input.targetAudience || "");
+    setTechStackPreference(session.input.techStackPreference || "");
     setAnswers(session.input.answersToFollowUp || {});
     setCustomAnswerActive({});
     setErrorMessage(null);
-    setSubView(session.plan ? "plan_review" : "form");
+    setSubView(initialSubView());
   }, [session.id]);
 
   // Klarifikasi bertahap: ronde pertama memulai dari nol, ronde lanjutan
@@ -80,8 +99,10 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: session.input.title || provisionalTitle(description),
+          title: title || provisionalTitle(description),
           description,
+          targetAudience,
+          techStackPreference,
           previousAnswers: isFirstRound ? {} : answers,
           round: nextRound,
           llmConfig: session.llmConfig,
@@ -109,9 +130,10 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
       setAnswers(mergedAnswers);
       onUpdateSession({
         input: {
-          ...session.input,
-          title: session.input.title || provisionalTitle(description),
+          title,
           description,
+          targetAudience,
+          techStackPreference,
           answersToFollowUp: mergedAnswers,
         },
         followUps: mergedQuestions,
@@ -119,6 +141,9 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
         clarificationComplete: data.needsMoreInfo === false,
         readinessNote: data.readinessNote || "",
       });
+
+      // Pertanyaan punya halamannya sendiri, jadi pindah setelah ronde pertama.
+      if (isFirstRound) setSubView("clarify");
     } catch (err: any) {
       setErrorMessage(err.message || "Terjadi kesalahan saat berkomunikasi dengan LLM.");
     } finally {
@@ -141,8 +166,10 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: session.input.title || provisionalTitle(description),
+          title: title || provisionalTitle(description),
           description,
+          targetAudience,
+          techStackPreference,
           answers,
           llmConfig: session.llmConfig,
         }),
@@ -152,15 +179,17 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
       if (!res.ok) throw new Error(data.error || "Gagal membuat Project Plan.");
 
       const plan: ProjectPlan = data;
-      // Judul diambil dari usulan AI; nama sementara dari potongan ide hanya
-      // dipakai kalau AI tidak mengirim apa pun.
-      const resolvedTitle = (data.suggestedTitle || "").trim() || provisionalTitle(description);
+      // Judul dari pengguna selalu menang. Usulan AI hanya mengisi kalau kolom
+      // judul dibiarkan kosong.
+      const resolvedTitle =
+        title.trim() || (data.suggestedTitle || "").trim() || provisionalTitle(description);
       onUpdateSession({
         title: resolvedTitle,
         input: {
-          ...session.input,
           title: resolvedTitle,
           description,
+          targetAudience,
+          techStackPreference,
           answersToFollowUp: answers,
         },
         plan,
@@ -208,25 +237,36 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
           </p>
         </div>
 
-        {/* Sub-view switcher */}
-        {plan && (
+        {/* Penanda tahap. Hanya tahap yang sudah tersedia bisa diklik. */}
+        {(session.followUps.length > 0 || plan) && (
           <div className="inline-flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-700/50 rounded-lg">
-            <button
-              onClick={() => setSubView("form")}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${
-                subView === "form" ? "bg-white dark:bg-[#2f3546] text-slate-900 dark:text-slate-100 shadow-xs" : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
-              }`}
-            >
-              <Edit3 className="w-3.5 h-3.5" /> Form & klarifikasi
-            </button>
-            <button
-              onClick={() => setSubView("plan_review")}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${
-                subView === "plan_review" ? "bg-white dark:bg-[#2f3546] text-slate-900 dark:text-slate-100 shadow-xs" : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
-              }`}
-            >
-              <Eye className="w-3.5 h-3.5" /> Review arsitektur
-            </button>
+            {(
+              [
+                { id: "form", label: "Data proyek", icon: Edit3, available: true },
+                {
+                  id: "clarify",
+                  label: "Klarifikasi",
+                  icon: HelpCircle,
+                  available: session.followUps.length > 0,
+                },
+                { id: "plan_review", label: "Review arsitektur", icon: Eye, available: Boolean(plan) },
+              ] as const
+            ).map(({ id, label, icon: Icon, available }) => (
+              <button
+                key={id}
+                onClick={() => available && setSubView(id)}
+                disabled={!available}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                  subView === id
+                    ? "bg-white dark:bg-[#2f3546] text-slate-900 dark:text-slate-100 shadow-xs"
+                    : available
+                      ? "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
+                      : "text-slate-400 dark:text-slate-600 cursor-not-allowed"
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" /> {label}
+              </button>
+            ))}
           </div>
         )}
       </div>
@@ -242,24 +282,67 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
         </div>
       )}
 
-      {/* SUBVIEW 1: FORM & FOLLOW UP QUESTIONS */}
+      {/* SUBVIEW 1: DATA PROYEK */}
       {subView === "form" && (
         <div className="space-y-8">
-          {/* Satu kolom ide. Judul, target pengguna, dan stack tidak lagi ditanya
-              di sini — AI menyimpulkannya, atau menanyakannya saat klarifikasi. */}
+          {/* Data awal proyek. Semakin lengkap di sini, semakin sedikit yang
+              perlu ditanyakan AI di tahap klarifikasi. */}
           <form
             onSubmit={handleAnalyzeQuestions}
-            className="bg-white dark:bg-[#2f3546] rounded-2xl ring-1 ring-slate-200 dark:ring-[#3f4557] p-2"
+            className="bg-white dark:bg-[#2f3546] rounded-2xl ring-1 ring-slate-200 dark:ring-[#3f4557] p-6 space-y-5"
           >
-            <textarea
-              rows={5}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder={'Contoh: "Aplikasi tracking pengeluaran harian, bisa input lewat WhatsApp, ada dashboard ringkasan bulanan..."'}
-              className="w-full px-4 py-3 bg-transparent text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-hidden resize-none leading-relaxed"
-            />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div>
+                <label className={fieldLabel}>Judul proyek</label>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="misal: AI Code Reviewer Bot"
+                  className={fieldInput}
+                />
+                <p className={fieldHint}>Kosong berarti AI mengusulkan judulnya.</p>
+              </div>
 
-            <div className="flex items-center justify-between gap-3 px-2 pb-1">
+              <div>
+                <label className={fieldLabel}>Target pengguna</label>
+                <input
+                  type="text"
+                  value={targetAudience}
+                  onChange={(e) => setTargetAudience(e.target.value)}
+                  placeholder="misal: Tech Lead, mahasiswa, kasir UMKM"
+                  className={fieldInput}
+                />
+                <p className={fieldHint}>Opsional.</p>
+              </div>
+            </div>
+
+            <div>
+              <label className={fieldLabel}>
+                Deskripsi detail proyek <span className="text-rose-600 dark:text-rose-400">*</span>
+              </label>
+              <textarea
+                rows={5}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Jelaskan ide Anda: masalah apa yang diselesaikan, fitur utama yang dibayangkan, dan bagaimana cara kerjanya."
+                className={`${fieldInput} leading-relaxed resize-y`}
+              />
+            </div>
+
+            <div>
+              <label className={fieldLabel}>Ekspektasi tech stack</label>
+              <input
+                type="text"
+                value={techStackPreference}
+                onChange={(e) => setTechStackPreference(e.target.value)}
+                placeholder="misal: React, Node.js, PostgreSQL"
+                className={fieldInput}
+              />
+              <p className={fieldHint}>Opsional. Kosong berarti AI merekomendasikan.</p>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
               <span className="text-xs text-slate-500 dark:text-slate-400 truncate">
                 {session.llmConfig.provider} · {session.llmConfig.modelName || "model bawaan"}
               </span>
@@ -277,17 +360,23 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
                 ) : (
                   <>
                     <Wand2 className="w-4 h-4" />
-                    Analisis ide
+                    Analisis ide &amp; buat pertanyaan
                   </>
                 )}
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* SUBVIEW 2: HALAMAN KLARIFIKASI */}
+      {subView === "clarify" && (
+        <div className="space-y-8">
 
           {/* Follow-up Questions with Options + 1 Custom Field */}
           {session.followUps.length > 0 && (
-            <div className="bg-slate-50 dark:bg-slate-700/40 rounded-2xl border border-slate-200 dark:border-[#3f4557] p-6 sm:p-8 space-y-6">
-              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-indigo-100 dark:border-indigo-500/30 pb-4">
+            <div className="bg-white dark:bg-[#2f3546] rounded-2xl ring-1 ring-slate-200 dark:ring-[#3f4557] p-6 space-y-6">
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 dark:border-[#3f4557] pb-4">
                 <div>
                   <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-base flex items-center gap-2">
                     <HelpCircle className="w-4 h-4 text-slate-400 dark:text-slate-500" />
@@ -461,7 +550,7 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
         </div>
       )}
 
-      {/* SUBVIEW 2: DEDICATED PLAN REVIEW & HORIZONTAL LOGIC DIAGRAM PAGE */}
+      {/* SUBVIEW 3: REVIEW ARSITEKTUR & DIAGRAM */}
       {subView === "plan_review" && plan && (
         <div className="space-y-8 animate-in fade-in duration-300">
           {/* Plan summary & primary actions */}
