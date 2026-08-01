@@ -1,1 +1,62 @@
 @import "tailwindcss";
+@import "@xyflow/react/dist/style.css";
+
+/* Tailwind 4 memakai prefers-color-scheme secara default. Aplikasi ini punya
+   toggle sendiri, jadi varian dark: dikaitkan ke class .dark pada <html>. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* React Flow menggambar edge dan handle sebagai SVG, di luar jangkauan class
+   Tailwind pada node. Warnanya sengaja sama di kedua mode: hanya permukaan
+   kanvas yang berubah, jadi garis tetap terbaca di terang maupun gelap. */
+.react-flow__edge-path {
+  stroke: #b1b1b7;
+  stroke-width: 1;
+}
+
+.react-flow__handle {
+  width: 8px;
+  height: 8px;
+  border: none;
+  background: #b1b1b7;
+}
+
+/* Kontrol zoom ikut tema. */
+.react-flow__controls-button {
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  color: #475569;
+}
+
+.react-flow__controls-button:hover {
+  background: #f1f5f9;
+}
+
+.dark .react-flow__controls-button {
+  background: #2f3546;
+  border-bottom: 1px solid #3f4557;
+  color: #cbd5e1;
+}
+
+.dark .react-flow__controls-button:hover {
+  background: #3f4557;
+}
+
+.react-flow__controls-button svg {
+  fill: currentColor;
+}
+
+/* Atribusi React Flow dipertahankan, tapi dibuat menyatu dengan kanvas —
+   default-nya berlatar putih dan terlihat seperti scrollbar rusak di mode gelap. */
+.react-flow__attribution {
+  background: transparent;
+  font-size: 10px;
+  padding: 0 4px;
+}
+
+.react-flow__attribution a {
+  color: #94a3b8;
+}
+
+.dark .react-flow__attribution a {
+  color: #64748b;
+}

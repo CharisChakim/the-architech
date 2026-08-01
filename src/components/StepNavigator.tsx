@@ -53,7 +53,7 @@ export const StepNavigator: React.FC<StepNavigatorProps> = ({ session, onSelectS
   };
 
   return (
-    <div className="bg-white border-b border-slate-200 sticky top-14 z-30">
+    <div className="bg-white dark:bg-[#262c3b] border-b border-slate-200 dark:border-[#3f4557] sticky top-14 z-30">
       <div className="max-w-6xl mx-auto px-6 lg:px-8">
         <nav className="flex items-center gap-1 overflow-x-auto">
           {steps.map((step, idx) => {
@@ -68,10 +68,10 @@ export const StepNavigator: React.FC<StepNavigatorProps> = ({ session, onSelectS
                   aria-current={isActive ? "step" : undefined}
                   className={`flex items-center gap-2.5 shrink-0 py-4 px-1 border-b-2 transition-colors ${
                     isActive
-                      ? "border-indigo-600 text-slate-900"
+                      ? "border-indigo-600 text-slate-900 dark:text-slate-100"
                       : isLocked
-                        ? "border-transparent text-slate-400 cursor-not-allowed"
-                        : "border-transparent text-slate-500 hover:text-slate-900"
+                        ? "border-transparent text-slate-400 dark:text-slate-500 cursor-not-allowed"
+                        : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
                   }`}
                 >
                   <span
@@ -79,8 +79,8 @@ export const StepNavigator: React.FC<StepNavigatorProps> = ({ session, onSelectS
                       isActive
                         ? "bg-indigo-600 text-white"
                         : step.isCompleted
-                          ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
-                          : "bg-slate-100 text-slate-500"
+                          ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-200 dark:ring-emerald-500/30"
+                          : "bg-slate-100 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400"
                     }`}
                   >
                     {isLocked ? (
@@ -95,7 +95,7 @@ export const StepNavigator: React.FC<StepNavigatorProps> = ({ session, onSelectS
                 </button>
 
                 {idx < steps.length - 1 && (
-                  <ChevronRight className="w-4 h-4 text-slate-300 shrink-0 mx-1" aria-hidden />
+                  <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 shrink-0 mx-1" aria-hidden />
                 )}
               </React.Fragment>
             );
@@ -103,7 +103,7 @@ export const StepNavigator: React.FC<StepNavigatorProps> = ({ session, onSelectS
         </nav>
 
         {lockNotice && (
-          <div className="pb-3 -mt-1 flex items-center gap-2 text-xs text-amber-700">
+          <div className="pb-3 -mt-1 flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
             <Lock className="w-3.5 h-3.5 shrink-0" />
             {lockNotice}
           </div>

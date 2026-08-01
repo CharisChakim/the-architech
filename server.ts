@@ -327,6 +327,12 @@ Sangat Penting untuk Diagram Logika / Arsitektur:
 - Buatkan sintaks Mermaid.js HORIZONTAL MENGGUNAKAN 'graph LR' ATAU 'flowchart LR' (kiri ke kanan, bukan vertikal).
 - Pastikan sintaks Mermaid VALID tanpa karakter ilegal.
 
+Sangat Penting untuk Sub Fitur:
+- Setiap fitur di "coreFeatures" WAJIB dipecah menjadi 2 sampai 6 sub fitur pada bidang "subFeatures".
+- Sub fitur adalah bagian konkret yang bisa dikerjakan sebagai unit terpisah, bukan pengulangan nama fitur.
+- Tulis ringkas (2-4 kata) seperti judul kartu, misal "Tampilan Candlestick", "Ganti Timeframe", "Atur Sinkron".
+- Jangan menulis kalimat panjang atau penjelasan pada sub fitur.
+
 Kembalikan respon PERSIS dalam format JSON berikut tanpa teks tambahan:
 {
   "summary": "Ringkasan eksekutif rencana proyek...",
@@ -337,7 +343,12 @@ Kembalikan respon PERSIS dalam format JSON berikut tanpa teks tambahan:
       {
         "name": "Nama Fitur",
         "description": "Detail deskripsi dan fungsi fitur...",
-        "priority": "P0" // "P0" (MVP Wajib), "P1" (Penting), atau "P2" (Opsional/Tahap Lanjutan)
+        "priority": "P0", // "P0" (MVP Wajib), "P1" (Penting), atau "P2" (Opsional/Tahap Lanjutan)
+        "subFeatures": [
+          "Sub fitur konkret yang bisa dikerjakan terpisah",
+          "Sub fitur kedua",
+          "Sub fitur ketiga"
+        ]
       }
     ],
     "techStack": [
@@ -400,10 +411,23 @@ Teknologi Diharapkan: ${techStackPreference || "Rekomendasi Terbaik AI"}
 Jawaban & Klarifikasi Tambahan dari Pengguna:
 ${answersFormatted}
 
-Buatkan Project Plan & Arsitektur Aplikasi yang matang, efisien, dan menyertakan diagram HORIZONTAL (graph LR). Jawab dalam format JSON sesuai skema.`;
+Buatkan Project Plan & Arsitektur Aplikasi yang matang, efisien, dan menyertakan diagram HORIZONTAL (graph LR).
+Setiap fitur WAJIB memiliki "subFeatures" berisi 2-6 pecahan ringkas. Jawab dalam format JSON sesuai skema.`;
 
     const rawText = await callLlm(prompt, systemInstruction, llmConfig);
     const data = parseJsonFromLlm(rawText);
+
+    // Sub fitur menopang kolom ketiga kanvas struktur, jadi bentuknya dipastikan
+    // di sini: selalu array string non-kosong, apa pun yang dikirim LLM.
+    if (Array.isArray(data?.specs?.coreFeatures)) {
+      data.specs.coreFeatures = data.specs.coreFeatures.map((f: any) => ({
+        ...f,
+        subFeatures: (Array.isArray(f?.subFeatures) ? f.subFeatures : [])
+          .map((s: any) => (typeof s === "string" ? s.trim() : String(s?.name ?? s ?? "").trim()))
+          .filter((s: string) => s.length > 0),
+      }));
+    }
+
     res.json(data);
   } catch (err: any) {
     console.error("Error /api/generate-plan:", err);

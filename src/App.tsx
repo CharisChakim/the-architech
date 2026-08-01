@@ -8,6 +8,7 @@ import {
   saveActiveSessionId,
 } from "./lib/localStorage";
 import { fetchSessionList, fetchSession, persistSession, removeSession } from "./lib/sessionStore";
+import { Theme, loadTheme, saveTheme, applyTheme } from "./lib/theme";
 import { SampleProject } from "./lib/sampleData";
 import { Header } from "./components/Header";
 import { StepNavigator } from "./components/StepNavigator";
@@ -25,6 +26,12 @@ export default function App() {
 
   const [isLLMModalOpen, setIsLLMModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [theme, setTheme] = useState<Theme>(loadTheme);
+
+  useEffect(() => {
+    applyTheme(theme);
+    saveTheme(theme);
+  }, [theme]);
 
   // Snapshot of what the store already holds, so hydrating a session does not
   // immediately write it back (which would reorder history just by opening it).
@@ -149,9 +156,9 @@ export default function App() {
 
   if (!session) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="flex items-center gap-3 text-sm text-slate-500">
-          <RefreshCw className="w-4 h-4 animate-spin text-indigo-600" />
+      <div className="min-h-screen bg-slate-50 dark:bg-[#1e2331] flex items-center justify-center">
+        <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
+          <RefreshCw className="w-4 h-4 animate-spin text-indigo-600 dark:text-indigo-300" />
           Memuat riwayat proyek...
         </div>
       </div>
@@ -159,7 +166,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-sm text-slate-900 font-sans antialiased flex flex-col selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#1e2331] text-sm text-slate-900 dark:text-slate-100 font-sans antialiased flex flex-col selection:bg-indigo-500 selection:text-white">
       {/* Top Header */}
       <Header
         session={session}
@@ -170,6 +177,8 @@ export default function App() {
         historySessions={historySessions}
         onDeleteHistory={handleDeleteHistory}
         onOpenExport={() => setIsExportModalOpen(true)}
+        theme={theme}
+        onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
       />
 
       {/* Interactive 3-Step Pipeline Navigator */}
@@ -178,15 +187,15 @@ export default function App() {
       {/* Main Container */}
       <main className="flex-1 w-full max-w-6xl mx-auto px-6 lg:px-8 py-10">
         {storeError && (
-          <div className="mb-8 p-4 bg-amber-50 rounded-xl ring-1 ring-amber-200 text-amber-900 flex items-start gap-3">
-            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+          <div className="mb-8 p-4 bg-amber-50 dark:bg-amber-500/10 rounded-xl ring-1 ring-amber-200 dark:ring-amber-500/30 text-amber-900 dark:text-amber-200 flex items-start gap-3">
+            <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
             <div className="flex-1">
               <p className="font-medium">Penyimpanan riwayat bermasalah</p>
-              <p className="text-amber-800 mt-0.5">{storeError}</p>
+              <p className="text-amber-800 dark:text-amber-300 mt-0.5">{storeError}</p>
             </div>
             <button
               onClick={() => setStoreError(null)}
-              className="text-xs text-amber-700 hover:text-amber-900 font-medium shrink-0"
+              className="text-xs text-amber-700 dark:text-amber-300 hover:text-amber-900 font-medium shrink-0"
             >
               Tutup
             </button>
@@ -232,13 +241,13 @@ export default function App() {
       />
 
       {/* Footer */}
-      <footer className="border-t border-slate-200 text-xs text-slate-500 py-6 mt-16">
+      <footer className="border-t border-slate-200 dark:border-[#3f4557] text-xs text-slate-500 dark:text-slate-400 py-6 mt-16">
         <div className="max-w-6xl mx-auto px-6 lg:px-8 flex flex-wrap items-center justify-between gap-3">
           <span>Perencanaan → PRD → Task Agent</span>
           <div className="flex items-center gap-5">
             <button
               onClick={() => setIsLLMModalOpen(true)}
-              className="flex items-center gap-1.5 hover:text-slate-900 transition-colors"
+              className="flex items-center gap-1.5 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
             >
               <Cpu className="w-3.5 h-3.5" />
               {session.llmConfig.provider} · {session.llmConfig.modelName}

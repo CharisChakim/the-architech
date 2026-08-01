@@ -28,6 +28,9 @@ export interface FeatureSpec {
   name: string;
   description: string;
   priority: 'P0' | 'P1' | 'P2';
+  // Pecahan fitur yang bisa dikerjakan terpisah. Mengisi kolom ketiga kanvas
+  // struktur; opsional karena plan lama tidak memilikinya.
+  subFeatures?: string[];
 }
 
 export interface TechStackSpec {
