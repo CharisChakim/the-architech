@@ -70,6 +70,16 @@ function parseJsonFromLlm(text: string): any {
   }
 }
 
+// Base URL endpoint OpenAI-compatible ditulis orang dengan tiga cara yang
+// sama-sama wajar: root polos, sudah termasuk "/v1" (bentuk baku OpenAI), atau
+// path lengkap. Tanpa normalisasi, bentuk kedua menjadi "/v1/v1/chat/completions".
+function openAiChatUrl(baseUrl: string): string {
+  const root = baseUrl.trim().replace(/\/+$/, "");
+  if (/\/chat\/completions$/.test(root)) return root;
+  if (/\/v\d+$/.test(root)) return `${root}/chat/completions`;
+  return `${root}/v1/chat/completions`;
+}
+
 // Flexible LLM caller handling Gemini or Ollama / Custom API
 async function callLlm(prompt: string, systemInstruction: string, llmConfig?: any): Promise<string> {
   const provider = llmConfig?.provider || "gemini";
@@ -107,7 +117,7 @@ async function callLlm(prompt: string, systemInstruction: string, llmConfig?: an
         headers["Authorization"] = `Bearer ${llmConfig.apiKey}`;
       }
       
-      const customRes = await fetch(`${baseUrl.replace(/\/$/, "")}/v1/chat/completions`, {
+      const customRes = await fetch(openAiChatUrl(baseUrl), {
         method: "POST",
         headers,
         body: JSON.stringify({
@@ -259,6 +269,15 @@ ATURAN JUMLAH PERTANYAAN:
 - Jika informasi sudah CUKUP untuk menyusun rencana yang matang, kembalikan "questions": [] dan "needsMoreInfo": false.
 - JANGAN mengulang pertanyaan yang sudah dijawab, dan jangan bertanya hal yang jawabannya sudah tersirat di deskripsi.
 - Jangan bertanya hanya untuk memenuhi kuota. Satu pertanyaan tajam lebih baik daripada lima pertanyaan basa-basi.
+${
+  currentRound === 1
+    ? `
+WAJIB PADA RONDE 1 INI:
+- Sertakan satu pertanyaan berkategori "technical" yang mengkonfirmasi apakah aplikasi ini benar-benar memerlukan komponen AI/LLM, KECUALI deskripsi pengguna sudah menyebut AI secara eksplisit sebagai fungsi inti.
+- Pertanyaan itu WAJIB punya pilihan "Tidak perlu AI, cukup logika biasa" sebagai salah satu options.
+- Jangan berasumsi proyek butuh AI hanya karena perencanaan ini dibantu AI. Banyak aplikasi lebih baik tanpa LLM.`
+    : ""
+}
 
 WAJIB SERTAKAN 3 hingga 4 pilihan jawaban terstruktur (options) untuk setiap pertanyaan agar pengguna tinggal memilih dengan 1 klik atau mengisi jawaban kustom.
 
@@ -321,21 +340,36 @@ Jawab dalam format JSON yang telah ditentukan. Sertakan bidang "options" dengan 
   }
 });
 
+// Dipakai penyusunan awal maupun penyelarasan ulang, jadi hidup di luar handler.
+const DIAGRAM_RULES = `Sangat Penting untuk Diagram Logika / Arsitektur:
+- Buatkan sintaks Mermaid.js HORIZONTAL MENGGUNAKAN 'graph LR' ATAU 'flowchart LR' (kiri ke kanan, bukan vertikal).
+- Pastikan sintaks Mermaid VALID tanpa karakter ilegal.
+- Kelompokkan node dengan blok 'subgraph' per lapisan (misal Client, Backend, Data & Layanan Eksternal). Diagram datar tanpa subgraph membuat garis saling silang.
+- MAKSIMAL 12 node. Gabungkan service sejenis menjadi satu node daripada memecahnya satu per satu.
+- Beri label hanya pada edge yang benar-benar perlu dijelaskan. Edge polos lebih rapi daripada label berulang seperti "Query" di banyak garis.`;
+
+const AI_RULES = `Aturan komponen AI / LLM:
+- Sertakan layer, komponen, service, atau biaya AI/LLM HANYA jika fungsi inti aplikasi memang menuntutnya (misal chatbot, ringkasan otomatis, rekomendasi cerdas, pencarian semantik).
+- Jika kebutuhan AI tidak terbukti dari deskripsi dan jawaban klarifikasi pengguna, JANGAN menambahkan "AI Engine", API key model, atau service AI apa pun. Aplikasi CRUD, dashboard, kasir, atau manajemen data biasanya TIDAK memerlukan LLM.
+- Menambahkan AI yang tidak dibutuhkan adalah kesalahan serius: menaikkan biaya, kompleksitas, dan risiko proyek tanpa alasan.`;
+
 // Fitur 1: Generate Plan (Arsitektur, Roadmap, Estimasi, Diagram Horizontal)
 app.post("/api/generate-plan", async (req, res) => {
   try {
-    const { title, description, targetAudience, techStackPreference, answers, llmConfig } = req.body;
+    const { title, description, targetAudience, techStackPreference, answers, lockedFeatures, llmConfig } = req.body;
     
     const answersFormatted = answers && typeof answers === "object"
       ? Object.entries(answers).map(([q, a]) => `- ${q}: ${a}`).join("\n")
       : "Tidak ada jawaban tambahan dari follow-up.";
 
+    const hasLock = Array.isArray(lockedFeatures) && lockedFeatures.length > 0;
+
     const systemInstruction = `Anda adalah System Architect & Enterprise Product Planner terkemuka.
 Tugas Anda adalah menyusun dokumen "Project Plan & Architecture Specification" yang komprehensif berdasarkan deskripsi aplikasi dan klarifikasi pengguna.
 
-Sangat Penting untuk Diagram Logika / Arsitektur:
-- Buatkan sintaks Mermaid.js HORIZONTAL MENGGUNAKAN 'graph LR' ATAU 'flowchart LR' (kiri ke kanan, bukan vertikal).
-- Pastikan sintaks Mermaid VALID tanpa karakter ilegal.
+${DIAGRAM_RULES}
+
+${AI_RULES}
 
 Sangat Penting untuk Sub Fitur:
 - Setiap fitur di "coreFeatures" WAJIB dipecah menjadi 2 sampai 6 sub fitur pada bidang "subFeatures".
@@ -368,7 +402,7 @@ Kembalikan respon PERSIS dalam format JSON berikut tanpa teks tambahan:
     ],
     "techStack": [
       {
-        "layer": "Frontend / Backend / Database / Deployment / AI Engine",
+        "layer": "Frontend / Backend / Database / Deployment (tambahkan AI Engine HANYA bila proyek benar-benar butuh)",
         "technology": "Nama Teknologi (misal React + Tailwind, Node.js + Express, PostgreSQL)",
         "rationale": "Alasan pemilihan teknologi..."
       }
@@ -385,7 +419,7 @@ Kembalikan respon PERSIS dalam format JSON berikut tanpa teks tambahan:
     ],
     "dataFlow": "Penjelasan alur data utama dari client ke server hingga persistent storage...",
     "securityAndAuth": "Strategi keamanan, enkripsi, dan otentikasi...",
-    "diagramMermaid": "graph LR\\n  Client[User Interface] -->|REST / API| Server[Express Backend]\\n  Server -->|Query| DB[(Database)]\\n  Server -->|SDK| AI[Gemini Engine]"
+    "diagramMermaid": "graph LR\\n  subgraph Client\\n    UI[User Interface]\\n  end\\n  subgraph Backend\\n    API[Application Server]\\n    Worker[Background Worker]\\n  end\\n  subgraph Data\\n    DB[(Database)]\\n    Files[(Object Storage)]\\n  end\\n  UI -->|REST| API\\n  API --> Worker\\n  API --> DB\\n  Worker --> DB\\n  API --> Files"
   },
   "roadmap": [
     {
@@ -405,7 +439,7 @@ Kembalikan respon PERSIS dalam format JSON berikut tanpa teks tambahan:
     "requiredResources": [
       "1 Frontend Developer",
       "1 Backend Engineer",
-      "Gemini AI API Key"
+      "Hosting & domain"
     ],
     "potentialRisks": [
       {
@@ -429,8 +463,74 @@ Buatkan Project Plan & Arsitektur Aplikasi yang matang, efisien, dan menyertakan
 Simpulkan sendiri target pengguna dan stack bila tidak disebutkan di atas.
 Setiap fitur WAJIB memiliki "subFeatures" berisi 2-6 pecahan ringkas. Jawab dalam format JSON sesuai skema.`;
 
-    const rawText = await callLlm(prompt, systemInstruction, llmConfig);
+    // Mode penyelarasan ulang. Meminta model menyalin ulang coreFeatures terbukti
+    // gagal: selama bidang itu ada di skema contoh, model kecil mengisinya dengan
+    // fitur karangannya sendiri lalu merancang arsitektur untuk fitur itu. Maka
+    // di sini coreFeatures dihapus dari skema — model hanya diminta menurunkan
+    // bagian lain, dan daftar fitur dipasang kembali oleh server.
+    const resyncSystemInstruction = `Anda adalah System Architect & Enterprise Product Planner terkemuka.
+Daftar fitur aplikasi ini SUDAH FINAL dan ditetapkan pengguna. Anda TIDAK diminta menyusun, menilai, menambah, atau mengubah daftar fitur.
+Tugas Anda HANYA menurunkan arsitektur, stack, roadmap, dan estimasi yang melayani TEPAT fitur-fitur berikut:
+
+${JSON.stringify(lockedFeatures, null, 2)}
+
+Dilarang merancang komponen, tahapan roadmap, teknologi, atau biaya untuk kemampuan yang tidak ada dalam daftar fitur di atas.
+
+${DIAGRAM_RULES}
+
+${AI_RULES}
+
+Kembalikan respon PERSIS dalam format JSON berikut tanpa teks tambahan. Perhatikan: TIDAK ADA bidang "coreFeatures" di skema ini.
+{
+  "suggestedTitle": "Nama Proyek Singkat",
+  "summary": "Ringkasan eksekutif rencana proyek...",
+  "specs": {
+    "targetAudience": "Penjelasan target pengguna spesifik...",
+    "keyValueProposition": "Nilai jual utama aplikasi...",
+    "techStack": [
+      { "layer": "Frontend", "technology": "Nama Teknologi", "rationale": "Alasan pemilihan..." }
+    ]
+  },
+  "architectureDraft": {
+    "overview": "Deskripsi arsitektur sistem secara menyeluruh...",
+    "components": [
+      { "name": "Nama Komponen", "purpose": "Tujuan komponen...", "type": "Client UI / REST API / Background Worker / Database / Service" }
+    ],
+    "dataFlow": "Penjelasan alur data utama...",
+    "securityAndAuth": "Strategi keamanan dan otentikasi...",
+    "diagramMermaid": "graph LR\\n  subgraph Client\\n    UI[User Interface]\\n  end\\n  subgraph Backend\\n    API[Application Server]\\n  end\\n  subgraph Data\\n    DB[(Database)]\\n  end\\n  UI -->|REST| API\\n  API --> DB"
+  },
+  "roadmap": [
+    { "phase": "Fase 1", "title": "Judul fase", "duration": "1-2 Minggu", "deliverables": ["..."] }
+  ],
+  "estimation": {
+    "totalTimeWeeks": "4-6 Minggu",
+    "complexityLevel": "Sedang",
+    "requiredResources": ["1 Frontend Developer", "1 Backend Engineer"],
+    "potentialRisks": [{ "risk": "...", "mitigation": "..." }]
+  }
+}`;
+
+    const resyncPrompt = `Konteks ide awal pengguna:
+${description}
+${targetAudience ? `Target Pengguna: ${targetAudience}` : ""}
+${techStackPreference ? `Teknologi Diharapkan: ${techStackPreference}` : ""}
+
+Jawaban & Klarifikasi Tambahan dari Pengguna:
+${answersFormatted}
+
+Daftar fitur sudah final (ada di instruksi sistem). Susun arsitektur, techStack, roadmap, dan estimasi yang melayani tepat fitur-fitur itu.
+Jangan mengeluarkan bidang "coreFeatures". Jawab dalam format JSON sesuai skema.`;
+
+    const rawText = hasLock
+      ? await callLlm(resyncPrompt, resyncSystemInstruction, llmConfig)
+      : await callLlm(prompt, systemInstruction, llmConfig);
     const data = parseJsonFromLlm(rawText);
+
+    // Daftar fitur tidak pernah datang dari model saat mode terkunci.
+    if (hasLock) {
+      data.specs = { ...(data.specs || {}), coreFeatures: lockedFeatures };
+    }
 
     // Sub fitur menopang kolom ketiga kanvas struktur, jadi bentuknya dipastikan
     // di sini: selalu array string non-kosong, apa pun yang dikirim LLM.
