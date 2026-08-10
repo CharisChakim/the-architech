@@ -174,6 +174,10 @@ export interface ProjectSession {
   clarificationRound?: number;
   clarificationComplete?: boolean;
   readinessNote?: string;
+  // Pengguna sudah menyunting coreFeatures sendiri, tapi arsitektur, diagram,
+  // roadmap, dan estimasi masih hasil generate sebelum suntingan itu. Dibersihkan
+  // setelah plan diselaraskan ulang.
+  planFeaturesEdited?: boolean;
 }
 
 // Baris riwayat dari SQLite — cukup untuk daftar, tanpa memuat payload penuh.
