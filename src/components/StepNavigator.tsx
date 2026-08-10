@@ -103,7 +103,7 @@ export const StepNavigator: React.FC<StepNavigatorProps> = ({ session, onSelectS
         </nav>
 
         {lockNotice && (
-          <div className="pb-3 -mt-1 flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
+          <div className="pb-3 pt-2 flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
             <Lock className="w-3.5 h-3.5 shrink-0" />
             {lockNotice}
           </div>

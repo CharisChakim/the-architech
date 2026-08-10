@@ -19,7 +19,10 @@ mermaid.initialize({
   flowchart: {
     useMaxWidth: false,
     htmlLabels: false,
-    curve: "basis",
+    // "basis" tidak melewati titik kontrolnya, jadi garis membusur menjauh dari
+    // titik tengah tempat Mermaid menaruh label edge — labelnya jadi terlihat
+    // mengambang lepas dari garis. "linear" membuat label duduk di garisnya.
+    curve: "linear",
   },
 });
 
@@ -158,10 +161,10 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({ chart, explanation
       </div>
 
       {/* Main Container */}
-      <div className={`p-6 bg-slate-50/50 dark:bg-slate-800/40 overflow-auto flex-1 min-h-[320px] max-h-[600px] flex justify-center items-center ${isFullscreen ? "max-h-none h-full" : ""}`}>
+      <div className={`p-6 bg-slate-50/50 dark:bg-slate-800/40 overflow-auto flex-1 min-h-[320px] max-h-[600px] flex ${isFullscreen ? "max-h-none h-full" : ""}`}>
         {activeTab === "visual" ? (
           error ? (
-            <div className="text-center p-6 bg-amber-50 dark:bg-amber-500/10 rounded-xl border border-amber-200 dark:border-amber-500/30 max-w-lg">
+            <div className="m-auto text-center p-6 bg-amber-50 dark:bg-amber-500/10 rounded-xl border border-amber-200 dark:border-amber-500/30 max-w-lg">
               <p className="text-amber-800 dark:text-amber-300 text-sm font-medium mb-2">{error}</p>
               <p className="text-xs text-amber-700 dark:text-amber-300 mb-3">Anda tetap dapat melihat dan menyalin sintaks Mermaid dalam mode 'Mermaid Code'.</p>
               <button
@@ -174,8 +177,12 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({ chart, explanation
           ) : (
             <div
               ref={containerRef}
-              style={{ transform: `scale(${zoom})`, transformOrigin: "top center" }}
-              className="transition-transform duration-200 ease-out p-4 flex justify-center items-center w-full min-w-max"
+              // CSS zoom, bukan transform: scale() — transform tidak mengubah
+              // kotak layout, sehingga elemen tetap memesan tinggi ukuran asli
+              // dan meninggalkan ruang kosong besar di bawah diagram saat
+              // diperkecil. m-auto memusatkan tanpa memotong diagram yang besar.
+              style={{ zoom }}
+              className="m-auto p-4"
               dangerouslySetInnerHTML={{ __html: svgContent }}
             />
           )

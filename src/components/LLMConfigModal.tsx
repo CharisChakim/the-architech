@@ -118,12 +118,7 @@ export const LLMConfigModal: React.FC<LLMConfigModalProps> = ({ isOpen, onClose,
         <div className="px-6 py-4 border-b border-slate-200 dark:border-[#3f4557] flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <Cpu className="w-4 h-4 text-slate-400" />
-            <div>
-              <h3 className="font-semibold text-slate-900 dark:text-slate-100">Pengaturan LLM</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Semua isian dimulai kosong. Yang dibiarkan kosong memakai bawaan server.
-              </p>
-            </div>
+            <h3 className="font-semibold text-slate-900 dark:text-slate-100">Pengaturan LLM</h3>
           </div>
           <button
             onClick={onClose}

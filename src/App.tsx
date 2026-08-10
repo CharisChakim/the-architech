@@ -242,8 +242,7 @@ export default function App() {
 
       {/* Footer */}
       <footer className="border-t border-slate-200 dark:border-[#3f4557] text-xs text-slate-500 dark:text-slate-400 py-6 mt-16">
-        <div className="max-w-6xl mx-auto px-6 lg:px-8 flex flex-wrap items-center justify-between gap-3">
-          <span>Perencanaan → PRD → Task Agent</span>
+        <div className="max-w-6xl mx-auto px-6 lg:px-8 flex flex-wrap items-center justify-end gap-3">
           <div className="flex items-center gap-5">
             <button
               onClick={() => setIsLLMModalOpen(true)}
