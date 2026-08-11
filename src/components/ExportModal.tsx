@@ -81,99 +81,81 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, sessi
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-[#2f3546] rounded-2xl shadow-lg border border-slate-200 dark:border-[#3f4557] w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto">
+      <div className="card shadow-lg w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div className="px-6 py-4 border-b border-line flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <Download className="w-5 h-5 text-indigo-400" />
-            <h3 className="font-semibold text-base">Export Bundle Dokumen Proyek</h3>
+            <Download className="w-4 h-4 text-faint" />
+            <h3 className="font-semibold text-ink">Export bundle dokumen proyek</h3>
           </div>
-          <button onClick={onClose} className="text-slate-400 dark:text-slate-500 hover:text-white p-1 rounded-lg">
-            <X className="w-5 h-5" />
+          <button
+            onClick={onClose}
+            className="p-1.5 text-faint hover:text-ink hover:bg-subtle rounded-lg transition-colors"
+            aria-label="Tutup"
+          >
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         <div className="p-6 space-y-4">
-          <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-            Unduh semua artifact hasil perencanaan AI Anda. Pilih dokumen spesifik yang ingin di-download atau ekspor seluruh bundle JSON.
+          <p className="text-muted leading-relaxed">
+            Unduh artifact hasil perencanaan. Pilih dokumen tertentu, atau ekspor seluruh sesi sebagai JSON.
           </p>
 
-          <div className="space-y-3">
-            {/* Download Plan */}
-            <button
-              onClick={handleDownloadPlan}
-              disabled={!session.plan}
-              className="w-full flex items-center justify-between p-3.5 bg-slate-50 dark:bg-slate-700/40 border border-slate-200 dark:border-[#3f4557] hover:bg-slate-100/80 dark:hover:bg-slate-700/50 rounded-2xl text-left transition-all disabled:opacity-40"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 flex items-center justify-center">
-                  <Compass className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="font-semibold text-xs text-slate-900 dark:text-slate-100">Project Plan & Arsitektur (.md)</div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400">Spesifikasi, tech stack, dan roadmap.</div>
-                </div>
-              </div>
-              <Download className="w-4 h-4 text-slate-400 dark:text-slate-500" />
-            </button>
-
-            {/* Download PRD */}
-            <button
-              onClick={handleDownloadPrd}
-              disabled={!session.prd}
-              className="w-full flex items-center justify-between p-3.5 bg-slate-50 dark:bg-slate-700/40 border border-slate-200 dark:border-[#3f4557] hover:bg-slate-100/80 dark:hover:bg-slate-700/50 rounded-2xl text-left transition-all disabled:opacity-40"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 flex items-center justify-center">
-                  <FileText className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="font-semibold text-xs text-slate-900 dark:text-slate-100">Product Requirement Document (.md)</div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400">PRD lengkap + diagram logika.</div>
-                </div>
-              </div>
-              <Download className="w-4 h-4 text-slate-400 dark:text-slate-500" />
-            </button>
-
-            {/* Download Tasks */}
-            <button
-              onClick={handleDownloadTasks}
-              disabled={!session.tasks}
-              className="w-full flex items-center justify-between p-3.5 bg-slate-50 dark:bg-slate-700/40 border border-slate-200 dark:border-[#3f4557] hover:bg-slate-100/80 dark:hover:bg-slate-700/50 rounded-2xl text-left transition-all disabled:opacity-40"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 flex items-center justify-center">
-                  <Bot className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="font-semibold text-xs text-slate-900 dark:text-slate-100">AI Agent Executable Tasks (AGENTS.md)</div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400">Task list atomik siap untuk AI Coding Agent.</div>
-                </div>
-              </div>
-              <Download className="w-4 h-4 text-slate-400 dark:text-slate-500" />
-            </button>
-
-            {/* Download Full JSON Bundle */}
-            <button
-              onClick={handleDownloadJsonBackup}
-              className="w-full flex items-center justify-between p-3.5 bg-indigo-50 dark:bg-indigo-500/15 border border-indigo-200 dark:border-indigo-500/30 hover:bg-indigo-100/80 rounded-2xl text-left transition-all"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center">
-                  <FileCode className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="font-semibold text-xs text-indigo-950 dark:text-indigo-200">Full Backup Project Session (.json)</div>
-                  <div className="text-xs text-indigo-700 dark:text-indigo-300">Format JSON utuh berisi seluruh state perencanaan.</div>
-                </div>
-              </div>
-              <Download className="w-4 h-4 text-indigo-600 dark:text-indigo-300" />
-            </button>
+          <div className="space-y-2">
+            {[
+              {
+                onClick: handleDownloadPlan,
+                disabled: !session.plan,
+                icon: Compass,
+                title: "Project plan & arsitektur (.md)",
+                caption: "Spesifikasi, tech stack, dan roadmap.",
+              },
+              {
+                onClick: handleDownloadPrd,
+                disabled: !session.prd,
+                icon: FileText,
+                title: "Product requirement document (.md)",
+                caption: "PRD lengkap beserta diagram logika.",
+              },
+              {
+                onClick: handleDownloadTasks,
+                disabled: !session.tasks,
+                icon: Bot,
+                title: "AI agent executable tasks (AGENTS.md)",
+                caption: "Task atomik siap diberikan ke AI coding agent.",
+              },
+              {
+                onClick: handleDownloadJsonBackup,
+                disabled: false,
+                icon: FileCode,
+                title: "Full backup project session (.json)",
+                caption: "Seluruh state perencanaan dalam satu berkas.",
+              },
+            ].map(({ onClick, disabled, icon: Icon, title, caption }) => (
+              <button
+                key={title}
+                onClick={onClick}
+                disabled={disabled}
+                className="w-full flex items-center justify-between gap-3 p-3 border border-line hover:bg-subtle rounded-lg text-left transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
+              >
+                <span className="flex items-center gap-3 min-w-0">
+                  <span className="w-8 h-8 shrink-0 rounded-lg bg-accent-soft text-accent-ink grid place-items-center">
+                    <Icon className="w-4 h-4" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block font-medium text-xs text-ink truncate">{title}</span>
+                    <span className="block text-xs text-faint truncate">{caption}</span>
+                  </span>
+                </span>
+                <Download className="w-4 h-4 text-faint shrink-0" />
+              </button>
+            ))}
           </div>
         </div>
 
-        <div className="px-6 py-4 bg-slate-50 dark:bg-slate-700/40 border-t border-slate-200 dark:border-[#3f4557] flex justify-end">
-          <button onClick={onClose} className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-semibold">
+        <div className="px-6 py-4 border-t border-line flex justify-end">
+          <button onClick={onClose} className="btn-outline">
             Tutup
           </button>
         </div>

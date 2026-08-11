@@ -6,18 +6,20 @@ import {
   saveLLMConfig,
   loadActiveSessionId,
   saveActiveSessionId,
+  loadSidebarCollapsed,
+  saveSidebarCollapsed,
 } from "./lib/localStorage";
 import { fetchSessionList, fetchSession, persistSession, removeSession } from "./lib/sessionStore";
 import { Theme, loadTheme, saveTheme, applyTheme } from "./lib/theme";
 import { SampleProject } from "./lib/sampleData";
-import { Header } from "./components/Header";
-import { StepNavigator } from "./components/StepNavigator";
+import { Sidebar } from "./components/Sidebar";
+import { Topbar } from "./components/Topbar";
 import { Step1Plan } from "./components/Step1Plan";
 import { Step2PRD } from "./components/Step2PRD";
 import { Step3AgentTasks } from "./components/Step3AgentTasks";
 import { LLMConfigModal } from "./components/LLMConfigModal";
 import { ExportModal } from "./components/ExportModal";
-import { Cpu, Database, AlertTriangle, RefreshCw } from "lucide-react";
+import { AlertTriangle, RefreshCw } from "lucide-react";
 
 export default function App() {
   const [session, setSession] = useState<ProjectSession | null>(null);
@@ -26,7 +28,16 @@ export default function App() {
 
   const [isLLMModalOpen, setIsLLMModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(loadSidebarCollapsed);
   const [theme, setTheme] = useState<Theme>(loadTheme);
+
+  const toggleSidebarCollapsed = () => {
+    setIsSidebarCollapsed((prev) => {
+      saveSidebarCollapsed(!prev);
+      return !prev;
+    });
+  };
 
   useEffect(() => {
     applyTheme(theme);
@@ -156,9 +167,9 @@ export default function App() {
 
   if (!session) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-[#1e2331] flex items-center justify-center">
-        <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
-          <RefreshCw className="w-4 h-4 animate-spin text-indigo-600 dark:text-indigo-300" />
+      <div className="min-h-screen bg-canvas flex items-center justify-center">
+        <div className="flex items-center gap-3 text-sm text-muted">
+          <RefreshCw className="w-4 h-4 animate-spin text-accent" />
           Memuat riwayat proyek...
         </div>
       </div>
@@ -166,67 +177,72 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#1e2331] text-sm text-slate-900 dark:text-slate-100 font-sans antialiased flex flex-col selection:bg-indigo-500 selection:text-white">
-      {/* Top Header */}
-      <Header
+    <div className="min-h-screen bg-canvas text-sm text-ink font-sans antialiased flex selection:bg-accent selection:text-accent-fg">
+      <Sidebar
         session={session}
-        onOpenLLMConfig={() => setIsLLMModalOpen(true)}
+        historySessions={historySessions}
+        onSelectStep={handleSelectStep}
         onNewProject={handleNewProject}
         onSelectSample={handleSelectSample}
         onSelectHistorySession={handleSelectHistorySession}
-        historySessions={historySessions}
         onDeleteHistory={handleDeleteHistory}
-        onOpenExport={() => setIsExportModalOpen(true)}
+        onOpenLLMConfig={() => setIsLLMModalOpen(true)}
         theme={theme}
         onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+        collapsed={isSidebarCollapsed}
+        onToggleCollapsed={toggleSidebarCollapsed}
       />
 
-      {/* Interactive 3-Step Pipeline Navigator */}
-      <StepNavigator session={session} onSelectStep={handleSelectStep} />
+      {/* min-w-0 supaya kanvas dan tabel lebar di dalamnya menggulung sendiri,
+          bukan melebarkan seluruh kolom dan mendorong sidebar keluar layar. */}
+      <div className="flex-1 min-w-0 flex flex-col">
+        <Topbar
+          session={session}
+          onOpenMenu={() => setIsSidebarOpen(true)}
+          onOpenExport={() => setIsExportModalOpen(true)}
+        />
 
-      {/* Main Container */}
-      <main className="flex-1 w-full max-w-6xl mx-auto px-6 lg:px-8 py-10">
-        {storeError && (
-          <div className="mb-8 p-4 bg-amber-50 dark:bg-amber-500/10 rounded-xl ring-1 ring-amber-200 dark:ring-amber-500/30 text-amber-900 dark:text-amber-200 flex items-start gap-3">
-            <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="font-medium">Penyimpanan riwayat bermasalah</p>
-              <p className="text-amber-800 dark:text-amber-300 mt-0.5">{storeError}</p>
+        <main className="flex-1 px-4 lg:px-8 py-8">
+          {storeError && (
+            <div className="mb-6 p-4 bg-warn-soft border border-warn/30 rounded-xl text-warn-ink flex items-start gap-3">
+              <AlertTriangle className="w-4 h-4 text-warn shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-medium">Penyimpanan riwayat bermasalah</p>
+                <p className="opacity-80 mt-0.5">{storeError}</p>
+              </div>
+              <button
+                onClick={() => setStoreError(null)}
+                className="text-xs font-medium shrink-0 hover:underline"
+              >
+                Tutup
+              </button>
             </div>
-            <button
-              onClick={() => setStoreError(null)}
-              className="text-xs text-amber-700 dark:text-amber-300 hover:text-amber-900 font-medium shrink-0"
-            >
-              Tutup
-            </button>
-          </div>
-        )}
+          )}
 
-        {session.currentStep === 1 && (
-          <Step1Plan
-            session={session}
-            onUpdateSession={handleUpdateSession}
-            onGoToNextStep={() => handleSelectStep(2)}
-          />
-        )}
+          {session.currentStep === 1 && (
+            <Step1Plan
+              session={session}
+              onUpdateSession={handleUpdateSession}
+              onGoToNextStep={() => handleSelectStep(2)}
+            />
+          )}
 
-        {session.currentStep === 2 && (
-          <Step2PRD
-            session={session}
-            onUpdateSession={handleUpdateSession}
-            onGoToNextStep={() => handleSelectStep(3)}
-          />
-        )}
+          {session.currentStep === 2 && (
+            <Step2PRD
+              session={session}
+              onUpdateSession={handleUpdateSession}
+              onGoToNextStep={() => handleSelectStep(3)}
+            />
+          )}
 
-        {session.currentStep === 3 && (
-          <Step3AgentTasks
-            session={session}
-            onUpdateSession={handleUpdateSession}
-          />
-        )}
-      </main>
+          {session.currentStep === 3 && (
+            <Step3AgentTasks session={session} onUpdateSession={handleUpdateSession} />
+          )}
+        </main>
+      </div>
 
-      {/* Modals */}
       <LLMConfigModal
         isOpen={isLLMModalOpen}
         onClose={() => setIsLLMModalOpen(false)}
@@ -239,25 +255,6 @@ export default function App() {
         onClose={() => setIsExportModalOpen(false)}
         session={session}
       />
-
-      {/* Footer */}
-      <footer className="border-t border-slate-200 dark:border-[#3f4557] text-xs text-slate-500 dark:text-slate-400 py-6 mt-16">
-        <div className="max-w-6xl mx-auto px-6 lg:px-8 flex flex-wrap items-center justify-end gap-3">
-          <div className="flex items-center gap-5">
-            <button
-              onClick={() => setIsLLMModalOpen(true)}
-              className="flex items-center gap-1.5 -mx-1.5 px-1.5 py-1 rounded hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
-            >
-              <Cpu className="w-3.5 h-3.5" />
-              {session.llmConfig.provider} · {session.llmConfig.modelName || "model bawaan"}
-            </button>
-            <span className="flex items-center gap-1.5">
-              <Database className="w-3.5 h-3.5" />
-              {historySessions.length} proyek tersimpan
-            </span>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

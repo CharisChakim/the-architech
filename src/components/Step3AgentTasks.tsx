@@ -14,9 +14,8 @@ import {
   ChevronDown,
   ChevronUp,
   Kanban,
-  Clock,
   ArrowRight,
-  Plus,
+  X,
 } from "lucide-react";
 
 interface Step3AgentTasksProps {
@@ -149,16 +148,38 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
     setTimeout(() => setCopiedAll(false), 2000);
   };
 
-  const todoTasks = tasks.filter((t) => !t.status || t.status === "todo");
-  const inProgressTasks = tasks.filter((t) => t.status === "in_progress");
-  const doneTasks = tasks.filter((t) => t.status === "done");
+  // Ketiga kolom board dirender dari satu kerangka yang sama; hanya isi,
+  // warna penanda, dan aksi di kaki kartunya yang berbeda per status.
+  const columns = [
+    {
+      status: "todo" as const,
+      label: "To do",
+      dot: "bg-faint",
+      tasks: tasks.filter((t) => !t.status || t.status === "todo"),
+      emptyHint: "Semua task sudah dikerjakan.",
+    },
+    {
+      status: "in_progress" as const,
+      label: "In progress",
+      dot: "bg-warn animate-pulse",
+      tasks: tasks.filter((t) => t.status === "in_progress"),
+      emptyHint: 'Klik "Mulai" pada task To do untuk memindahkannya ke sini.',
+    },
+    {
+      status: "done" as const,
+      label: "Done",
+      dot: "bg-ok",
+      tasks: tasks.filter((t) => t.status === "done"),
+      emptyHint: "Task yang sudah diverifikasi AI Agent muncul di sini.",
+    },
+  ];
 
   return (
-    <div className="space-y-8 pb-12">
+    <div className="space-y-6 pb-12">
       {/* Page heading */}
       <div className="max-w-2xl">
-        <h2 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Task untuk AI Agent</h2>
-        <p className="text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+        <h2 className="text-xl font-semibold tracking-tight text-ink">Task untuk AI Agent</h2>
+        <p className="text-muted mt-1.5 leading-relaxed">
           PRD dipecah jadi task atomik dengan file target, dependensi, prompt, dan langkah verifikasi. Salin satu task,
           atau unduh AGENTS.md untuk diberikan ke Cursor, Claude Code, atau Gemini.
         </p>
@@ -166,68 +187,59 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
 
       {/* Error Alert */}
       {errorMessage && (
-        <div className="p-4 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 text-rose-800 dark:text-rose-300 rounded-2xl text-sm">
-          <strong>Error:</strong> {errorMessage}
+        <div className="max-w-3xl p-4 bg-danger-soft border border-danger/30 text-danger-ink rounded-xl">
+          <strong className="font-semibold">Error:</strong> {errorMessage}
         </div>
       )}
 
       {/* Generate Card if no tasks yet */}
       {tasks.length === 0 ? (
-        <div className="bg-white dark:bg-[#2f3546] rounded-2xl border border-slate-200 dark:border-[#3f4557] p-8 text-center space-y-4 shadow-sm">
-          <div className="w-16 h-16 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-2xl mx-auto flex items-center justify-center">
-            <Bot className="w-8 h-8" />
+        <div className="card max-w-3xl p-10 text-center space-y-4">
+          <div className="w-12 h-12 bg-ok-soft text-ok rounded-xl mx-auto flex items-center justify-center">
+            <Bot className="w-6 h-6" />
           </div>
-          <div className="max-w-md mx-auto space-y-2">
-            <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-lg">Generate Kanban Task Board untuk AI Agent</h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-              LLM akan memecah PRD 7 Poin & Arsitektur menjadi urutan task modular siap eksekusi dengan status To Do, In Progress, & Done.
+          <div className="max-w-md mx-auto space-y-1.5">
+            <h3 className="font-semibold text-ink text-base">Bangun Kanban task board untuk AI Agent</h3>
+            <p className="text-muted leading-relaxed">
+              LLM memecah PRD dan arsitektur menjadi urutan task modular siap eksekusi dengan status To Do, In Progress,
+              dan Done.
             </p>
           </div>
-          <button
-            onClick={handleGenerateTasks}
-            disabled={loading}
-            className="px-8 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold text-sm transition-all shadow-md hover:shadow-lg disabled:opacity-50 inline-flex items-center gap-2"
-          >
+          <button onClick={handleGenerateTasks} disabled={loading} className="btn-primary mx-auto">
             {loading ? (
               <>
                 <RefreshCw className="w-4 h-4 animate-spin" />
-                Membangun Kanban Task Board...
+                Membangun task board...
               </>
             ) : (
               <>
                 <Sparkles className="w-4 h-4" />
-                Generate Kanban Task List (.md)
+                Generate task board
               </>
             )}
           </button>
         </div>
       ) : (
-        <div className="space-y-8 animate-in fade-in duration-300">
+        <div className="space-y-5 animate-in fade-in duration-300">
           {/* Header Action Bar */}
-          <div className="bg-white dark:bg-[#2f3546] rounded-2xl ring-1 ring-slate-200 dark:ring-[#3f4557] p-6 flex flex-wrap items-start justify-between gap-5">
+          <div className="card p-5 flex flex-wrap items-start justify-between gap-5">
             <div className="min-w-0">
-              <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300 text-xs font-medium mb-2">
-                <CheckCircle2 className="w-4 h-4" /> {tasks.length} task siap dieksekusi
+              <div className="flex items-center gap-1.5 text-ok text-xs font-medium mb-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5" /> {tasks.length} task siap dieksekusi
               </div>
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Task board</h3>
-              <p className="text-slate-500 dark:text-slate-400 mt-1.5 max-w-xl leading-relaxed">
+              <h3 className="text-base font-semibold text-ink">Task board</h3>
+              <p className="text-muted mt-1 max-w-xl leading-relaxed">
                 Kelola status task di board di bawah, atau unduh AGENTS.md untuk dijalankan oleh AI Agent Anda.
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2 shrink-0">
-              <button
-                onClick={handleCopyAllMd}
-                className="flex items-center gap-1.5 px-3 py-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded-lg text-sm font-medium transition-colors"
-              >
-                {copiedAll ? <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-4 h-4" />}
+              <button onClick={handleCopyAllMd} className="btn-ghost">
+                {copiedAll ? <Check className="w-4 h-4 text-ok" /> : <Copy className="w-4 h-4" />}
                 {copiedAll ? "Tersalin" : "Copy semua"}
               </button>
 
-              <button
-                onClick={handleDownloadMdFile}
-                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg text-sm transition-colors"
-              >
+              <button onClick={handleDownloadMdFile} className="btn-primary">
                 <Download className="w-4 h-4" />
                 Download AGENTS.md
               </button>
@@ -235,242 +247,173 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
           </div>
 
           {/* View Switcher Bar */}
-          <div className="flex flex-wrap items-center justify-between border-b border-slate-200 dark:border-[#3f4557] pb-3 gap-3">
-            <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-700/50 p-1 rounded-2xl">
-              <button
-                onClick={() => setViewMode("kanban")}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
-                  viewMode === "kanban" ? "bg-white dark:bg-[#2f3546] text-indigo-900 dark:text-indigo-200 shadow-xs" : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100"
-                }`}
-              >
-                <Kanban className="w-4 h-4" />
-                Kanban Board View
-              </button>
-
-              <button
-                onClick={() => setViewMode("list")}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
-                  viewMode === "list" ? "bg-white dark:bg-[#2f3546] text-indigo-900 dark:text-indigo-200 shadow-xs" : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100"
-                }`}
-              >
-                <ListOrdered className="w-4 h-4" />
-                Detailed List View
-              </button>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="inline-flex items-center gap-1 bg-subtle p-1 rounded-lg">
+              {(
+                [
+                  { id: "kanban", label: "Kanban board", icon: Kanban },
+                  { id: "list", label: "Daftar detail", icon: ListOrdered },
+                ] as const
+              ).map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  onClick={() => setViewMode(id)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                    viewMode === id ? "bg-surface text-ink shadow-xs" : "text-muted hover:text-ink"
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  {label}
+                </button>
+              ))}
             </div>
 
-            <button
-              onClick={handleGenerateTasks}
-              disabled={loading}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-[#2f3546] border border-slate-200 dark:border-[#3f4557] hover:bg-slate-50 dark:hover:bg-slate-700/40 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-medium transition-all"
-            >
+            <button onClick={handleGenerateTasks} disabled={loading} className="btn-outline text-xs">
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-              Regenerate Tasks
+              Regenerate tasks
             </button>
           </div>
 
           {/* VIEW 1: KANBAN BOARD */}
           {viewMode === "kanban" && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Column 1: To Do */}
-              <div className="bg-slate-100/60 dark:bg-slate-800/40 rounded-2xl p-4 space-y-3">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-[#3f4557] px-2">
-                  <div className="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-200 text-xs uppercase tracking-wider">
-                    <span className="w-3 h-3 rounded-full bg-slate-400"></span>
-                    To Do ({todoTasks.length})
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+              {columns.map((column) => (
+                <div key={column.status} className="bg-subtle rounded-xl p-3 space-y-2.5">
+                  <div className="flex items-center gap-2 px-1.5 pb-2 border-b border-line text-xs font-semibold uppercase tracking-wider text-muted">
+                    <span className={`w-2 h-2 rounded-full ${column.dot}`} />
+                    {column.label}
+                    <span className="text-faint">{column.tasks.length}</span>
                   </div>
-                </div>
 
-                <div className="space-y-3">
-                  {todoTasks.map((task) => (
-                    <div
-                      key={task.id}
-                      onClick={() => setSelectedTaskForModal(task)}
-                      className="bg-white dark:bg-[#2f3546] p-4 rounded-2xl ring-1 ring-slate-200 dark:ring-[#3f4557] hover:border-indigo-400 cursor-pointer transition-all space-y-2 group"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-300">
-                          {task.id}
-                        </span>
-                        <span
-                          className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                            task.priority === "High" ? "bg-rose-100 dark:bg-rose-500/20 text-rose-800 dark:text-rose-300" : "bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300"
+                  <div className="space-y-2.5">
+                    {column.tasks.map((task) => (
+                      <div
+                        key={task.id}
+                        onClick={() => setSelectedTaskForModal(task)}
+                        className="card p-3.5 cursor-pointer transition-colors hover:border-accent space-y-2"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[11px] font-mono font-semibold px-1.5 py-0.5 rounded bg-subtle text-muted">
+                            {task.id}
+                          </span>
+                          <span
+                            className={`text-[11px] font-semibold px-1.5 py-0.5 rounded ${
+                              task.priority === "High" ? "bg-danger-soft text-danger-ink" : "bg-warn-soft text-warn-ink"
+                            }`}
+                          >
+                            {task.priority}
+                          </span>
+                        </div>
+
+                        <h5
+                          className={`font-medium text-xs leading-snug ${
+                            column.status === "done" ? "text-muted line-through" : "text-ink"
                           }`}
                         >
-                          {task.priority}
-                        </span>
+                          {task.title}
+                        </h5>
+
+                        {column.status !== "done" && (
+                          <p className="text-xs text-faint line-clamp-2">{task.promptInstructions}</p>
+                        )}
+
+                        <div className="pt-2 border-t border-line flex items-center justify-between gap-2 text-xs">
+                          {column.status === "todo" && (
+                            <>
+                              <span className="text-faint font-mono truncate">{task.targetFiles?.[0] || "—"}</span>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleTaskStatusChange(task.id, "in_progress");
+                                }}
+                                className="font-medium text-accent hover:brightness-110 flex items-center gap-1 shrink-0"
+                              >
+                                Mulai <ArrowRight className="w-3 h-3" />
+                              </button>
+                            </>
+                          )}
+
+                          {column.status === "in_progress" && (
+                            <>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleTaskStatusChange(task.id, "todo");
+                                }}
+                                className="text-faint hover:text-ink"
+                              >
+                                Kembali
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleTaskStatusChange(task.id, "done");
+                                }}
+                                className="font-medium text-ok hover:brightness-110 flex items-center gap-1"
+                              >
+                                Tandai selesai <Check className="w-3 h-3" />
+                              </button>
+                            </>
+                          )}
+
+                          {column.status === "done" && (
+                            <>
+                              <span className="text-ok flex items-center gap-1">
+                                <Check className="w-3 h-3" /> Terverifikasi
+                              </span>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleTaskStatusChange(task.id, "in_progress");
+                                }}
+                                className="text-faint hover:text-ink"
+                              >
+                                Buka kembali
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
+                    ))}
 
-                      <h5 className="font-semibold text-slate-900 dark:text-slate-100 text-xs leading-snug group-hover:text-indigo-600 transition-colors">
-                        {task.title}
-                      </h5>
-
-                      <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">{task.promptInstructions}</p>
-
-                      <div className="pt-2 border-t border-slate-100 dark:border-[#3f4557] flex items-center justify-between">
-                        <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">{task.targetFiles?.[0] || "File"}</span>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleTaskStatusChange(task.id, "in_progress");
-                          }}
-                          className="text-xs font-semibold text-indigo-600 dark:text-indigo-300 hover:text-indigo-800 flex items-center gap-1"
-                        >
-                          Mulai <ArrowRight className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Column 2: In Progress */}
-              <div className="bg-slate-100/60 dark:bg-slate-800/40 rounded-2xl p-4 space-y-3">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-[#3f4557] px-2">
-                  <div className="flex items-center gap-2 font-semibold text-slate-700 dark:text-slate-200 text-xs uppercase tracking-wider">
-                    <span className="w-3 h-3 rounded-full bg-amber-500 animate-pulse"></span>
-                    In Progress ({inProgressTasks.length})
+                    {column.tasks.length === 0 && (
+                      <p className="p-5 text-center text-xs text-faint rounded-lg border border-dashed border-line">
+                        {column.emptyHint}
+                      </p>
+                    )}
                   </div>
                 </div>
-
-                <div className="space-y-3">
-                  {inProgressTasks.map((task) => (
-                    <div
-                      key={task.id}
-                      onClick={() => setSelectedTaskForModal(task)}
-                      className="bg-white dark:bg-[#2f3546] p-4 rounded-2xl border border-indigo-200 dark:border-indigo-500/30 shadow-2xs hover:border-indigo-500 cursor-pointer transition-all space-y-2 group"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-300">
-                          {task.id}
-                        </span>
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300">
-                          Eksekusi
-                        </span>
-                      </div>
-
-                      <h5 className="font-semibold text-slate-900 dark:text-slate-100 text-xs leading-snug group-hover:text-indigo-600 transition-colors">
-                        {task.title}
-                      </h5>
-
-                      <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">{task.promptInstructions}</p>
-
-                      <div className="pt-2 border-t border-slate-100 dark:border-[#3f4557] flex items-center justify-between">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleTaskStatusChange(task.id, "todo");
-                          }}
-                          className="text-xs text-slate-400 dark:text-slate-500 hover:text-slate-600"
-                        >
-                          Kembali
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleTaskStatusChange(task.id, "done");
-                          }}
-                          className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 flex items-center gap-1"
-                        >
-                          Tandai Selesai <Check className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                  {inProgressTasks.length === 0 && (
-                    <div className="p-6 text-center text-xs text-slate-400 dark:text-slate-500 italic bg-white/50 dark:bg-slate-800/30 rounded-2xl border border-dashed border-slate-200 dark:border-[#3f4557]">
-                      Klik "Mulai" pada task To Do untuk memindahkan ke kolom ini.
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Column 3: Done */}
-              <div className="bg-slate-100/60 dark:bg-slate-800/40 rounded-2xl p-4 space-y-3">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-[#3f4557] px-2">
-                  <div className="flex items-center gap-2 font-semibold text-slate-700 dark:text-slate-200 text-xs uppercase tracking-wider">
-                    <span className="w-3 h-3 rounded-full bg-emerald-500"></span>
-                    Done ({doneTasks.length})
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  {doneTasks.map((task) => (
-                    <div
-                      key={task.id}
-                      onClick={() => setSelectedTaskForModal(task)}
-                      className="bg-white dark:bg-[#2f3546] p-4 rounded-2xl border border-emerald-200 dark:border-emerald-500/30 shadow-2xs hover:border-emerald-400 cursor-pointer transition-all space-y-2 opacity-90"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-300">
-                          {task.id}
-                        </span>
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-300 flex items-center gap-1">
-                          <Check className="w-3 h-3" /> Selesai
-                        </span>
-                      </div>
-
-                      <h5 className="font-semibold text-slate-900 dark:text-slate-100 text-xs leading-snug line-through text-slate-600 dark:text-slate-300">
-                        {task.title}
-                      </h5>
-
-                      <div className="pt-2 border-t border-slate-100 dark:border-[#3f4557] flex items-center justify-between">
-                        <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">Verified</span>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleTaskStatusChange(task.id, "in_progress");
-                          }}
-                          className="text-xs text-slate-400 dark:text-slate-500 hover:text-slate-600"
-                        >
-                          Buka Kembali
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                  {doneTasks.length === 0 && (
-                    <div className="p-6 text-center text-xs text-slate-400 dark:text-slate-500 italic bg-white/50 dark:bg-slate-800/30 rounded-2xl border border-dashed border-slate-200 dark:border-[#3f4557]">
-                      Task yang telah selesai diverifikasi AI Agent akan muncul di sini.
-                    </div>
-                  )}
-                </div>
-              </div>
+              ))}
             </div>
           )}
 
           {/* VIEW 2: DETAILED LIST VIEW */}
           {viewMode === "list" && (
-            <div className="space-y-4">
+            <div className="max-w-5xl space-y-3">
               {tasks.map((task, idx) => {
                 const isExpanded = expandedTasks[task.id] ?? true;
                 const isCopied = copiedTaskId === task.id;
 
                 return (
-                  <div
-                    key={task.id || idx}
-                    className="bg-white dark:bg-[#2f3546] rounded-2xl ring-1 ring-slate-200 dark:ring-[#3f4557] overflow-hidden transition-all hover:border-slate-300 dark:hover:border-[#4a5169]"
-                  >
+                  <div key={task.id || idx} className="card overflow-hidden">
                     <div
                       onClick={() => toggleExpand(task.id)}
-                      className="p-4 sm:p-5 bg-slate-50 dark:bg-slate-700/40 border-b border-slate-200/80 dark:border-[#3f4557] flex flex-wrap items-center justify-between gap-3 cursor-pointer select-none hover:bg-slate-100/80 dark:hover:bg-slate-700/50 transition-colors"
+                      className="px-4 py-3 bg-subtle border-b border-line flex flex-wrap items-center justify-between gap-3 cursor-pointer select-none"
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <span className="px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-300 font-mono font-medium text-xs shrink-0 whitespace-nowrap">
+                        <span className="px-1.5 py-0.5 rounded bg-surface text-muted font-mono font-medium text-[11px] shrink-0">
                           {task.id}
                         </span>
 
                         <div className="min-w-0">
-                          <div className="flex flex-wrap items-baseline gap-x-2.5 text-xs text-slate-500 dark:text-slate-400">
+                          <div className="flex flex-wrap items-baseline gap-x-2 text-xs text-faint">
                             <span>{task.phase || "Fase utama"}</span>
-                            <span className="text-slate-300 dark:text-slate-600">&middot;</span>
-                            <span
-                              className={
-                                task.priority === "High" ? "text-rose-700 dark:text-rose-300 font-medium" : "text-slate-500 dark:text-slate-400"
-                              }
-                            >
+                            <span>&middot;</span>
+                            <span className={task.priority === "High" ? "text-danger font-medium" : ""}>
                               Prioritas {task.priority}
                             </span>
                           </div>
-                          <h5 className="font-medium text-slate-900 dark:text-slate-100 mt-0.5 truncate">{task.title}</h5>
+                          <h5 className="font-medium text-ink mt-0.5 truncate">{task.title}</h5>
                         </div>
                       </div>
 
@@ -480,26 +423,31 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
                             e.stopPropagation();
                             handleCopyTaskPrompt(task);
                           }}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-[#2f3546] border border-slate-200 dark:border-[#3f4557] text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded-xl text-xs font-semibold transition-all shadow-2xs"
+                          className="btn-outline text-xs !py-1.5"
                         >
-                          {isCopied ? <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                          {isCopied ? "Tersalin!" : "Copy Task Prompt"}
+                          {isCopied ? <Check className="w-3.5 h-3.5 text-ok" /> : <Copy className="w-3.5 h-3.5" />}
+                          {isCopied ? "Tersalin" : "Copy prompt"}
                         </button>
 
-                        <div className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-slate-700 rounded-lg">
+                        <span className="p-1.5 text-faint">
                           {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                        </div>
+                        </span>
                       </div>
                     </div>
 
                     {isExpanded && (
-                      <div className="p-5 sm:p-6 space-y-4 text-xs">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-50/80 dark:bg-slate-700/30 rounded-2xl border border-slate-100 dark:border-[#3f4557]">
+                      <div className="p-5 space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
-                            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase block mb-1">File Target:</span>
+                            <span className="text-[11px] font-semibold text-faint uppercase tracking-wider block mb-1.5">
+                              File target
+                            </span>
                             <div className="flex flex-wrap gap-1">
                               {task.targetFiles?.map((f, fIdx) => (
-                                <span key={fIdx} className="font-mono text-xs bg-white dark:bg-[#2f3546] border border-slate-200 dark:border-[#3f4557] text-slate-800 dark:text-slate-200 px-2 py-0.5 rounded">
+                                <span
+                                  key={fIdx}
+                                  className="font-mono text-xs bg-subtle text-muted px-1.5 py-0.5 rounded"
+                                >
                                   {f}
                                 </span>
                               ))}
@@ -507,33 +455,33 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
                           </div>
 
                           <div>
-                            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase block mb-1">Dependensi:</span>
-                            <div className="text-slate-700 dark:text-slate-200 font-medium">
+                            <span className="text-[11px] font-semibold text-faint uppercase tracking-wider block mb-1.5">
+                              Dependensi
+                            </span>
+                            <div className="text-muted">
                               {task.dependencies && task.dependencies.length > 0 ? (
                                 task.dependencies.join(", ")
                               ) : (
-                                <span className="text-slate-400 dark:text-slate-500">Tidak ada dependensi</span>
+                                <span className="text-faint">Tidak ada dependensi</span>
                               )}
                             </div>
                           </div>
                         </div>
 
                         <div>
-                          <div className="flex items-center justify-between mb-1.5">
-                            <label className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                              <Code2 className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-300" /> Instruksi Prompt Siap Eksekusi AI Agent:
-                            </label>
-                          </div>
-                          <div className="bg-slate-900 text-slate-100 font-mono text-xs leading-relaxed p-4 rounded-2xl border border-slate-800 overflow-x-auto whitespace-pre-wrap select-all">
+                          <span className="text-xs font-medium text-muted flex items-center gap-1.5 mb-1.5">
+                            <Code2 className="w-3.5 h-3.5 text-accent" /> Instruksi prompt untuk AI Agent
+                          </span>
+                          <div className="bg-code text-code-ink font-mono text-xs leading-relaxed p-4 rounded-lg overflow-x-auto whitespace-pre-wrap select-all">
                             {task.promptInstructions}
                           </div>
                         </div>
 
-                        <div className="p-3.5 bg-emerald-50/60 dark:bg-emerald-500/10 rounded-2xl border border-emerald-100/80 dark:border-emerald-500/30 text-emerald-950 dark:text-emerald-200">
-                          <strong className="font-semibold block mb-1 text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Langkah Verifikasi Task:
+                        <div className="p-3.5 bg-ok-soft rounded-lg text-ok-ink">
+                          <strong className="font-medium mb-1 flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5" /> Langkah verifikasi
                           </strong>
-                          <p className="text-xs leading-relaxed text-emerald-900/90">{task.verificationSteps}</p>
+                          <p className="text-xs leading-relaxed opacity-90">{task.verificationSteps}</p>
                         </div>
                       </div>
                     )}
@@ -547,68 +495,61 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
 
       {/* TASK DETAIL MODAL */}
       {selectedTaskForModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#2f3546] rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-6 sm:p-8 space-y-6 shadow-lg border border-slate-200 dark:border-[#3f4557] animate-in zoom-in-95 duration-150">
-            <div className="flex items-start justify-between gap-4 border-b border-slate-100 dark:border-[#3f4557] pb-4">
-              <div>
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="card max-w-2xl w-full max-h-[85vh] overflow-y-auto shadow-lg animate-in zoom-in-95 duration-150">
+            <div className="sticky top-0 bg-surface flex items-start justify-between gap-4 border-b border-line px-6 py-4">
+              <div className="min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-300">
+                  <span className="font-mono text-[11px] font-semibold px-1.5 py-0.5 rounded bg-subtle text-muted">
                     {selectedTaskForModal.id}
                   </span>
-                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">{selectedTaskForModal.phase}</span>
+                  <span className="text-xs text-faint truncate">{selectedTaskForModal.phase}</span>
                 </div>
-                <h3 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-slate-100">{selectedTaskForModal.title}</h3>
+                <h3 className="text-base font-semibold text-ink">{selectedTaskForModal.title}</h3>
               </div>
               <button
                 onClick={() => setSelectedTaskForModal(null)}
-                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700/50 hover:bg-slate-200 text-slate-600 dark:text-slate-300 font-semibold flex items-center justify-center"
+                className="p-1.5 shrink-0 rounded-lg text-faint hover:text-ink hover:bg-subtle transition-colors"
+                aria-label="Tutup"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="space-y-4">
+            <div className="p-6 space-y-4">
               <div>
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-200 block mb-1">Status Pekerjaan:</label>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleTaskStatusChange(selectedTaskForModal.id, "todo")}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                      selectedTaskForModal.status === "todo" || !selectedTaskForModal.status
-                        ? "bg-slate-900 text-white"
-                        : "bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-300 hover:bg-slate-200"
-                    }`}
-                  >
-                    To Do
-                  </button>
-                  <button
-                    onClick={() => handleTaskStatusChange(selectedTaskForModal.id, "in_progress")}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                      selectedTaskForModal.status === "in_progress"
-                        ? "bg-amber-600 text-white"
-                        : "bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-300 hover:bg-slate-200"
-                    }`}
-                  >
-                    In Progress
-                  </button>
-                  <button
-                    onClick={() => handleTaskStatusChange(selectedTaskForModal.id, "done")}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                      selectedTaskForModal.status === "done"
-                        ? "bg-emerald-600 text-white"
-                        : "bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-300 hover:bg-slate-200"
-                    }`}
-                  >
-                    Done
-                  </button>
+                <span className="field-label">Status pekerjaan</span>
+                <div className="inline-flex items-center gap-1 bg-subtle p-1 rounded-lg">
+                  {(
+                    [
+                      ["todo", "To do"],
+                      ["in_progress", "In progress"],
+                      ["done", "Done"],
+                    ] as const
+                  ).map(([status, label]) => {
+                    const isActive =
+                      selectedTaskForModal.status === status ||
+                      (status === "todo" && !selectedTaskForModal.status);
+                    return (
+                      <button
+                        key={status}
+                        onClick={() => handleTaskStatusChange(selectedTaskForModal.id, status)}
+                        className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                          isActive ? "bg-surface text-ink shadow-xs" : "text-muted hover:text-ink"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-200 block mb-1">File Target:</label>
+                <span className="field-label">File target</span>
                 <div className="flex flex-wrap gap-1">
                   {selectedTaskForModal.targetFiles?.map((f, i) => (
-                    <span key={i} className="font-mono text-xs bg-slate-100 dark:bg-slate-700/50 px-2.5 py-1 rounded-lg text-slate-800 dark:text-slate-200">
+                    <span key={i} className="font-mono text-xs bg-subtle text-muted px-2 py-1 rounded">
                       {f}
                     </span>
                   ))}
@@ -616,25 +557,22 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-200 block mb-1">Prompt Instruksi untuk AI Agent:</label>
-                <div className="p-4 bg-slate-900 text-slate-100 font-mono text-xs rounded-2xl whitespace-pre-wrap leading-relaxed select-all">
+                <span className="field-label">Prompt instruksi untuk AI Agent</span>
+                <div className="p-4 bg-code text-code-ink font-mono text-xs rounded-lg whitespace-pre-wrap leading-relaxed select-all overflow-x-auto">
                   {selectedTaskForModal.promptInstructions}
                 </div>
               </div>
 
-              <div className="p-4 bg-emerald-50 dark:bg-emerald-500/10 rounded-2xl border border-emerald-200 dark:border-emerald-500/30 text-emerald-950 dark:text-emerald-200">
-                <strong className="text-xs font-semibold block mb-1 text-emerald-900 dark:text-emerald-200">Langkah Verifikasi:</strong>
-                <p className="text-xs">{selectedTaskForModal.verificationSteps}</p>
+              <div className="p-4 bg-ok-soft rounded-lg text-ok-ink">
+                <strong className="text-xs font-medium block mb-1">Langkah verifikasi</strong>
+                <p className="text-xs opacity-90">{selectedTaskForModal.verificationSteps}</p>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-[#3f4557]">
-              <button
-                onClick={() => handleCopyTaskPrompt(selectedTaskForModal)}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm"
-              >
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-line">
+              <button onClick={() => handleCopyTaskPrompt(selectedTaskForModal)} className="btn-primary">
                 {copiedTaskId === selectedTaskForModal.id ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                {copiedTaskId === selectedTaskForModal.id ? "Tersalin!" : "Copy Task Prompt"}
+                {copiedTaskId === selectedTaskForModal.id ? "Tersalin" : "Copy task prompt"}
               </button>
             </div>
           </div>
