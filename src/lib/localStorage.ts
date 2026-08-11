@@ -4,6 +4,7 @@ import { ProjectSession, LLMConfig } from "../types";
 // sesi mana yang terakhir dibuka. Isi proyeknya sendiri hidup di SQLite.
 const ACTIVE_SESSION_ID_KEY = "ai_plan_architect_active_session_id";
 const DEFAULT_LLM_CONFIG_KEY = "ai_plan_architect_llm_config";
+const SIDEBAR_COLLAPSED_KEY = "ai_plan_architect_sidebar_collapsed";
 
 // Semua isian kosong: pengguna yang mengisi, dan yang dibiarkan kosong memakai
 // bawaan server (model default, GEMINI_API_KEY dari environment).
@@ -68,5 +69,22 @@ export function saveActiveSessionId(id: string): void {
     localStorage.setItem(ACTIVE_SESSION_ID_KEY, id);
   } catch (e) {
     console.warn("Failed to save active session id:", e);
+  }
+}
+
+export function loadSidebarCollapsed(): boolean {
+  try {
+    return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
+  } catch (e) {
+    console.warn("Failed to load sidebar state:", e);
+    return false;
+  }
+}
+
+export function saveSidebarCollapsed(collapsed: boolean): void {
+  try {
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? "1" : "0");
+  } catch (e) {
+    console.warn("Failed to save sidebar state:", e);
   }
 }

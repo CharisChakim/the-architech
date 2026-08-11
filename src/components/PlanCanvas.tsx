@@ -19,9 +19,7 @@ const COLUMN_X = [0, 420, 780];
 const ROW_GAP = 200;
 const SUB_FEATURES_SHOWN = 3;
 
-const CARD =
-  "w-56 rounded-2xl px-3.5 py-3 bg-white ring-1 ring-slate-200 shadow-sm " +
-  "dark:bg-[#2f3546] dark:ring-[#3f4557] dark:shadow-none";
+const CARD = "w-56 rounded-xl px-3.5 py-3 bg-surface border border-line shadow-sm dark:shadow-none";
 
 const PRIORITY_LABEL: Record<string, string> = { P0: "MVP", P1: "PENTING", P2: "LANJUTAN" };
 
@@ -30,12 +28,12 @@ function PlanRootNode({ data }: NodeProps) {
   return (
     <div className={CARD}>
       <div className="flex items-center gap-2.5">
-        <span className="w-7 h-7 shrink-0 rounded-lg bg-indigo-50 text-indigo-600 grid place-items-center dark:bg-indigo-500/15 dark:text-indigo-300">
+        <span className="w-7 h-7 shrink-0 rounded-lg bg-accent-soft text-accent-ink grid place-items-center">
           <FileText className="w-4 h-4" />
         </span>
-        <span className="font-semibold text-slate-900 truncate dark:text-slate-100">{title}</span>
+        <span className="font-semibold text-ink truncate">{title}</span>
       </div>
-      <p className="text-xs text-slate-500 mt-2 dark:text-slate-400">Perencanaan</p>
+      <p className="text-xs text-faint mt-2">Perencanaan</p>
       <Handle type="source" position={Position.Right} />
     </div>
   );
@@ -50,17 +48,17 @@ function FeatureNode({ data }: NodeProps) {
   return (
     <div className={`${CARD} relative`}>
       {priority && (
-        <span className="absolute -top-2 right-3 px-1.5 py-0.5 rounded text-[10px] font-semibold tracking-wide bg-indigo-600 text-white">
+        <span className="absolute -top-2 right-3 px-1.5 py-0.5 rounded text-[10px] font-semibold tracking-wide bg-accent text-accent-fg">
           {PRIORITY_LABEL[priority] || priority}
         </span>
       )}
       <div className="flex items-center gap-2.5">
-        <span className="w-7 h-7 shrink-0 rounded-lg bg-slate-100 text-slate-500 grid place-items-center dark:bg-slate-700/50 dark:text-slate-300">
+        <span className="w-7 h-7 shrink-0 rounded-lg bg-subtle text-muted grid place-items-center">
           <LayoutGrid className="w-4 h-4" />
         </span>
-        <span className="font-semibold text-slate-900 truncate dark:text-slate-100">{name}</span>
+        <span className="font-semibold text-ink truncate">{name}</span>
       </div>
-      <p className="text-xs text-slate-500 mt-2 line-clamp-2 dark:text-slate-400">{description}</p>
+      <p className="text-xs text-faint mt-2 line-clamp-2">{description}</p>
       <Handle type="target" position={Position.Left} />
       <Handle type="source" position={Position.Right} />
     </div>
@@ -76,19 +74,14 @@ function SubFeaturesNode({ data }: NodeProps) {
   return (
     <div className={CARD}>
       <div className="flex items-center gap-2 mb-2.5">
-        <Layers className="w-3.5 h-3.5 text-slate-400" />
-        <span className="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">
-          Sub fitur
-        </span>
+        <Layers className="w-3.5 h-3.5 text-faint" />
+        <span className="text-xs font-medium uppercase tracking-wider text-faint">Sub fitur</span>
       </div>
 
       <ul className="space-y-1.5">
         {visible.map((item, idx) => (
-          <li
-            key={idx}
-            className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-slate-50 text-slate-700 dark:bg-slate-700/40 dark:text-slate-200"
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-slate-300 shrink-0 dark:bg-slate-500" />
+          <li key={idx} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-subtle text-muted">
+            <span className="w-1.5 h-1.5 rounded-full bg-strong shrink-0" />
             <span className="text-xs truncate">{item}</span>
           </li>
         ))}
@@ -97,7 +90,7 @@ function SubFeaturesNode({ data }: NodeProps) {
       {(hidden > 0 || expanded) && (
         <button
           onClick={() => setExpanded(!expanded)}
-          className="mt-2 ml-auto flex items-center gap-1 text-xs text-slate-500 hover:text-slate-900 transition-colors dark:text-slate-400 dark:hover:text-slate-100"
+          className="mt-2 ml-auto flex items-center gap-1 text-xs text-faint hover:text-ink transition-colors"
         >
           {expanded ? "Tampilkan lebih sedikit" : `Lihat semua (${items.length})`}
           <ChevronRight className={`w-3 h-3 transition-transform ${expanded ? "rotate-90" : ""}`} />
@@ -163,7 +156,7 @@ export const PlanCanvas: React.FC<PlanCanvasProps> = ({ title, features }) => {
   }, [title, features]);
 
   return (
-    <div className="h-[600px] rounded-2xl overflow-hidden ring-1 ring-slate-200 bg-[#e9ecef] dark:ring-[#3f4557] dark:bg-[#262c3b]">
+    <div className="h-[600px] rounded-xl overflow-hidden border border-line bg-subtle">
       <ReactFlow
         nodes={nodes}
         edges={edges}

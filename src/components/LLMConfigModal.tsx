@@ -25,13 +25,9 @@ const PROVIDERS: { id: LLMProvider; name: string; hint: string; icon: typeof Cpu
   { id: "custom", name: "Custom API", hint: "OpenAI compatible", icon: Server },
 ];
 
-const inputClass =
-  "w-full px-3 py-2 bg-white dark:bg-[#262c3b] border border-slate-300 dark:border-[#4a5169] rounded-lg " +
-  "text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 " +
-  "focus:outline-hidden focus:ring-2 focus:ring-indigo-500";
-
-const labelClass = "block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5";
-const hintClass = "mt-1.5 text-xs text-slate-500 dark:text-slate-400";
+const inputClass = "field";
+const labelClass = "field-label";
+const hintClass = "field-hint";
 
 export const LLMConfigModal: React.FC<LLMConfigModalProps> = ({ isOpen, onClose, config, onSave }) => {
   const [provider, setProvider] = useState<LLMProvider>(config.provider || "gemini");
@@ -112,17 +108,18 @@ export const LLMConfigModal: React.FC<LLMConfigModalProps> = ({ isOpen, onClose,
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-[#2f3546] rounded-2xl shadow-lg ring-1 ring-slate-200 dark:ring-[#3f4557] w-full max-w-xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto">
+      <div className="card shadow-lg w-full max-w-xl overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-200 dark:border-[#3f4557] flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-line flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <Cpu className="w-4 h-4 text-slate-400" />
-            <h3 className="font-semibold text-slate-900 dark:text-slate-100">Pengaturan LLM</h3>
+            <Cpu className="w-4 h-4 text-faint" />
+            <h3 className="font-semibold text-ink">Pengaturan LLM</h3>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 rounded-lg transition-colors"
+            className="p-1.5 text-faint hover:text-ink hover:bg-subtle rounded-lg transition-colors"
+            aria-label="Tutup"
           >
             <X className="w-4 h-4" />
           </button>
@@ -131,7 +128,7 @@ export const LLMConfigModal: React.FC<LLMConfigModalProps> = ({ isOpen, onClose,
         <div className="p-6 space-y-6">
           {/* Provider */}
           <div>
-            <label className={labelClass}>Provider</label>
+            <span className={labelClass}>Provider</span>
             <div className="grid grid-cols-3 gap-2">
               {PROVIDERS.map(({ id, name, hint, icon: Icon }) => {
                 const active = provider === id;
@@ -143,15 +140,15 @@ export const LLMConfigModal: React.FC<LLMConfigModalProps> = ({ isOpen, onClose,
                       setProvider(id);
                       setTestResult(null);
                     }}
-                    className={`p-3 rounded-xl text-left transition-colors ring-1 ${
+                    className={`p-3 rounded-lg text-left transition-colors border ${
                       active
-                        ? "bg-indigo-50 dark:bg-indigo-500/15 ring-indigo-500 text-indigo-900 dark:text-indigo-200"
-                        : "bg-white dark:bg-[#262c3b] ring-slate-200 dark:ring-[#4a5169] text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/40"
+                        ? "bg-accent-soft border-accent text-accent-ink"
+                        : "bg-surface border-line text-muted hover:bg-subtle hover:text-ink"
                     }`}
                   >
-                    <Icon className={`w-4 h-4 mb-2 ${active ? "text-indigo-600 dark:text-indigo-300" : "text-slate-400"}`} />
+                    <Icon className={`w-4 h-4 mb-2 ${active ? "" : "text-faint"}`} />
                     <div className="text-sm font-medium">{name}</div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{hint}</div>
+                    <div className={`text-xs mt-0.5 ${active ? "opacity-70" : "text-faint"}`}>{hint}</div>
                   </button>
                 );
               })}
@@ -222,11 +219,11 @@ export const LLMConfigModal: React.FC<LLMConfigModalProps> = ({ isOpen, onClose,
                     type="checkbox"
                     checked={saveApiKey}
                     onChange={(e) => setSaveApiKey(e.target.checked)}
-                    className="mt-0.5 w-4 h-4 rounded border-slate-300 dark:border-[#4a5169] text-indigo-600 focus:ring-indigo-500"
+                    className="mt-0.5 w-4 h-4 rounded border-strong accent-[var(--app-accent)]"
                   />
-                  <span className="text-xs text-slate-600 dark:text-slate-300">
+                  <span className="text-xs text-muted">
                     Simpan API key di browser ini
-                    <span className="block text-slate-500 dark:text-slate-400 mt-0.5">
+                    <span className="block text-faint mt-0.5">
                       Kalau tidak dicentang, key hanya dipakai selama tab ini terbuka dan tidak ditulis ke
                       localStorage. Key tidak pernah ikut tersimpan ke riwayat proyek.
                     </span>
@@ -238,16 +235,16 @@ export const LLMConfigModal: React.FC<LLMConfigModalProps> = ({ isOpen, onClose,
 
           {testResult && (
             <div
-              className={`p-3.5 rounded-xl ring-1 flex items-start gap-2.5 text-sm ${
+              className={`p-3.5 rounded-lg border flex items-start gap-2.5 ${
                 testResult.success
-                  ? "bg-emerald-50 dark:bg-emerald-500/10 ring-emerald-200 dark:ring-emerald-500/30 text-emerald-900 dark:text-emerald-200"
-                  : "bg-rose-50 dark:bg-rose-500/10 ring-rose-200 dark:ring-rose-500/30 text-rose-900 dark:text-rose-200"
+                  ? "bg-ok-soft border-ok/30 text-ok-ink"
+                  : "bg-danger-soft border-danger/30 text-danger-ink"
               }`}
             >
               {testResult.success ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                <CheckCircle2 className="w-4 h-4 text-ok shrink-0 mt-0.5" />
               ) : (
-                <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                <AlertCircle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
               )}
               <div className="leading-relaxed break-words">{testResult.message}</div>
             </div>
@@ -255,28 +252,17 @@ export const LLMConfigModal: React.FC<LLMConfigModalProps> = ({ isOpen, onClose,
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-slate-200 dark:border-[#3f4557] flex items-center justify-between">
-          <button
-            type="button"
-            onClick={handleTestConnection}
-            disabled={testing}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded-lg transition-colors disabled:opacity-50"
-          >
+        <div className="px-6 py-4 border-t border-line flex items-center justify-between">
+          <button type="button" onClick={handleTestConnection} disabled={testing} className="btn-ghost">
             <RefreshCw className={`w-4 h-4 ${testing ? "animate-spin" : ""}`} />
             {testing ? "Menguji..." : "Uji koneksi"}
           </button>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={onClose}
-              className="px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 rounded-lg transition-colors"
-            >
+            <button onClick={onClose} className="btn-ghost">
               Batal
             </button>
-            <button
-              onClick={handleSave}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors"
-            >
+            <button onClick={handleSave} className="btn-primary">
               Simpan
             </button>
           </div>

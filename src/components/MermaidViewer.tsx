@@ -11,20 +11,21 @@ interface MermaidViewerProps {
 // Diagram datang dari keluaran LLM dan SVG hasilnya dipasang lewat
 // dangerouslySetInnerHTML, jadi securityLevel "strict" (bukan "loose") dipakai
 // agar Mermaid menyanitasi labelnya. Konsekuensinya htmlLabels harus mati.
-mermaid.initialize({
-  startOnLoad: false,
-  theme: "neutral",
-  securityLevel: "strict",
-  fontFamily: "ui-sans-serif, system-ui, sans-serif",
-  flowchart: {
-    useMaxWidth: false,
-    htmlLabels: false,
-    // "basis" tidak melewati titik kontrolnya, jadi garis membusur menjauh dari
-    // titik tengah tempat Mermaid menaruh label edge — labelnya jadi terlihat
-    // mengambang lepas dari garis. "linear" membuat label duduk di garisnya.
-    curve: "linear",
-  },
-});
+const initMermaid = (isDark: boolean) =>
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: isDark ? "dark" : "neutral",
+    securityLevel: "strict",
+    fontFamily: "ui-sans-serif, system-ui, sans-serif",
+    flowchart: {
+      useMaxWidth: false,
+      htmlLabels: false,
+      // "basis" tidak melewati titik kontrolnya, jadi garis membusur menjauh dari
+      // titik tengah tempat Mermaid menaruh label edge — labelnya jadi terlihat
+      // mengambang lepas dari garis. "linear" membuat label duduk di garisnya.
+      curve: "linear",
+    },
+  });
 
 export const MermaidViewer: React.FC<MermaidViewerProps> = ({ chart, explanation, title }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -35,13 +36,29 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({ chart, explanation
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
 
+  // Warna bawaan Mermaid dipanggang ke dalam SVG saat render, jadi tema tidak
+  // bisa ditumpangi CSS — diagram harus dirender ulang saat mode berganti.
+  // Class .dark dipantau langsung, bukan diterima sebagai prop: penulisnya ada
+  // dua (efek tema di App dan skrip anti-kedip di index.html), dan efek App
+  // baru jalan setelah render sehingga membaca DOM saat render selalu telat
+  // satu langkah.
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains("dark"));
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const observer = new MutationObserver(() => setIsDark(root.classList.contains("dark")));
+    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
+
   useEffect(() => {
     let isMounted = true;
     const renderDiagram = async () => {
       if (!chart) return;
       setError(null);
-      
+
       try {
+        initMermaid(isDark);
         const id = `mermaid-${Math.random().toString(36).substring(2, 9)}`;
         // Clean chart string
         let cleanedChart = chart.trim();
@@ -68,7 +85,7 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({ chart, explanation
     return () => {
       isMounted = false;
     };
-  }, [chart]);
+  }, [chart, isDark]);
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(chart);
@@ -90,60 +107,54 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({ chart, explanation
   };
 
   return (
-    <div className={`bg-white dark:bg-[#2f3546] rounded-2xl ring-1 ring-slate-200 dark:ring-[#3f4557] overflow-hidden transition-all ${isFullscreen ? "fixed inset-4 z-50 flex flex-col shadow-lg" : ""}`}>
+    <div className={`card overflow-hidden transition-all ${isFullscreen ? "fixed inset-4 z-50 flex flex-col shadow-lg" : ""}`}>
       {/* Header Toolbar */}
-      <div className="flex flex-wrap items-center justify-between px-5 py-3.5 bg-slate-50 dark:bg-slate-700/40 border-b border-slate-200 dark:border-[#3f4557] gap-3">
-        <div className="flex items-center gap-2">
-          <h4 className="font-semibold text-slate-800 dark:text-slate-200 text-sm">{title || "Diagram Logika Sistem"}</h4>
-        </div>
+      <div className="flex flex-wrap items-center justify-between px-4 py-2.5 bg-subtle border-b border-line gap-3">
+        <h4 className="font-medium text-ink text-sm truncate">{title || "Diagram logika sistem"}</h4>
 
         <div className="flex items-center gap-2">
           {/* View Toggle */}
-          <div className="bg-slate-200/80 dark:bg-slate-700/60 p-1 rounded-lg flex items-center text-xs font-medium">
+          <div className="bg-surface border border-line p-0.5 rounded-lg flex items-center text-xs font-medium">
             <button
               onClick={() => setActiveTab("visual")}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-md transition-all ${activeTab === "visual" ? "bg-white dark:bg-[#2f3546] text-slate-900 dark:text-slate-100 shadow-xs" : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100"}`}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-colors ${activeTab === "visual" ? "bg-subtle text-ink" : "text-muted hover:text-ink"}`}
             >
               <Eye className="w-3.5 h-3.5" />
               Diagram
             </button>
             <button
               onClick={() => setActiveTab("code")}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-md transition-all ${activeTab === "code" ? "bg-white dark:bg-[#2f3546] text-slate-900 dark:text-slate-100 shadow-xs" : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100"}`}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-colors ${activeTab === "code" ? "bg-subtle text-ink" : "text-muted hover:text-ink"}`}
             >
               <Code className="w-3.5 h-3.5" />
-              Mermaid Code
+              Mermaid
             </button>
           </div>
 
           {activeTab === "visual" && (
-            <div className="flex items-center gap-1 bg-white dark:bg-[#2f3546] border border-slate-200 dark:border-[#3f4557] rounded-lg p-1 text-slate-600 dark:text-slate-300">
-              <button onClick={() => setZoom((z) => Math.max(0.5, z - 0.2))} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded text-slate-600 dark:text-slate-300" title="Zoom Out">
+            <div className="flex items-center gap-0.5 bg-surface border border-line rounded-lg p-0.5 text-muted">
+              <button onClick={() => setZoom((z) => Math.max(0.5, z - 0.2))} className="p-1 hover:text-ink rounded" title="Perkecil">
                 <ZoomOut className="w-3.5 h-3.5" />
               </button>
-              <span className="text-xs px-1 font-mono font-medium">{Math.round(zoom * 100)}%</span>
-              <button onClick={() => setZoom((z) => Math.min(2.5, z + 0.2))} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded text-slate-600 dark:text-slate-300" title="Zoom In">
+              <span className="text-xs px-1 font-mono font-medium tabular-nums">{Math.round(zoom * 100)}%</span>
+              <button onClick={() => setZoom((z) => Math.min(2.5, z + 0.2))} className="p-1 hover:text-ink rounded" title="Perbesar">
                 <ZoomIn className="w-3.5 h-3.5" />
               </button>
-              <button onClick={() => setZoom(1)} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded text-slate-600 dark:text-slate-300" title="Reset Zoom">
+              <button onClick={() => setZoom(1)} className="p-1 hover:text-ink rounded" title="Reset zoom">
                 <RefreshCw className="w-3.5 h-3.5" />
               </button>
             </div>
           )}
 
-          <button
-            onClick={handleCopyCode}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-[#2f3546] border border-slate-200 dark:border-[#3f4557] text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded-lg text-xs font-medium transition-all"
-            title="Salin Kode Mermaid"
-          >
-            {copied ? <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-            {copied ? "Tersalin!" : "Copy Code"}
+          <button onClick={handleCopyCode} className="btn-outline text-xs !py-1.5" title="Salin kode Mermaid">
+            {copied ? <Check className="w-3.5 h-3.5 text-ok" /> : <Copy className="w-3.5 h-3.5" />}
+            {copied ? "Tersalin" : "Copy code"}
           </button>
 
           <button
             onClick={handleDownloadSvg}
             disabled={!svgContent}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-500/15 border border-indigo-200 dark:border-indigo-500/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 rounded-lg text-xs font-medium transition-all disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent-soft text-accent-ink rounded-lg text-xs font-medium hover:brightness-105 transition-all disabled:opacity-50"
             title="Unduh SVG"
           >
             <Download className="w-3.5 h-3.5" />
@@ -152,8 +163,8 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({ chart, explanation
 
           <button
             onClick={() => setIsFullscreen(!isFullscreen)}
-            className="p-1.5 bg-white dark:bg-[#2f3546] border border-slate-200 dark:border-[#3f4557] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded-lg transition-all"
-            title={isFullscreen ? "Keluar Layar Penuh" : "Layar Penuh"}
+            className="p-1.5 border border-line bg-surface text-muted hover:text-ink rounded-lg transition-colors"
+            title={isFullscreen ? "Keluar layar penuh" : "Layar penuh"}
           >
             {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
           </button>
@@ -161,17 +172,17 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({ chart, explanation
       </div>
 
       {/* Main Container */}
-      <div className={`p-6 bg-slate-50/50 dark:bg-slate-800/40 overflow-auto flex-1 min-h-[320px] max-h-[600px] flex ${isFullscreen ? "max-h-none h-full" : ""}`}>
+      <div className={`p-6 bg-canvas overflow-auto flex-1 min-h-[320px] max-h-[600px] flex ${isFullscreen ? "max-h-none h-full" : ""}`}>
         {activeTab === "visual" ? (
           error ? (
-            <div className="m-auto text-center p-6 bg-amber-50 dark:bg-amber-500/10 rounded-xl border border-amber-200 dark:border-amber-500/30 max-w-lg">
-              <p className="text-amber-800 dark:text-amber-300 text-sm font-medium mb-2">{error}</p>
-              <p className="text-xs text-amber-700 dark:text-amber-300 mb-3">Anda tetap dapat melihat dan menyalin sintaks Mermaid dalam mode 'Mermaid Code'.</p>
+            <div className="m-auto text-center p-6 bg-warn-soft rounded-xl border border-warn/30 max-w-lg">
+              <p className="text-warn-ink text-sm font-medium mb-2">{error}</p>
+              <p className="text-xs text-warn-ink/80 mb-3">Anda tetap dapat melihat dan menyalin sintaks Mermaid lewat tab "Mermaid".</p>
               <button
                 onClick={() => setActiveTab("code")}
-                className="px-3 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-medium hover:bg-amber-700"
+                className="px-3 py-1.5 bg-warn text-white rounded-lg text-xs font-medium hover:brightness-110"
               >
-                Lihat Sintaks Kode
+                Lihat sintaks kode
               </button>
             </div>
           ) : (
@@ -187,15 +198,15 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({ chart, explanation
             />
           )
         ) : (
-          <div className="w-full h-full bg-slate-900 text-slate-100 font-mono text-xs p-4 rounded-xl overflow-auto leading-relaxed border border-slate-800">
+          <div className="w-full h-full bg-code text-code-ink font-mono text-xs p-4 rounded-lg overflow-auto leading-relaxed">
             <pre>{chart}</pre>
           </div>
         )}
       </div>
 
       {explanation && (
-        <div className="p-4 bg-slate-50 dark:bg-slate-700/40 border-t border-slate-200 dark:border-[#3f4557] text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-          <strong className="text-slate-800 dark:text-slate-200 font-semibold block mb-1">Penjelasan Alur Logika:</strong>
+        <div className="p-4 bg-subtle border-t border-line text-muted leading-relaxed">
+          <strong className="text-ink font-medium block mb-1">Penjelasan alur logika</strong>
           {explanation}
         </div>
       )}

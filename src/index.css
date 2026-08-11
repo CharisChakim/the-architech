@@ -5,40 +5,269 @@
    toggle sendiri, jadi varian dark: dikaitkan ke class .dark pada <html>. */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* ---------------------------------------------------------------------------
+   Token warna.
+
+   Nilainya didefinisikan sebagai custom property biasa supaya bisa ditimpa
+   oleh .dark, lalu dipetakan ke utility Tailwind lewat @theme inline. Dengan
+   begini `bg-surface` menyesuaikan tema sendiri dan komponen tidak perlu lagi
+   menulis pasangan `bg-white dark:bg-[#2f3546]` di setiap elemen.
+
+   Penamaan dibuat berdasarkan peran, bukan rupa:
+     canvas   latar halaman          ink     teks utama
+     surface  kartu / panel          muted   teks sekunder
+     subtle   panel dalam / hover    faint   teks tersier & ikon
+     sidebar  rangka navigasi        line    garis pemisah
+                                     strong  garis kontrol isian
+--------------------------------------------------------------------------- */
+:root {
+  --app-canvas: #f6f7f9;
+  --app-surface: #ffffff;
+  --app-subtle: #f1f3f7;
+  --app-sidebar: #ffffff;
+
+  --app-line: #e4e7ec;
+  --app-strong: #cfd4dd;
+
+  --app-ink: #101828;
+  --app-muted: #5b6474;
+  --app-faint: #98a1b0;
+
+  --app-accent: #4f46e5;
+  --app-accent-fg: #ffffff;
+  --app-accent-soft: #eef2ff;
+  --app-accent-ink: #3730a3;
+
+  --app-ok: #059669;
+  --app-ok-soft: #ecfdf5;
+  --app-ok-ink: #065f46;
+
+  --app-warn: #d97706;
+  --app-warn-soft: #fffbeb;
+  --app-warn-ink: #92400e;
+
+  --app-danger: #e11d48;
+  --app-danger-soft: #fff1f2;
+  --app-danger-ink: #9f1239;
+
+  /* Blok kode selalu gelap di kedua tema — isinya prompt yang disalin ke
+     terminal, dan kontras tetapnya membuat blok itu terbaca sebagai kode. */
+  --app-code: #12161f;
+  --app-code-ink: #e6ebf4;
+}
+
+.dark {
+  --app-canvas: #191d28;
+  --app-surface: #212736;
+  --app-subtle: #2a3040;
+  --app-sidebar: #13161f;
+
+  --app-line: #333a4b;
+  --app-strong: #454d61;
+
+  --app-ink: #e8ecf3;
+  --app-muted: #a4adbd;
+  --app-faint: #6f7a8c;
+
+  --app-accent: #6366f1;
+  --app-accent-fg: #ffffff;
+  --app-accent-soft: #272b4d;
+  --app-accent-ink: #c3c8ff;
+
+  --app-ok: #10b981;
+  --app-ok-soft: #12291f;
+  --app-ok-ink: #6ee7b7;
+
+  --app-warn: #f59e0b;
+  --app-warn-soft: #2c2113;
+  --app-warn-ink: #fcd34d;
+
+  --app-danger: #f43f5e;
+  --app-danger-soft: #2e1720;
+  --app-danger-ink: #fda4af;
+
+  --app-code: #12161f;
+  --app-code-ink: #e6ebf4;
+}
+
+/* Latar dipasang di <html> juga supaya area overscroll dan scrollbar bawaan
+   browser ikut gelap, bukan menyingkap putih di balik aplikasi. */
+html {
+  background: var(--app-canvas);
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-canvas: var(--app-canvas);
+  --color-surface: var(--app-surface);
+  --color-subtle: var(--app-subtle);
+  --color-sidebar: var(--app-sidebar);
+
+  --color-line: var(--app-line);
+  --color-strong: var(--app-strong);
+
+  --color-ink: var(--app-ink);
+  --color-muted: var(--app-muted);
+  --color-faint: var(--app-faint);
+
+  --color-accent: var(--app-accent);
+  --color-accent-fg: var(--app-accent-fg);
+  --color-accent-soft: var(--app-accent-soft);
+  --color-accent-ink: var(--app-accent-ink);
+
+  --color-ok: var(--app-ok);
+  --color-ok-soft: var(--app-ok-soft);
+  --color-ok-ink: var(--app-ok-ink);
+
+  --color-warn: var(--app-warn);
+  --color-warn-soft: var(--app-warn-soft);
+  --color-warn-ink: var(--app-warn-ink);
+
+  --color-danger: var(--app-danger);
+  --color-danger-soft: var(--app-danger-soft);
+  --color-danger-ink: var(--app-danger-ink);
+
+  --color-code: var(--app-code);
+  --color-code-ink: var(--app-code-ink);
+}
+
+/* Kelas isian dipakai di banyak form; dikumpulkan di sini agar satu perubahan
+   berlaku untuk semuanya. */
+@layer components {
+  .field {
+    @apply w-full px-3 py-2 bg-surface border border-strong rounded-lg text-sm text-ink
+           placeholder:text-faint focus:outline-hidden focus:ring-2 focus:ring-accent focus:border-accent;
+  }
+
+  .field-label {
+    @apply block text-xs font-medium text-muted mb-1.5;
+  }
+
+  .field-hint {
+    @apply mt-1.5 text-xs text-faint;
+  }
+
+  /* Kartu: satu radius dan satu jenis garis untuk seluruh aplikasi. */
+  .card {
+    @apply bg-surface border border-line rounded-xl;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent text-accent-fg text-sm font-medium
+           hover:brightness-110 transition-all disabled:opacity-40 disabled:hover:brightness-100;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-muted
+           hover:text-ink hover:bg-subtle transition-colors disabled:opacity-40;
+  }
+
+  .btn-outline {
+    @apply inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-line bg-surface text-sm font-medium
+           text-muted hover:text-ink hover:bg-subtle transition-colors disabled:opacity-40;
+  }
+}
+
+/* Tab "Raw markdown" merender HTML dari react-markdown, jadi elemennya tidak
+   bisa diberi class satu per satu. Plugin @tailwindcss/typography tidak
+   terpasang di proyek ini, jadi gayanya ditulis langsung di sini. */
+.markdown-body {
+  @apply text-sm text-muted leading-relaxed;
+}
+
+.markdown-body h1 {
+  @apply text-lg font-semibold text-ink mt-6 mb-2 first:mt-0;
+}
+
+.markdown-body h2 {
+  @apply text-base font-semibold text-ink mt-6 mb-2 pb-1.5 border-b border-line first:mt-0;
+}
+
+.markdown-body h3,
+.markdown-body h4 {
+  @apply text-sm font-semibold text-ink mt-4 mb-1.5;
+}
+
+.markdown-body p {
+  @apply my-2;
+}
+
+.markdown-body ul {
+  @apply my-2 pl-5 list-disc marker:text-faint;
+}
+
+.markdown-body ol {
+  @apply my-2 pl-5 list-decimal marker:text-faint;
+}
+
+.markdown-body li {
+  @apply my-0.5;
+}
+
+.markdown-body strong {
+  @apply font-semibold text-ink;
+}
+
+.markdown-body a {
+  @apply text-accent underline underline-offset-2;
+}
+
+.markdown-body code {
+  @apply font-mono text-xs bg-subtle text-ink px-1 py-0.5 rounded;
+}
+
+.markdown-body pre {
+  @apply my-3 p-4 rounded-lg bg-code text-code-ink overflow-x-auto;
+}
+
+.markdown-body pre code {
+  @apply bg-transparent text-inherit p-0;
+}
+
+.markdown-body table {
+  @apply my-3 w-full text-left border-collapse;
+}
+
+.markdown-body th,
+.markdown-body td {
+  @apply border border-line px-3 py-1.5;
+}
+
+.markdown-body th {
+  @apply bg-subtle font-semibold text-ink;
+}
+
+.markdown-body blockquote {
+  @apply my-3 pl-3 border-l-2 border-line text-faint;
+}
+
 /* React Flow menggambar edge dan handle sebagai SVG, di luar jangkauan class
-   Tailwind pada node. Warnanya sengaja sama di kedua mode: hanya permukaan
-   kanvas yang berubah, jadi garis tetap terbaca di terang maupun gelap. */
+   Tailwind pada node. */
 .react-flow__edge-path {
-  stroke: #b1b1b7;
-  stroke-width: 1;
+  stroke: var(--app-strong);
+  stroke-width: 1.5;
 }
 
 .react-flow__handle {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border: none;
-  background: #b1b1b7;
+  background: var(--app-strong);
 }
 
-/* Kontrol zoom ikut tema. */
 .react-flow__controls-button {
-  background: #ffffff;
-  border-bottom: 1px solid #e2e8f0;
-  color: #475569;
+  background: var(--app-surface);
+  border-bottom: 1px solid var(--app-line);
+  color: var(--app-muted);
 }
 
 .react-flow__controls-button:hover {
-  background: #f1f5f9;
-}
-
-.dark .react-flow__controls-button {
-  background: #2f3546;
-  border-bottom: 1px solid #3f4557;
-  color: #cbd5e1;
-}
-
-.dark .react-flow__controls-button:hover {
-  background: #3f4557;
+  background: var(--app-subtle);
+  color: var(--app-ink);
 }
 
 .react-flow__controls-button svg {
@@ -54,9 +283,5 @@
 }
 
 .react-flow__attribution a {
-  color: #94a3b8;
-}
-
-.dark .react-flow__attribution a {
-  color: #64748b;
+  color: var(--app-faint);
 }
