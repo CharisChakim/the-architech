@@ -28,9 +28,67 @@ const getGeminiClient = (userApiKey?: string) => {
   });
 };
 
+// Bahasa antarmuka. Klien mengirimnya lewat body (endpoint POST) atau query
+// (?lang=, untuk GET/DELETE riwayat). Yang tidak dikenali jatuh ke Inggris,
+// bahasa bawaan aplikasi.
+type Lang = "en" | "id";
+
+const langOf = (req: any): Lang => ((req.body?.language ?? req.query?.lang) === "id" ? "id" : "en");
+
+// Hanya pesan yang bisa muncul di layar pengguna yang diterjemahkan. Log server
+// tetap satu bahasa supaya mudah dicari.
+const MESSAGES = {
+  emptyResponse: { en: "The LLM returned an empty response.", id: "Respons LLM kosong." },
+  jsonFailedLogged: {
+    en: "Could not parse the JSON from the LLM: {detail}. The raw output is in the server log.",
+    id: "Gagal memproses JSON dari LLM: {detail}. Output mentah ada di log server.",
+  },
+  jsonFailedRaw: {
+    en: "Could not parse the JSON from the LLM: {detail}. Raw output: {raw}",
+    id: "Gagal memproses JSON dari LLM: {detail}. Output mentah: {raw}",
+  },
+  baseUrlRequired: {
+    en: "A base URL is required for a custom LLM / Ollama endpoint.",
+    id: "Base URL endpoint LLM kustom / Ollama wajib diisi.",
+  },
+  customEndpointError: {
+    en: "The custom LLM endpoint returned an error ({status}): {detail}",
+    id: "Endpoint custom LLM mengembalikan error ({status}): {detail}",
+  },
+  customUnreachable: {
+    en: "Could not reach the custom LLM / Ollama at {url}: {detail}. Check that the service is running and reachable.",
+    id: "Gagal menghubungi Custom LLM / Ollama ({url}): {detail}. Pastikan service aktif dan terjangkau.",
+  },
+  geminiError: { en: "Error from the Gemini API: {detail}", id: "Error dari Gemini API: {detail}" },
+  historyLoadFailed: { en: "Failed to load project history.", id: "Gagal memuat riwayat proyek." },
+  sessionNotFound: { en: "Project session not found.", id: "Sesi proyek tidak ditemukan." },
+  sessionLoadFailed: { en: "Failed to open the project session.", id: "Gagal memuat sesi proyek." },
+  sessionIdMismatch: {
+    en: "The session ID in the URL does not match the one in the body.",
+    id: "ID sesi pada URL dan body tidak cocok.",
+  },
+  sessionSaveFailed: { en: "Failed to save the project session.", id: "Gagal menyimpan sesi proyek." },
+  sessionDeleteFailed: { en: "Failed to delete the project session.", id: "Gagal menghapus sesi proyek." },
+  followUpFailed: { en: "Failed to generate the follow-up questions.", id: "Gagal membuat pertanyaan follow-up." },
+  planFailed: { en: "Failed to generate the project plan.", id: "Gagal membuat Project Plan." },
+  prdFailed: { en: "Failed to generate the PRD.", id: "Gagal membuat PRD." },
+  tasksFailed: { en: "Failed to generate the AI agent tasks.", id: "Gagal membuat AI Agent Tasks." },
+} as const;
+
+const msg = (lang: Lang, key: keyof typeof MESSAGES, vars: Record<string, any> = {}): string =>
+  MESSAGES[key][lang].replace(/\{(\w+)\}/g, (whole, name) => (name in vars ? String(vars[name]) : whole));
+
+// Prompt-nya sendiri tetap ditulis dalam Bahasa Indonesia — itu instruksi untuk
+// model, bukan teks yang dilihat pengguna, dan sudah disetel apa adanya. Yang
+// dibuat dinamis hanya bahasa keluarannya.
+const outputLanguage = (lang: Lang): string =>
+  lang === "id"
+    ? "Gunakan Bahasa Indonesia yang profesional, jelas, dan ramah untuk SELURUH nilai teks pada JSON keluaran."
+    : "Write EVERY text value in the JSON output in professional, clear, friendly English.";
+
 // Helper function to extract and parse JSON safely
-function parseJsonFromLlm(text: string): any {
-  if (!text) throw new Error("Respons LLM kosong.");
+function parseJsonFromLlm(text: string, lang: Lang = "en"): any {
+  if (!text) throw new Error(msg(lang, "emptyResponse"));
   let cleaned = text.trim();
   
   // Remove markdown code fence if present
@@ -61,12 +119,10 @@ function parseJsonFromLlm(text: string): any {
         // Output penuh ke log server: pesan ke pengguna harus tetap ringkas,
         // tapi tanpa teks aslinya kegagalan ini tidak bisa didiagnosis.
         console.error("--- Output LLM yang gagal diparse ---\n" + cleaned + "\n--- akhir output ---");
-        throw new Error(
-          `Gagal memproses JSON dari LLM: ${retryErr.message}. Output mentah ada di log server.`
-        );
+        throw new Error(msg(lang, "jsonFailedLogged", { detail: retryErr.message }));
       }
     }
-    throw new Error(`Gagal memproses JSON dari LLM: ${err.message}. Output mentah: ${cleaned.substring(0, 400)}`);
+    throw new Error(msg(lang, "jsonFailedRaw", { detail: err.message, raw: cleaned.substring(0, 400) }));
   }
 }
 
@@ -81,7 +137,7 @@ function openAiChatUrl(baseUrl: string): string {
 }
 
 // Flexible LLM caller handling Gemini or Ollama / Custom API
-async function callLlm(prompt: string, systemInstruction: string, llmConfig?: any): Promise<string> {
+async function callLlm(prompt: string, systemInstruction: string, llmConfig?: any, lang: Lang = "en"): Promise<string> {
   const provider = llmConfig?.provider || "gemini";
   
   if (provider === "ollama" || provider === "custom") {
@@ -89,7 +145,7 @@ async function callLlm(prompt: string, systemInstruction: string, llmConfig?: an
     const model = llmConfig?.modelName || (provider === "ollama" ? "llama3" : "gpt-3.5-turbo");
     
     if (!baseUrl) {
-      throw new Error("Base URL endpoint LLM kustom / Ollama wajib diisi.");
+      throw new Error(msg(lang, "baseUrlRequired"));
     }
     
     try {
@@ -135,13 +191,13 @@ async function callLlm(prompt: string, systemInstruction: string, llmConfig?: an
       
       if (!customRes.ok) {
         const errText = await customRes.text();
-        throw new Error(`Endpoint custom LLM mengembalikan error (${customRes.status}): ${errText}`);
+        throw new Error(msg(lang, "customEndpointError", { status: customRes.status, detail: errText }));
       }
       
       const customData = await customRes.json();
       return customData.choices?.[0]?.message?.content || "";
     } catch (err: any) {
-      throw new Error(`Gagal menghubungi Custom LLM / Ollama (${baseUrl}): ${err.message}. Pastikan service aktif dan terjangkau.`);
+      throw new Error(msg(lang, "customUnreachable", { url: baseUrl, detail: err.message }));
     }
   }
   
@@ -161,7 +217,7 @@ async function callLlm(prompt: string, systemInstruction: string, llmConfig?: an
     
     return response.text || "";
   } catch (err: any) {
-    throw new Error(`Error dari Gemini API: ${err.message}`);
+    throw new Error(msg(lang, "geminiError", { detail: err.message }));
   }
 }
 
@@ -173,12 +229,12 @@ app.get("/api/health", (_req, res) => {
 });
 
 // Riwayat Proyek (SQLite) — daftar, buka, simpan, hapus
-app.get("/api/sessions", (_req, res) => {
+app.get("/api/sessions", (req, res) => {
   try {
     res.json({ sessions: listSessions() });
   } catch (err: any) {
     console.error("Error GET /api/sessions:", err);
-    res.status(500).json({ error: err.message || "Gagal memuat riwayat proyek." });
+    res.status(500).json({ error: err.message || msg(langOf(req), "historyLoadFailed") });
   }
 });
 
@@ -186,13 +242,13 @@ app.get("/api/sessions/:id", (req, res) => {
   try {
     const session = getSession(req.params.id);
     if (!session) {
-      res.status(404).json({ error: "Sesi proyek tidak ditemukan." });
+      res.status(404).json({ error: msg(langOf(req), "sessionNotFound") });
       return;
     }
     res.json(session);
   } catch (err: any) {
     console.error("Error GET /api/sessions/:id:", err);
-    res.status(500).json({ error: err.message || "Gagal memuat sesi proyek." });
+    res.status(500).json({ error: err.message || msg(langOf(req), "sessionLoadFailed") });
   }
 });
 
@@ -200,14 +256,14 @@ app.put("/api/sessions/:id", (req, res) => {
   try {
     const session = req.body;
     if (!session || session.id !== req.params.id) {
-      res.status(400).json({ error: "ID sesi pada URL dan body tidak cocok." });
+      res.status(400).json({ error: msg(langOf(req), "sessionIdMismatch") });
       return;
     }
     saveSession(session);
     res.json({ success: true });
   } catch (err: any) {
     console.error("Error PUT /api/sessions/:id:", err);
-    res.status(500).json({ error: err.message || "Gagal menyimpan sesi proyek." });
+    res.status(500).json({ error: err.message || msg(langOf(req), "sessionSaveFailed") });
   }
 });
 
@@ -217,7 +273,7 @@ app.delete("/api/sessions/:id", (req, res) => {
     res.json({ success: true });
   } catch (err: any) {
     console.error("Error DELETE /api/sessions/:id:", err);
-    res.status(500).json({ error: err.message || "Gagal menghapus sesi proyek." });
+    res.status(500).json({ error: err.message || msg(langOf(req), "sessionDeleteFailed") });
   }
 });
 
@@ -225,10 +281,11 @@ app.delete("/api/sessions/:id", (req, res) => {
 app.post("/api/test-llm", async (req, res) => {
   try {
     const { llmConfig } = req.body;
+    const lang = langOf(req);
     const testPrompt = "Kirim pesan JSON singkat {\"status\": \"connected\", \"message\": \"Koneksi LLM Berhasil\"}";
     const sys = "Respon dalam format JSON valid.";
-    const result = await callLlm(testPrompt, sys, llmConfig);
-    const parsed = parseJsonFromLlm(result);
+    const result = await callLlm(testPrompt, sys, llmConfig, lang);
+    const parsed = parseJsonFromLlm(result, lang);
     res.json({ success: true, response: parsed });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
@@ -240,6 +297,7 @@ app.post("/api/test-llm", async (req, res) => {
 // ronde pertanyaan berikutnya. Tidak ada batas jumlah pertanyaan.
 app.post("/api/followup-questions", async (req, res) => {
   try {
+    const lang = langOf(req);
     const {
       title,
       description,
@@ -260,7 +318,7 @@ app.post("/api/followup-questions", async (req, res) => {
 
     const systemInstruction = `Anda adalah Lead Software Architect & Product Manager Senior.
 Tugas Anda adalah mengklarifikasi ide/deskripsi aplikasi pengguna sampai Anda benar-benar yakin bisa menyusun arsitektur dan rencana proyek tanpa menebak.
-Gunakan Bahasa Indonesia yang profesional, jelas, dan ramah.
+${outputLanguage(lang)}
 
 ATURAN JUMLAH PERTANYAAN:
 - TIDAK ADA batas jumlah pertanyaan. Ajukan sebanyak yang benar-benar Anda perlukan, tidak lebih.
@@ -319,8 +377,8 @@ ${
 
 Jawab dalam format JSON yang telah ditentukan. Sertakan bidang "options" dengan minimal 3 pilihan ringkas untuk setiap pertanyaan.`;
 
-    const rawText = await callLlm(prompt, systemInstruction, llmConfig);
-    const data = parseJsonFromLlm(rawText);
+    const rawText = await callLlm(prompt, systemInstruction, llmConfig, lang);
+    const data = parseJsonFromLlm(rawText, lang);
 
     const questions = (data.questions || []).map((q: any) => ({
       ...q,
@@ -336,7 +394,7 @@ Jawab dalam format JSON yang telah ditentukan. Sertakan bidang "options" dengan 
     });
   } catch (err: any) {
     console.error("Error /api/followup-questions:", err);
-    res.status(500).json({ error: err.message || "Gagal membuat pertanyaan follow-up." });
+    res.status(500).json({ error: err.message || msg(langOf(req), "followUpFailed") });
   }
 });
 
@@ -357,6 +415,7 @@ const AI_RULES = `Aturan komponen AI / LLM:
 app.post("/api/generate-plan", async (req, res) => {
   try {
     const { title, description, targetAudience, techStackPreference, answers, lockedFeatures, llmConfig } = req.body;
+    const lang = langOf(req);
     
     const answersFormatted = answers && typeof answers === "object"
       ? Object.entries(answers).map(([q, a]) => `- ${q}: ${a}`).join("\n")
@@ -365,6 +424,7 @@ app.post("/api/generate-plan", async (req, res) => {
     const hasLock = Array.isArray(lockedFeatures) && lockedFeatures.length > 0;
 
     const systemInstruction = `Anda adalah System Architect & Enterprise Product Planner terkemuka.
+${outputLanguage(lang)}
 Tugas Anda adalah menyusun dokumen "Project Plan & Architecture Specification" yang komprehensif berdasarkan deskripsi aplikasi dan klarifikasi pengguna.
 
 ${DIAGRAM_RULES}
@@ -469,6 +529,7 @@ Setiap fitur WAJIB memiliki "subFeatures" berisi 2-6 pecahan ringkas. Jawab dala
     // di sini coreFeatures dihapus dari skema — model hanya diminta menurunkan
     // bagian lain, dan daftar fitur dipasang kembali oleh server.
     const resyncSystemInstruction = `Anda adalah System Architect & Enterprise Product Planner terkemuka.
+${outputLanguage(lang)}
 Daftar fitur aplikasi ini SUDAH FINAL dan ditetapkan pengguna. Anda TIDAK diminta menyusun, menilai, menambah, atau mengubah daftar fitur.
 Tugas Anda HANYA menurunkan arsitektur, stack, roadmap, dan estimasi yang melayani TEPAT fitur-fitur berikut:
 
@@ -523,9 +584,9 @@ Daftar fitur sudah final (ada di instruksi sistem). Susun arsitektur, techStack,
 Jangan mengeluarkan bidang "coreFeatures". Jawab dalam format JSON sesuai skema.`;
 
     const rawText = hasLock
-      ? await callLlm(resyncPrompt, resyncSystemInstruction, llmConfig)
-      : await callLlm(prompt, systemInstruction, llmConfig);
-    const data = parseJsonFromLlm(rawText);
+      ? await callLlm(resyncPrompt, resyncSystemInstruction, llmConfig, lang)
+      : await callLlm(prompt, systemInstruction, llmConfig, lang);
+    const data = parseJsonFromLlm(rawText, lang);
 
     // Daftar fitur tidak pernah datang dari model saat mode terkunci.
     if (hasLock) {
@@ -546,7 +607,7 @@ Jangan mengeluarkan bidang "coreFeatures". Jawab dalam format JSON sesuai skema.
     res.json(data);
   } catch (err: any) {
     console.error("Error /api/generate-plan:", err);
-    res.status(500).json({ error: err.message || "Gagal membuat Project Plan." });
+    res.status(500).json({ error: err.message || msg(langOf(req), "planFailed") });
   }
 });
 
@@ -554,8 +615,10 @@ Jangan mengeluarkan bidang "coreFeatures". Jawab dalam format JSON sesuai skema.
 app.post("/api/generate-prd", async (req, res) => {
   try {
     const { title, plan, llmConfig } = req.body;
+    const lang = langOf(req);
     
     const systemInstruction = `Anda adalah Technical Product Manager & Software Architect berpengalaman.
+${outputLanguage(lang)}
 Tugas Anda adalah menghasilkan Product Requirement Document (PRD) yang detail, terstruktur, dan Wajib mencakup 7 POIN UTAMA berikut:
 
 PRD - Project Requirements Document
@@ -644,8 +707,8 @@ Arsitektur: ${JSON.stringify(plan?.architectureDraft || {})}
 Susunkan dokumen PRD yang Wajib memuat 7 poin standar secara lengkap beserta diagram horizontal (graph LR) dalam format JSON yang diminta.
 Setelah menyusun 7 poin wajib, nilai apakah proyek ini memerlukan poin tambahan (8, 9, dst). Tambahkan lewat "additionalSections" hanya jika benar-benar perlu, dan pastikan ikut tertulis di "fullMarkdownText".`;
 
-    const rawText = await callLlm(prompt, systemInstruction, llmConfig);
-    const data = parseJsonFromLlm(rawText);
+    const rawText = await callLlm(prompt, systemInstruction, llmConfig, lang);
+    const data = parseJsonFromLlm(rawText, lang);
 
     // Ensure fallback properties for legacy component support if needed
     data.executiveSummary = data.executiveSummary || data.overview;
@@ -665,7 +728,7 @@ Setelah menyusun 7 poin wajib, nilai apakah proyek ini memerlukan poin tambahan 
     res.json(data);
   } catch (err: any) {
     console.error("Error /api/generate-prd:", err);
-    res.status(500).json({ error: err.message || "Gagal membuat PRD." });
+    res.status(500).json({ error: err.message || msg(langOf(req), "prdFailed") });
   }
 });
 
@@ -673,8 +736,10 @@ Setelah menyusun 7 poin wajib, nilai apakah proyek ini memerlukan poin tambahan 
 app.post("/api/generate-tasks", async (req, res) => {
   try {
     const { title, plan, prd, llmConfig } = req.body;
+    const lang = langOf(req);
     
     const systemInstruction = `Anda adalah Principal AI Engineer & Prompt Architect.
+${outputLanguage(lang)}
 Tugas Anda adalah memecah PRD (7 poin) dan Arsitektur Proyek menjadi daftar tugas pengkodean yang modular, terpola atomik, dan SIAP DIEKSEKUSI OLEH AI CODING AGENT (seperti Cursor, Antigravity Agent, Claude Code, Gemini Code Assist).
 
 Tugas-tugas ini harus bersifat self-contained dengan instruksi teknis yang jelas, file target spesifik, dependensi, dan langkah verifikasi.
@@ -708,8 +773,8 @@ Skema Database: ${JSON.stringify(prd?.databaseSchema || prd?.dataSchema || [])}
 Silakan buatkan pecahan Task AI Agent yang komprehensif (minimal 5-10 task atomik berurutan).
 Setiap task harus menyertakan promptInstructions lengkap yang siap di-copy/paste atau dibaca oleh AI Agent untuk coding tanpa ambigu.`;
 
-    const rawText = await callLlm(prompt, systemInstruction, llmConfig);
-    const data = parseJsonFromLlm(rawText);
+    const rawText = await callLlm(prompt, systemInstruction, llmConfig, lang);
+    const data = parseJsonFromLlm(rawText, lang);
     
     const tasks = (data.tasks || []).map((t: any) => ({
       ...t,
@@ -739,7 +804,7 @@ Setiap task harus menyertakan promptInstructions lengkap yang siap di-copy/paste
     res.json({ tasks, bundledMarkdown });
   } catch (err: any) {
     console.error("Error /api/generate-tasks:", err);
-    res.status(500).json({ error: err.message || "Gagal membuat AI Agent Tasks." });
+    res.status(500).json({ error: err.message || msg(langOf(req), "tasksFailed") });
   }
 });
 

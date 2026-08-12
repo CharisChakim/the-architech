@@ -15,9 +15,11 @@ import {
   FolderOpen,
   PanelLeftClose,
   PanelLeftOpen,
+  Languages,
 } from "lucide-react";
-import { SAMPLE_PROJECTS, SampleProject } from "../lib/sampleData";
+import { SAMPLE_PROJECTS, SampleProject, sampleText } from "../lib/sampleData";
 import { Theme } from "../lib/theme";
+import { useT, TFunction } from "../lib/i18n";
 
 interface SidebarProps {
   session: ProjectSession;
@@ -30,6 +32,7 @@ interface SidebarProps {
   onOpenLLMConfig: () => void;
   theme: Theme;
   onToggleTheme: () => void;
+  onToggleLanguage: () => void;
   isOpen: boolean;
   onClose: () => void;
   collapsed: boolean;
@@ -38,10 +41,10 @@ interface SidebarProps {
 
 const sectionLabel = "px-2.5 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-faint";
 
-const engineLabel = (config: LLMConfig) => {
+const engineLabel = (config: LLMConfig, t: TFunction) => {
   const provider =
     config.provider === "ollama" ? "Ollama" : config.provider === "custom" ? "Custom" : "Gemini";
-  return `${provider} · ${config.modelName || "model bawaan"}`;
+  return `${provider} · ${config.modelName || t("default model")}`;
 };
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -55,11 +58,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenLLMConfig,
   theme,
   onToggleTheme,
+  onToggleLanguage,
   isOpen,
   onClose,
   collapsed,
   onToggleCollapsed,
 }) => {
+  const { lang, t } = useT();
   const [showSamples, setShowSamples] = useState(false);
   const [lockNotice, setLockNotice] = useState<string | null>(null);
 
@@ -70,27 +75,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const steps = [
     {
       num: 1 as const,
-      title: "Bikin Plan",
-      hint: "Klarifikasi ide, arsitektur, dan diagram logika",
+      title: t("Create plan"),
+      hint: t("Clarify the idea, architecture, and logic diagram"),
       isCompleted: hasPlan,
       isAvailable: true,
       unlockRequirement: "",
     },
     {
       num: 2 as const,
-      title: "Bikin PRD",
-      hint: "Tujuh poin spesifikasi dan diagram alur",
+      title: t("Write PRD"),
+      hint: t("Seven specification points and a flow diagram"),
       isCompleted: hasPrd,
       isAvailable: hasPlan,
-      unlockRequirement: "Selesaikan Step 1 (Bikin Plan) terlebih dahulu",
+      unlockRequirement: t("Finish step 1 (Create plan) first"),
     },
     {
       num: 3 as const,
-      title: "Task AI Agent",
-      hint: "Kanban board dan prompt siap eksekusi",
+      title: t("AI agent tasks"),
+      hint: t("Kanban board and ready-to-run prompts"),
       isCompleted: hasTasks,
       isAvailable: hasPrd,
-      unlockRequirement: "Selesaikan Step 2 (Bikin PRD) terlebih dahulu",
+      unlockRequirement: t("Finish step 2 (Write PRD) first"),
     },
   ];
 
@@ -118,6 +123,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // dievaluasi setelah layer components.
   const railed = isRail ? "w-10 h-10 mx-auto px-0 justify-center" : "w-full justify-start";
 
+  // Nama bahasa selalu ditulis dalam bahasanya sendiri: seseorang yang tersesat
+  // di antarmuka berbahasa asing mencari "Bahasa Indonesia", bukan terjemahannya.
+  const otherLanguageName = lang === "en" ? "Bahasa Indonesia" : "English";
+
   return (
     <>
       {/* Di layar sempit sidebar jadi drawer; latar gelap ini yang menutupnya. */}
@@ -143,7 +152,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 onClick={onClose}
                 className="ml-auto lg:hidden p-1.5 rounded-lg text-faint hover:text-ink hover:bg-subtle transition-colors"
-                aria-label="Tutup menu"
+                aria-label={t("Close menu")}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -154,7 +163,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className={`flex-1 overflow-y-auto overflow-x-hidden py-4 space-y-6 ${isRail ? "px-2" : "px-3"}`}>
           {/* Tiga langkah pipeline */}
           <div>
-            {!isRail && <p className={sectionLabel}>Alur kerja</p>}
+            {!isRail && <p className={sectionLabel}>{t("Workflow")}</p>}
             <nav className="space-y-0.5">
               {steps.map((step) => {
                 const isActive = session.currentStep === step.num;
@@ -219,17 +228,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {/* Mulai proyek */}
           <div>
-            {!isRail && <p className={sectionLabel}>Proyek</p>}
+            {!isRail && <p className={sectionLabel}>{t("Project")}</p>}
             <button
               onClick={() => {
                 onNewProject();
                 onClose();
               }}
-              title="Proyek baru"
+              title={t("New project")}
               className={`btn-primary ${railed}`}
             >
               <Plus className="w-4 h-4 shrink-0" />
-              {!isRail && "Proyek baru"}
+              {!isRail && t("New project")}
             </button>
 
             <button
@@ -239,13 +248,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 if (isRail) onToggleCollapsed();
                 setShowSamples(isRail ? true : !showSamples);
               }}
-              title="Template proyek contoh"
+              title={t("Sample project templates")}
               className={`btn-ghost mt-1 ${railed}`}
             >
               <Layers className="w-4 h-4 shrink-0 text-faint" />
               {!isRail && (
                 <>
-                  Template
+                  {t("Templates")}
                   <ChevronRight
                     className={`w-3.5 h-3.5 ml-auto transition-transform ${showSamples ? "rotate-90" : ""}`}
                   />
@@ -263,10 +272,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       setShowSamples(false);
                       onClose();
                     }}
-                    title={sample.tagline}
+                    title={sampleText(sample, lang).tagline}
                     className="w-full text-left px-2.5 py-1.5 pl-9 rounded-lg text-xs text-muted hover:text-ink hover:bg-subtle transition-colors truncate"
                   >
-                    {sample.name}
+                    {sampleText(sample, lang).name}
                   </button>
                 ))}
               </div>
@@ -277,7 +286,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {isRail ? (
             <button
               onClick={onToggleCollapsed}
-              title={`Riwayat proyek (${historySessions.length})`}
+              title={t("Project history ({count})", { count: historySessions.length })}
               className={`btn-ghost ${railed}`}
             >
               <FolderOpen className="w-4 h-4 shrink-0 text-faint" />
@@ -285,12 +294,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
           ) : (
             <div>
               <p className={sectionLabel}>
-                Riwayat {historySessions.length > 0 && `(${historySessions.length})`}
+                {t("History")} {historySessions.length > 0 && `(${historySessions.length})`}
               </p>
 
               {historySessions.length === 0 ? (
                 <p className="px-2.5 text-xs text-faint leading-relaxed">
-                  Proyek tersimpan otomatis begitu judulnya terisi.
+                  {t("Projects are saved automatically once they have a title.")}
                 </p>
               ) : (
                 <div className="space-y-0.5">
@@ -313,16 +322,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           <span
                             className={`block text-xs truncate ${isActive ? "text-ink font-medium" : "text-muted"}`}
                           >
-                            {hist.title || "Proyek tanpa judul"}
+                            {hist.title || t("Untitled project")}
                           </span>
                           <span className="block text-[11px] text-faint mt-0.5">
-                            Step {hist.currentStep}/3 · {new Date(hist.updatedAt).toLocaleDateString()}
+                            {t("Step {step}/3", { step: hist.currentStep })} ·{" "}
+                            {new Date(hist.updatedAt).toLocaleDateString(lang)}
                           </span>
                         </button>
 
                         <button
                           onClick={() => onDeleteHistory(hist.id)}
-                          title="Hapus dari riwayat"
+                          title={t("Remove from history")}
                           className="shrink-0 p-1.5 mr-1 rounded-md text-transparent group-hover:text-faint hover:!text-danger transition-colors"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -340,16 +350,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="shrink-0 border-t border-line p-2 space-y-0.5">
           <button
             onClick={onOpenLLMConfig}
-            title={`Konfigurasi LLM — ${engineLabel(session.llmConfig)}`}
+            title={`${t("LLM settings")} — ${engineLabel(session.llmConfig, t)}`}
             className={`btn-ghost ${railed}`}
           >
             <Cpu className="w-4 h-4 shrink-0 text-faint" />
-            {!isRail && <span className="truncate text-xs">{engineLabel(session.llmConfig)}</span>}
+            {!isRail && <span className="truncate text-xs">{engineLabel(session.llmConfig, t)}</span>}
+          </button>
+
+          <button onClick={onToggleLanguage} title={otherLanguageName} className={`btn-ghost ${railed}`}>
+            <Languages className="w-4 h-4 shrink-0 text-faint" />
+            {!isRail && <span className="text-xs">{otherLanguageName}</span>}
           </button>
 
           <button
             onClick={onToggleTheme}
-            title={theme === "dark" ? "Mode terang" : "Mode gelap"}
+            title={theme === "dark" ? t("Light mode") : t("Dark mode")}
             className={`btn-ghost ${railed}`}
           >
             {theme === "dark" ? (
@@ -357,7 +372,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             ) : (
               <Moon className="w-4 h-4 shrink-0 text-faint" />
             )}
-            {!isRail && <span className="text-xs">{theme === "dark" ? "Mode terang" : "Mode gelap"}</span>}
+            {!isRail && <span className="text-xs">{theme === "dark" ? t("Light mode") : t("Dark mode")}</span>}
           </button>
 
           {/* Disembunyikan selama drawer terbuka: di sana sidebar selalu penuh,
@@ -365,7 +380,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {!isOpen && (
             <button
               onClick={onToggleCollapsed}
-              title={isRail ? "Perlebar sidebar" : "Ciutkan sidebar"}
+              title={isRail ? t("Expand sidebar") : t("Collapse sidebar")}
               className={`btn-ghost ${railed}`}
             >
               {isRail ? (
@@ -373,7 +388,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               ) : (
                 <PanelLeftClose className="w-4 h-4 shrink-0 text-faint" />
               )}
-              {!isRail && <span className="text-xs">Ciutkan sidebar</span>}
+              {!isRail && <span className="text-xs">{t("Collapse sidebar")}</span>}
             </button>
           )}
         </div>

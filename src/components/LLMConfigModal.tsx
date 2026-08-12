@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { LLMConfig, LLMProvider } from "../types";
 import { Cpu, CheckCircle2, AlertCircle, RefreshCw, X, Sparkles, Terminal, Server } from "lucide-react";
+import { useT } from "../lib/i18n";
 
 interface LLMConfigModalProps {
   isOpen: boolean;
@@ -21,7 +22,7 @@ const EMPTY_DRAFT: ProviderDraft = { modelName: "", baseUrl: "", apiKey: "" };
 
 const PROVIDERS: { id: LLMProvider; name: string; hint: string; icon: typeof Cpu }[] = [
   { id: "gemini", name: "Gemini", hint: "Google AI Studio", icon: Sparkles },
-  { id: "ollama", name: "Ollama", hint: "Model lokal", icon: Terminal },
+  { id: "ollama", name: "Ollama", hint: "Local model", icon: Terminal },
   { id: "custom", name: "Custom API", hint: "OpenAI compatible", icon: Server },
 ];
 
@@ -30,6 +31,7 @@ const labelClass = "field-label";
 const hintClass = "field-hint";
 
 export const LLMConfigModal: React.FC<LLMConfigModalProps> = ({ isOpen, onClose, config, onSave }) => {
+  const { t, lang } = useT();
   const [provider, setProvider] = useState<LLMProvider>(config.provider || "gemini");
   const [drafts, setDrafts] = useState<Record<LLMProvider, ProviderDraft>>({
     gemini: { ...EMPTY_DRAFT },
@@ -84,19 +86,21 @@ export const LLMConfigModal: React.FC<LLMConfigModalProps> = ({ isOpen, onClose,
       const res = await fetch("/api/test-llm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ llmConfig: currentConfig() }),
+        body: JSON.stringify({ llmConfig: currentConfig(), language: lang }),
       });
       const data = await res.json();
       if (res.ok && data.success) {
         setTestResult({
           success: true,
-          message: `Koneksi berhasil${draft.modelName ? ` ke ${draft.modelName}` : ""}.`,
+          message: draft.modelName
+            ? t("Connected to {model}.", { model: draft.modelName })
+            : t("Connection succeeded."),
         });
       } else {
-        setTestResult({ success: false, message: data.error || "Gagal menghubungi model LLM." });
+        setTestResult({ success: false, message: data.error || t("Could not reach the LLM.") });
       }
     } catch (err: any) {
-      setTestResult({ success: false, message: err.message || "Gagal menghubungi server lokal." });
+      setTestResult({ success: false, message: err.message || t("Could not reach the local server.") });
     } finally {
       setTesting(false);
     }
@@ -114,12 +118,12 @@ export const LLMConfigModal: React.FC<LLMConfigModalProps> = ({ isOpen, onClose,
         <div className="px-6 py-4 border-b border-line flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <Cpu className="w-4 h-4 text-faint" />
-            <h3 className="font-semibold text-ink">Pengaturan LLM</h3>
+            <h3 className="font-semibold text-ink">{t("LLM settings")}</h3>
           </div>
           <button
             onClick={onClose}
             className="p-1.5 text-faint hover:text-ink hover:bg-subtle rounded-lg transition-colors"
-            aria-label="Tutup"
+            aria-label={t("Close")}
           >
             <X className="w-4 h-4" />
           </button>
@@ -128,7 +132,7 @@ export const LLMConfigModal: React.FC<LLMConfigModalProps> = ({ isOpen, onClose,
         <div className="p-6 space-y-6">
           {/* Provider */}
           <div>
-            <span className={labelClass}>Provider</span>
+            <span className={labelClass}>{t("Provider")}</span>
             <div className="grid grid-cols-3 gap-2">
               {PROVIDERS.map(({ id, name, hint, icon: Icon }) => {
                 const active = provider === id;
@@ -148,7 +152,7 @@ export const LLMConfigModal: React.FC<LLMConfigModalProps> = ({ isOpen, onClose,
                   >
                     <Icon className={`w-4 h-4 mb-2 ${active ? "" : "text-faint"}`} />
                     <div className="text-sm font-medium">{name}</div>
-                    <div className={`text-xs mt-0.5 ${active ? "opacity-70" : "text-faint"}`}>{hint}</div>
+                    <div className={`text-xs mt-0.5 ${active ? "opacity-70" : "text-faint"}`}>{t(hint)}</div>
                   </button>
                 );
               })}
@@ -159,59 +163,63 @@ export const LLMConfigModal: React.FC<LLMConfigModalProps> = ({ isOpen, onClose,
           <div className="space-y-4">
             {provider !== "gemini" && (
               <div>
-                <label className={labelClass}>Base URL</label>
+                <label className={labelClass}>{t("Base URL")}</label>
                 <input
                   type="text"
                   value={draft.baseUrl}
                   onChange={(e) => patchDraft({ baseUrl: e.target.value })}
-                  placeholder={provider === "ollama" ? "contoh: http://localhost:11434" : "contoh: https://api.openai.com"}
+                  placeholder={
+                    provider === "ollama"
+                      ? t("e.g. http://localhost:11434")
+                      : t("e.g. https://api.openai.com")
+                  }
                   className={inputClass}
                 />
                 {provider === "ollama" && (
-                  <p className={hintClass}>Dikosongkan berarti http://localhost:11434.</p>
+                  <p className={hintClass}>{t("Left empty means http://localhost:11434.")}</p>
                 )}
-                {provider === "custom" && <p className={hintClass}>Wajib diisi. Endpoint OpenAI-compatible.</p>}
+                {provider === "custom" && <p className={hintClass}>{t("Required. An OpenAI-compatible endpoint.")}</p>}
               </div>
             )}
 
             <div>
-              <label className={labelClass}>Nama model</label>
+              <label className={labelClass}>{t("Model name")}</label>
               <input
                 type="text"
                 value={draft.modelName}
                 onChange={(e) => patchDraft({ modelName: e.target.value })}
                 placeholder={
                   provider === "gemini"
-                    ? "contoh: gemini-3.6-flash"
+                    ? t("e.g. gemini-3.6-flash")
                     : provider === "ollama"
-                      ? "contoh: llama3"
-                      : "contoh: gpt-4o-mini"
+                      ? t("e.g. llama3")
+                      : t("e.g. gpt-4o-mini")
                 }
                 className={inputClass}
               />
               {provider === "gemini" && (
                 <p className={hintClass}>
-                  Contoh lain: gemini-3.1-pro-preview, gemini-3.1-flash-lite. Kosong berarti gemini-3.6-flash.
+                  {t("Other options: gemini-3.1-pro-preview, gemini-3.1-flash-lite. Empty means gemini-3.6-flash.")}
                 </p>
               )}
             </div>
 
             {hasApiKeyField && (
               <div>
-                <label className={labelClass}>API key</label>
+                <label className={labelClass}>{t("API key")}</label>
                 <input
                   type="password"
                   value={draft.apiKey}
                   onChange={(e) => patchDraft({ apiKey: e.target.value })
                   }
-                  placeholder={provider === "gemini" ? "contoh: AIza..." : "contoh: sk-..."}
+                  placeholder={provider === "gemini" ? t("e.g. AIza...") : t("e.g. sk-...")}
                   className={`${inputClass} font-mono`}
                   autoComplete="off"
                 />
                 <p className={hintClass}>
                   {provider === "gemini"
-                    ? "Kosong berarti memakai GEMINI_API_KEY dari environment server."
-                    : "Kosongkan bila endpoint tidak memerlukan otentikasi."}
+                    ? t("Empty means the server falls back to GEMINI_API_KEY from its environment.")
+                    : t("Leave empty if the endpoint needs no authentication.")}
                 </p>
 
                 <label className="mt-3 flex items-start gap-2.5 cursor-pointer">
@@ -222,10 +230,9 @@ export const LLMConfigModal: React.FC<LLMConfigModalProps> = ({ isOpen, onClose,
                     className="mt-0.5 w-4 h-4 rounded border-strong accent-[var(--app-accent)]"
                   />
                   <span className="text-xs text-muted">
-                    Simpan API key di browser ini
+                    {t("Save the API key in this browser")}
                     <span className="block text-faint mt-0.5">
-                      Kalau tidak dicentang, key hanya dipakai selama tab ini terbuka dan tidak ditulis ke
-                      localStorage. Key tidak pernah ikut tersimpan ke riwayat proyek.
+                      {t("Unchecked, the key lives only as long as this tab and is never written to localStorage. It is never stored with the project history either.")}
                     </span>
                   </span>
                 </label>
@@ -255,15 +262,15 @@ export const LLMConfigModal: React.FC<LLMConfigModalProps> = ({ isOpen, onClose,
         <div className="px-6 py-4 border-t border-line flex items-center justify-between">
           <button type="button" onClick={handleTestConnection} disabled={testing} className="btn-ghost">
             <RefreshCw className={`w-4 h-4 ${testing ? "animate-spin" : ""}`} />
-            {testing ? "Menguji..." : "Uji koneksi"}
+            {testing ? t("Testing...") : t("Test connection")}
           </button>
 
           <div className="flex items-center gap-2">
             <button onClick={onClose} className="btn-ghost">
-              Batal
+              {t("Cancel")}
             </button>
             <button onClick={handleSave} className="btn-primary">
-              Simpan
+              {t("Save")}
             </button>
           </div>
         </div>

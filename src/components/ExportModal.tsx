@@ -1,6 +1,7 @@
 import React from "react";
 import { ProjectSession } from "../types";
 import { X, Download, FileText, Compass, Bot, FileCode, CheckCircle2 } from "lucide-react";
+import { useT } from "../lib/i18n";
 
 interface ExportModalProps {
   isOpen: boolean;
@@ -9,9 +10,10 @@ interface ExportModalProps {
 }
 
 export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, session }) => {
+  const { t } = useT();
   if (!isOpen) return null;
 
-  const projectTitle = session.input.title || session.title || "Proyek";
+  const projectTitle = session.input.title || session.title || "Project";
   const slug = projectTitle.toLowerCase().replace(/[^a-z0-9]/g, "_");
 
   const downloadFile = (filename: string, content: string, mime: string) => {
@@ -86,12 +88,12 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, sessi
         <div className="px-6 py-4 border-b border-line flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <Download className="w-4 h-4 text-faint" />
-            <h3 className="font-semibold text-ink">Export bundle dokumen proyek</h3>
+            <h3 className="font-semibold text-ink">{t("Export project document bundle")}</h3>
           </div>
           <button
             onClick={onClose}
             className="p-1.5 text-faint hover:text-ink hover:bg-subtle rounded-lg transition-colors"
-            aria-label="Tutup"
+            aria-label={t("Close")}
           >
             <X className="w-4 h-4" />
           </button>
@@ -99,7 +101,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, sessi
 
         <div className="p-6 space-y-4">
           <p className="text-muted leading-relaxed">
-            Unduh artifact hasil perencanaan. Pilih dokumen tertentu, atau ekspor seluruh sesi sebagai JSON.
+            {t("Download the planning artifacts. Pick a single document, or export the whole session as JSON.")}
           </p>
 
           <div className="space-y-2">
@@ -108,29 +110,29 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, sessi
                 onClick: handleDownloadPlan,
                 disabled: !session.plan,
                 icon: Compass,
-                title: "Project plan & arsitektur (.md)",
-                caption: "Spesifikasi, tech stack, dan roadmap.",
+                title: t("Project plan & architecture (.md)"),
+                caption: t("Specification, tech stack, and roadmap."),
               },
               {
                 onClick: handleDownloadPrd,
                 disabled: !session.prd,
                 icon: FileText,
-                title: "Product requirement document (.md)",
-                caption: "PRD lengkap beserta diagram logika.",
+                title: t("Product requirement document (.md)"),
+                caption: t("The full PRD including its logic diagram."),
               },
               {
                 onClick: handleDownloadTasks,
                 disabled: !session.tasks,
                 icon: Bot,
-                title: "AI agent executable tasks (AGENTS.md)",
-                caption: "Task atomik siap diberikan ke AI coding agent.",
+                title: t("AI agent executable tasks (AGENTS.md)"),
+                caption: t("Atomic tasks ready to hand to an AI coding agent."),
               },
               {
                 onClick: handleDownloadJsonBackup,
                 disabled: false,
                 icon: FileCode,
-                title: "Full backup project session (.json)",
-                caption: "Seluruh state perencanaan dalam satu berkas.",
+                title: t("Full backup of the project session (.json)"),
+                caption: t("Every piece of planning state in one file."),
               },
             ].map(({ onClick, disabled, icon: Icon, title, caption }) => (
               <button
@@ -156,7 +158,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, sessi
 
         <div className="px-6 py-4 border-t border-line flex justify-end">
           <button onClick={onClose} className="btn-outline">
-            Tutup
+            {t("Close")}
           </button>
         </div>
       </div>

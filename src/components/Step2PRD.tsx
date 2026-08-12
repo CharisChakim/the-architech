@@ -19,6 +19,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
+import { useT, TFunction } from "../lib/i18n";
 
 interface Step2PRDProps {
   session: ProjectSession;
@@ -27,6 +28,11 @@ interface Step2PRDProps {
 }
 
 // Helpers for safe rendering & formatting
+// Label struktural di bawah ini sengaja tidak ikut bahasa UI. keepOrReplace
+// membandingkan hasil serialisasi ini dengan teks yang sedang diedit untuk
+// menebak apakah pengguna mengubahnya; kalau labelnya bisa berganti bahasa,
+// mengganti bahasa akan terbaca sebagai suntingan dan meruntuhkan data
+// terstruktur dari LLM menjadi satu string datar.
 const formatRequirementsToString = (reqs: any): string => {
   if (!reqs) return "";
   if (typeof reqs === "string") return reqs;
@@ -34,8 +40,8 @@ const formatRequirementsToString = (reqs: any): string => {
     return reqs.map((r) => (typeof r === "string" ? r : r.title || r.description || JSON.stringify(r))).join("\n");
   }
   if (typeof reqs === "object") {
-    const fn = (reqs.functional || []).map((f: any) => `[Fungsional] ${f.title || f.description || f}`);
-    const nfn = (reqs.nonFunctional || []).map((nf: any) => `[Non-Fungsional] ${nf.category ? `${nf.category}: ` : ""}${nf.description || nf}`);
+    const fn = (reqs.functional || []).map((f: any) => `[Functional] ${f.title || f.description || f}`);
+    const nfn = (reqs.nonFunctional || []).map((nf: any) => `[Non-functional] ${nf.category ? `${nf.category}: ` : ""}${nf.description || nf}`);
     return [...fn, ...nfn].join("\n");
   }
   return String(reqs);
@@ -65,7 +71,7 @@ const formatDbSchemaToString = (schema: any): string => {
         const fields = (entity.fields || [])
           .map((f: any) => `  - ${f.name} (${f.type}): ${f.constraints || ""}`)
           .join("\n");
-        return `Table: ${entity.name}\n${entity.description ? `Deskripsi: ${entity.description}\n` : ""}${fields}`;
+        return `Table: ${entity.name}\n${entity.description ? `Description: ${entity.description}\n` : ""}${fields}`;
       })
       .join("\n\n");
   }
@@ -93,9 +99,9 @@ const buildPrdMarkdown = (p: PRDData): string => {
 
   lines.push("## 3. Core Features", "");
   ([
-    ["Fase 1", "fase1"],
-    ["Fase 2", "fase2"],
-    ["Fase 3+", "fase3Plus"],
+    ["Phase 1", "fase1"],
+    ["Phase 2", "fase2"],
+    ["Phase 3+", "fase3Plus"],
   ] as const).forEach(([label, key]) => {
     const feats = getPhaseFeatures(p.coreFeatures, key);
     if (feats.length === 0) return;
@@ -125,8 +131,9 @@ const PrdSection: React.FC<{
   number: number;
   title: string;
   isExtra?: boolean;
+  t: TFunction;
   children: React.ReactNode;
-}> = ({ number, title, isExtra, children }) => (
+}> = ({ number, title, isExtra, t, children }) => (
   <section className="card p-6 space-y-3">
     <h4 className="font-semibold text-ink text-sm flex flex-wrap items-center gap-2 border-b border-line pb-3">
       <span className="w-5 h-5 shrink-0 rounded-md bg-accent-soft text-accent-ink font-semibold text-[11px] grid place-items-center">
@@ -135,7 +142,7 @@ const PrdSection: React.FC<{
       {title}
       {isExtra && (
         <span className="text-[11px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-subtle text-muted">
-          Poin tambahan
+          {t("Extra point")}
         </span>
       )}
     </h4>
@@ -144,6 +151,7 @@ const PrdSection: React.FC<{
 );
 
 export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, onGoToNextStep }) => {
+  const { t, lang } = useT();
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [copiedMd, setCopiedMd] = useState(false);
@@ -196,18 +204,19 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
           title: session.input.title || session.title || "Aplikasi AI",
           plan: session.plan,
           llmConfig: session.llmConfig,
+          language: lang,
         }),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Gagal membuat PRD.");
+      if (!res.ok) throw new Error(data.error || t("Failed to generate the PRD."));
 
       const generatedPrd: PRDData = data;
       onUpdateSession({
         prd: generatedPrd,
       });
     } catch (err: any) {
-      setErrorMessage(err.message || "Terjadi kesalahan saat menghasilkan PRD.");
+      setErrorMessage(err.message || t("Something went wrong while generating the PRD."));
     } finally {
       setLoading(false);
     }
@@ -263,7 +272,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `PRD_${(session.input.title || "Proyek").toLowerCase().replace(/[^a-z0-9]/g, "_")}.md`;
+    link.download = `PRD_${(session.input.title || "project").toLowerCase().replace(/[^a-z0-9]/g, "_")}.md`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -281,17 +290,18 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
     <div className="max-w-4xl space-y-6 pb-12">
       {/* Page heading */}
       <div className="max-w-2xl">
-        <h2 className="text-xl font-semibold tracking-tight text-ink">Product Requirement Document</h2>
+        <h2 className="text-xl font-semibold tracking-tight text-ink">{t("Product Requirement Document")}</h2>
         <p className="text-muted mt-1.5 leading-relaxed">
-          Tujuh poin baku — Overview, Requirements, Core Features, User Flow, Architecture, Database Schema, Tech Stack —
-          dan poin tambahan bila analisis menuntutnya. Bisa Anda tinjau dan ubah sebelum dipecah jadi task.
+          {t(
+            "Seven standard points — Overview, Requirements, Core Features, User Flow, Architecture, Database Schema, Tech Stack — plus extra points when the analysis calls for them. Review and edit before it is broken into tasks."
+          )}
         </p>
       </div>
 
       {/* Error Alert */}
       {errorMessage && (
         <div className="p-4 bg-danger-soft border border-danger/30 text-danger-ink rounded-xl">
-          <strong className="font-semibold">Error:</strong> {errorMessage}
+          <strong className="font-semibold">{t("Error")}:</strong> {errorMessage}
         </div>
       )}
 
@@ -302,23 +312,23 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
             <Sparkles className="w-6 h-6" />
           </div>
           <div className="max-w-md mx-auto space-y-1.5">
-            <h3 className="font-semibold text-ink text-base">Susun PRD 7 poin otomatis</h3>
+            <h3 className="font-semibold text-ink text-base">{t("Generate the 7-point PRD automatically")}</h3>
             <p className="text-muted leading-relaxed">
               {session.plan
-                ? "Sistem akan mengekstrak data dari Project Plan & arsitektur yang sudah disetujui untuk menyusun PRD 7 poin."
-                : "Langsung buat PRD berdasarkan deskripsi proyek yang dimasukkan."}
+                ? t("The system pulls from the approved project plan and architecture to assemble the seven points.")
+                : t("Build the PRD straight from the project description you entered.")}
             </p>
           </div>
           <button onClick={handleGeneratePRD} disabled={loading} className="btn-primary mx-auto">
             {loading ? (
               <>
                 <RefreshCw className="w-4 h-4 animate-spin" />
-                Menyusun PRD &amp; diagram...
+                {t("Assembling the PRD & diagram...")}
               </>
             ) : (
               <>
                 <Sparkles className="w-4 h-4" />
-                Generate PRD 7 poin
+                {t("Generate 7-point PRD")}
               </>
             )}
           </button>
@@ -329,7 +339,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
           <div className="card p-5 flex flex-wrap items-start justify-between gap-5">
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 text-ok text-xs font-medium mb-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5" /> PRD tersusun
+                <CheckCircle2 className="w-3.5 h-3.5" /> {t("PRD ready")}
               </div>
               <h3 className="text-base font-semibold text-ink">{prd.projectTitle || session.title}</h3>
               <p className="text-muted mt-1 max-w-xl line-clamp-2 leading-relaxed">
@@ -340,16 +350,16 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
             <div className="flex flex-wrap items-center gap-2 shrink-0">
               <button onClick={handleCopyMarkdown} className="btn-ghost">
                 {copiedMd ? <Check className="w-4 h-4 text-ok" /> : <Copy className="w-4 h-4" />}
-                {copiedMd ? "Tersalin" : "Copy MD"}
+                {copiedMd ? t("Copied") : t("Copy MD")}
               </button>
 
               <button onClick={handleDownloadMarkdown} className="btn-ghost">
                 <Download className="w-4 h-4" />
-                Download .md
+                {t("Download .md")}
               </button>
 
               <button onClick={onGoToNextStep} className="btn-primary">
-                Lanjut ke task
+                {t("Continue to tasks")}
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
@@ -360,9 +370,13 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
             <div className="inline-flex items-center gap-1 bg-subtle p-1 rounded-lg">
               {(
                 [
-                  { id: "7point", label: `PRD ${7 + extraSections.length} poin`, icon: ListOrdered },
-                  { id: "overview_edit", label: "Tinjau & edit", icon: Edit3 },
-                  { id: "markdown", label: "Raw markdown", icon: FileCode },
+                  {
+                    id: "7point",
+                    label: t("{count}-point PRD", { count: 7 + extraSections.length }),
+                    icon: ListOrdered,
+                  },
+                  { id: "overview_edit", label: t("Review & edit"), icon: Edit3 },
+                  { id: "markdown", label: t("Raw markdown"), icon: FileCode },
                 ] as const
               ).map(({ id, label, icon: Icon }) => (
                 <button
@@ -380,18 +394,18 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
 
             <button onClick={handleGeneratePRD} disabled={loading} className="btn-outline text-xs">
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-              Regenerate PRD
+              {t("Regenerate PRD")}
             </button>
           </div>
 
           {/* TAB 1: 7-POINT STRUCTURED PRD DISPLAY */}
           {activeTab === "7point" && (
             <div className="space-y-4">
-              <PrdSection number={1} title="Overview">
+              <PrdSection t={t} number={1} title={t("Overview")}>
                 <p className="text-muted leading-relaxed">{prd.overview}</p>
               </PrdSection>
 
-              <PrdSection number={2} title="Requirements (fungsional & non-fungsional)">
+              <PrdSection t={t} number={2} title={t("Requirements (functional & non-functional)")}>
                 <ul className="space-y-1.5 text-muted">
                   {getRequirementsList(prd.requirements).map((req, idx) => (
                     <li key={idx} className="flex gap-2.5">
@@ -402,13 +416,13 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
                 </ul>
               </PrdSection>
 
-              <PrdSection number={3} title="Core features (fase 1, 2, 3+)">
+              <PrdSection t={t} number={3} title={t("Core features (phase 1, 2, 3+)")}>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-5">
                   {(
                     [
-                      ["Fase 1", "MVP utama", "fase1"],
-                      ["Fase 2", "Pengayaan", "fase2"],
-                      ["Fase 3+", "Tingkat lanjut", "fase3Plus"],
+                      [t("Phase 1"), t("Core MVP"), "fase1"],
+                      [t("Phase 2"), t("Enrichment"), "fase2"],
+                      [t("Phase 3+"), t("Advanced"), "fase3Plus"],
                     ] as const
                   ).map(([label, caption, key]) => (
                     <div key={key} className="space-y-2">
@@ -429,29 +443,29 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
                 </div>
               </PrdSection>
 
-              <PrdSection number={4} title="User flow & diagram logika">
+              <PrdSection t={t} number={4} title={t("User flow & logic diagram")}>
                 <p className="text-muted leading-relaxed">{prd.userFlow}</p>
 
                 {prd.logicFlowMermaid && (
                   <MermaidViewer
                     chart={prd.logicFlowMermaid}
                     explanation={prd.logicFlowExplanation}
-                    title={`User flow & logic diagram: ${prd.projectTitle}`}
+                    title={t("User flow & logic diagram: {title}", { title: prd.projectTitle })}
                   />
                 )}
               </PrdSection>
 
-              <PrdSection number={5} title="Architecture">
+              <PrdSection t={t} number={5} title={t("Architecture")}>
                 <p className="text-muted leading-relaxed">{prd.architecture}</p>
               </PrdSection>
 
-              <PrdSection number={6} title="Database schema">
+              <PrdSection t={t} number={6} title={t("Database schema")}>
                 <div className="p-4 bg-code text-code-ink rounded-lg text-xs font-mono leading-relaxed whitespace-pre-wrap overflow-x-auto">
                   {formatDbSchemaToString(prd.databaseSchema)}
                 </div>
               </PrdSection>
 
-              <PrdSection number={7} title="Tech stack">
+              <PrdSection t={t} number={7} title={t("Tech stack")}>
                 <div className="p-4 bg-accent-soft text-accent-ink rounded-lg font-medium whitespace-pre-wrap">
                   {formatTechStackToString(prd.techStack)}
                 </div>
@@ -459,7 +473,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
 
               {/* 8+. Poin tambahan yang dinilai perlu oleh AI setelah analisis */}
               {extraSections.map((section) => (
-                <PrdSection key={section.number} number={section.number} title={section.title} isExtra>
+                <PrdSection t={t} key={section.number} number={section.number} title={section.title} isExtra>
                   <div className="text-muted leading-relaxed whitespace-pre-wrap">{section.content}</div>
                 </PrdSection>
               ))}
@@ -473,23 +487,23 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
                 <div>
                   <h3 className="font-semibold text-ink text-sm flex items-center gap-2">
                     <SlidersHorizontal className="w-4 h-4 text-faint" />
-                    Tinjau &amp; ubah PRD sebelum dipecah jadi task
+                    {t("Review & edit the PRD before it becomes tasks")}
                   </h3>
                   <p className="text-xs text-faint mt-1">
-                    Sesuaikan teks yang kurang pas di sini; AI Agent memakai versi ini saat menyusun Kanban task.
+                    {t("Adjust anything that reads wrong here; the AI agent works from this version when it builds the Kanban tasks.")}
                   </p>
                 </div>
 
                 {saveSuccess && (
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-ok-soft text-ok-ink rounded-lg text-xs font-medium animate-in fade-in">
-                    <Check className="w-3.5 h-3.5" /> Perubahan disimpan
+                    <Check className="w-3.5 h-3.5" /> {t("Changes saved")}
                   </span>
                 )}
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <label className="field-label">1. Overview proyek</label>
+                  <label className="field-label">{t("1. Project overview")}</label>
                   <textarea
                     rows={3}
                     value={editOverview}
@@ -499,7 +513,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
                 </div>
 
                 <div>
-                  <label className="field-label">2. Requirements (satu poin per baris)</label>
+                  <label className="field-label">{t("2. Requirements (one per line)")}</label>
                   <textarea
                     rows={4}
                     value={editRequirements}
@@ -509,7 +523,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
                 </div>
 
                 <div>
-                  <label className="field-label">4. User flow</label>
+                  <label className="field-label">{t("4. User flow")}</label>
                   <textarea
                     rows={3}
                     value={editUserFlow}
@@ -519,7 +533,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
                 </div>
 
                 <div>
-                  <label className="field-label">5. Architecture</label>
+                  <label className="field-label">{t("5. Architecture")}</label>
                   <textarea
                     rows={3}
                     value={editArchitecture}
@@ -529,7 +543,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
                 </div>
 
                 <div>
-                  <label className="field-label">6. Database schema</label>
+                  <label className="field-label">{t("6. Database schema")}</label>
                   <textarea
                     rows={4}
                     value={editDatabaseSchema}
@@ -539,7 +553,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
                 </div>
 
                 <div>
-                  <label className="field-label">7. Tech stack</label>
+                  <label className="field-label">{t("7. Tech stack")}</label>
                   <textarea
                     rows={2}
                     value={editTechStack}
@@ -552,21 +566,20 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
                 <div className="pt-4 border-t border-line space-y-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
-                      <span className="block text-xs font-medium text-muted">Poin tambahan (8 dan seterusnya)</span>
+                      <span className="block text-xs font-medium text-muted">{t("Extra points (8 onwards)")}</span>
                       <p className="text-xs text-faint mt-0.5">
-                        Poin di luar tujuh poin wajib. Nomornya diurutkan ulang otomatis saat disimpan.
+                        {t("Points beyond the seven required ones. They are renumbered automatically on save.")}
                       </p>
                     </div>
                     <button type="button" onClick={addExtraSection} className="btn-outline text-xs">
                       <Plus className="w-3.5 h-3.5" />
-                      Tambah poin
+                      {t("Add point")}
                     </button>
                   </div>
 
                   {editExtraSections.length === 0 ? (
                     <p className="text-xs text-faint border border-dashed border-line rounded-lg p-3">
-                      Belum ada poin tambahan. AI akan menambahkannya sendiri bila analisis menuntut, atau Anda bisa
-                      menambahkan manual.
+                      {t("No extra points yet. The AI adds them when its analysis calls for it, or you can add your own.")}
                     </p>
                   ) : (
                     editExtraSections.map((section, idx) => (
@@ -579,14 +592,14 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
                             type="text"
                             value={section.title}
                             onChange={(e) => updateExtraSection(idx, { title: e.target.value })}
-                            placeholder="Judul poin, misal: Rencana pengujian"
+                            placeholder={t("Point title, e.g. Test plan")}
                             className="field flex-1 min-w-0 font-medium"
                           />
                           <button
                             type="button"
                             onClick={() => removeExtraSection(idx)}
                             className="p-2 shrink-0 text-faint hover:text-danger rounded-lg transition-colors"
-                            title="Hapus poin ini"
+                            title={t("Delete this point")}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -595,7 +608,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
                           rows={3}
                           value={section.content}
                           onChange={(e) => updateExtraSection(idx, { content: e.target.value })}
-                          placeholder="Isi poin ini..."
+                          placeholder={t("Content for this point...")}
                           className="field resize-y"
                         />
                       </div>
@@ -607,11 +620,11 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
               <div className="flex flex-wrap items-center justify-between gap-3 -mx-6 -mb-6 px-6 py-4 border-t border-line">
                 <button onClick={handleSavePrdOverviewEdits} className="btn-outline">
                   <Check className="w-4 h-4" />
-                  Simpan perubahan
+                  {t("Save changes")}
                 </button>
 
                 <button onClick={onGoToNextStep} className="btn-primary">
-                  Setujui &amp; lanjut ke task
+                  {t("Approve & continue to tasks")}
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
