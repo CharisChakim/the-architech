@@ -73,7 +73,17 @@ const MESSAGES = {
   planFailed: { en: "Failed to generate the project plan.", id: "Gagal membuat Project Plan." },
   prdFailed: { en: "Failed to generate the PRD.", id: "Gagal membuat PRD." },
   tasksFailed: { en: "Failed to generate the AI agent tasks.", id: "Gagal membuat AI Agent Tasks." },
+  outputTruncated: {
+    en: "The model stopped before it finished writing — it hit its output limit. Try again, or switch to a model with a larger output budget.",
+    id: "Model berhenti sebelum jawabannya selesai — batas panjang keluarannya tercapai. Coba lagi, atau pakai model dengan jatah keluaran lebih besar.",
+  },
 } as const;
+
+// Error yang pesannya sudah ditujukan untuk pengguna. Penandanya dibutuhkan
+// karena jalur Ollama/custom membungkus apa pun yang dilempar di dalamnya
+// menjadi "tidak bisa dihubungi" — tanpa ini, sebab yang sebenarnya (endpoint
+// menolak, jawaban terpotong) hilang di balik pesan yang salah.
+class LlmError extends Error {}
 
 const msg = (lang: Lang, key: keyof typeof MESSAGES, vars: Record<string, any> = {}): string =>
   MESSAGES[key][lang].replace(/\{(\w+)\}/g, (whole, name) => (name in vars ? String(vars[name]) : whole));
@@ -85,6 +95,31 @@ const outputLanguage = (lang: Lang): string =>
   lang === "id"
     ? "Gunakan Bahasa Indonesia yang profesional, jelas, dan ramah untuk SELURUH nilai teks pada JSON keluaran."
     : "Write EVERY text value in the JSON output in professional, clear, friendly English.";
+
+// Jatah keluaran. Tanpa ini sebagian gateway OpenAI-compatible memakai
+// bawaannya sendiri yang kecil, dan PRD terpotong di tengah kalimat. Gemini
+// tidak diberi batas: bawaannya sudah setinggi kemampuan modelnya, dan menaruh
+// angka di atas batas model justru ditolak API-nya.
+const MAX_OUTPUT_TOKENS = 8192;
+
+// Jawaban yang terpotong tetap berupa JSON yang "hampir benar", jadi kalau
+// tidak dikenali di sini pesan yang sampai ke pengguna adalah keluhan sintaks
+// di posisi sekian — menyesatkan, karena yang salah bukan bentuknya melainkan
+// panjangnya. Kurung yang tidak seimbang adalah tanda paling andal.
+function looksTruncated(text: string): boolean {
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (const ch of text) {
+    if (escaped) { escaped = false; continue; }
+    if (ch === "\\") { escaped = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === "{" || ch === "[") depth++;
+    else if (ch === "}" || ch === "]") depth--;
+  }
+  return depth > 0 || inString;
+}
 
 // Helper function to extract and parse JSON safely
 function parseJsonFromLlm(text: string, lang: Lang = "en"): any {
@@ -119,9 +154,11 @@ function parseJsonFromLlm(text: string, lang: Lang = "en"): any {
         // Output penuh ke log server: pesan ke pengguna harus tetap ringkas,
         // tapi tanpa teks aslinya kegagalan ini tidak bisa didiagnosis.
         console.error("--- Output LLM yang gagal diparse ---\n" + cleaned + "\n--- akhir output ---");
+        if (looksTruncated(cleaned)) throw new Error(msg(lang, "outputTruncated"));
         throw new Error(msg(lang, "jsonFailedLogged", { detail: retryErr.message }));
       }
     }
+    if (looksTruncated(cleaned)) throw new Error(msg(lang, "outputTruncated"));
     throw new Error(msg(lang, "jsonFailedRaw", { detail: err.message, raw: cleaned.substring(0, 400) }));
   }
 }
@@ -158,11 +195,13 @@ async function callLlm(prompt: string, systemInstruction: string, llmConfig?: an
             model: model,
             prompt: `${systemInstruction}\n\nUSER PROMPT:\n${prompt}`,
             stream: false,
+            options: { num_predict: MAX_OUTPUT_TOKENS },
           }),
         });
-        
+
         if (ollamaRes.ok) {
           const data = await ollamaRes.json();
+          if (data.done_reason === "length") throw new LlmError(msg(lang, "outputTruncated"));
           return data.response || data.text || "";
         }
       }
@@ -186,17 +225,24 @@ async function callLlm(prompt: string, systemInstruction: string, llmConfig?: an
             { role: "user", content: prompt },
           ],
           temperature: 0.2,
+          max_tokens: MAX_OUTPUT_TOKENS,
         }),
       });
       
       if (!customRes.ok) {
         const errText = await customRes.text();
-        throw new Error(msg(lang, "customEndpointError", { status: customRes.status, detail: errText }));
+        throw new LlmError(msg(lang, "customEndpointError", { status: customRes.status, detail: errText }));
       }
       
       const customData = await customRes.json();
+      if (customData.choices?.[0]?.finish_reason === "length") {
+        throw new LlmError(msg(lang, "outputTruncated"));
+      }
       return customData.choices?.[0]?.message?.content || "";
     } catch (err: any) {
+      // Yang pesannya sudah ditujukan untuk pengguna diteruskan apa adanya;
+      // sisanya memang kegagalan menghubungi endpoint.
+      if (err instanceof LlmError) throw err;
       throw new Error(msg(lang, "customUnreachable", { url: baseUrl, detail: err.message }));
     }
   }
@@ -215,8 +261,12 @@ async function callLlm(prompt: string, systemInstruction: string, llmConfig?: an
       },
     });
     
+    if (response.candidates?.[0]?.finishReason === "MAX_TOKENS") {
+      throw new LlmError(msg(lang, "outputTruncated"));
+    }
     return response.text || "";
   } catch (err: any) {
+    if (err instanceof LlmError) throw err;
     throw new Error(msg(lang, "geminiError", { detail: err.message }));
   }
 }
