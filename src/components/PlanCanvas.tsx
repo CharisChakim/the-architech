@@ -12,6 +12,7 @@ import {
 } from "@xyflow/react";
 import { FileText, LayoutGrid, Layers, ChevronRight } from "lucide-react";
 import { FeatureSpec } from "../types";
+import { useT, TFunction } from "../lib/i18n";
 
 // Metrik tata letak. Node selebar 224 (w-56) dengan kolom di x 0 / 420 / 780 dan
 // fitur berjarak 200 secara vertikal — diambil dari mengukur kanvas referensi.
@@ -21,10 +22,10 @@ const SUB_FEATURES_SHOWN = 3;
 
 const CARD = "w-56 rounded-xl px-3.5 py-3 bg-surface border border-line shadow-sm dark:shadow-none";
 
-const PRIORITY_LABEL: Record<string, string> = { P0: "MVP", P1: "PENTING", P2: "LANJUTAN" };
+const PRIORITY_LABEL: Record<string, string> = { P0: "MVP", P1: "IMPORTANT", P2: "LATER" };
 
 function PlanRootNode({ data }: NodeProps) {
-  const { title } = data as { title: string };
+  const { title, t } = data as { title: string; t: TFunction };
   return (
     <div className={CARD}>
       <div className="flex items-center gap-2.5">
@@ -33,23 +34,24 @@ function PlanRootNode({ data }: NodeProps) {
         </span>
         <span className="font-semibold text-ink truncate">{title}</span>
       </div>
-      <p className="text-xs text-faint mt-2">Perencanaan</p>
+      <p className="text-xs text-faint mt-2">{t("Planning")}</p>
       <Handle type="source" position={Position.Right} />
     </div>
   );
 }
 
 function FeatureNode({ data }: NodeProps) {
-  const { name, description, priority } = data as {
+  const { name, description, priority, t } = data as {
     name: string;
     description: string;
     priority: string;
+    t: TFunction;
   };
   return (
     <div className={`${CARD} relative`}>
       {priority && (
         <span className="absolute -top-2 right-3 px-1.5 py-0.5 rounded text-[10px] font-semibold tracking-wide bg-accent text-accent-fg">
-          {PRIORITY_LABEL[priority] || priority}
+          {t(PRIORITY_LABEL[priority] || priority)}
         </span>
       )}
       <div className="flex items-center gap-2.5">
@@ -66,7 +68,7 @@ function FeatureNode({ data }: NodeProps) {
 }
 
 function SubFeaturesNode({ data }: NodeProps) {
-  const { items } = data as { items: string[] };
+  const { items, t } = data as { items: string[]; t: TFunction };
   const [expanded, setExpanded] = useState(false);
   const visible = expanded ? items : items.slice(0, SUB_FEATURES_SHOWN);
   const hidden = items.length - visible.length;
@@ -75,7 +77,7 @@ function SubFeaturesNode({ data }: NodeProps) {
     <div className={CARD}>
       <div className="flex items-center gap-2 mb-2.5">
         <Layers className="w-3.5 h-3.5 text-faint" />
-        <span className="text-xs font-medium uppercase tracking-wider text-faint">Sub fitur</span>
+        <span className="text-xs font-medium uppercase tracking-wider text-faint">{t("Sub features")}</span>
       </div>
 
       <ul className="space-y-1.5">
@@ -92,7 +94,7 @@ function SubFeaturesNode({ data }: NodeProps) {
           onClick={() => setExpanded(!expanded)}
           className="mt-2 ml-auto flex items-center gap-1 text-xs text-faint hover:text-ink transition-colors"
         >
-          {expanded ? "Tampilkan lebih sedikit" : `Lihat semua (${items.length})`}
+          {expanded ? t("Show fewer") : t("Show all ({count})", { count: items.length })}
           <ChevronRight className={`w-3 h-3 transition-transform ${expanded ? "rotate-90" : ""}`} />
         </button>
       )}
@@ -114,6 +116,10 @@ interface PlanCanvasProps {
 }
 
 export const PlanCanvas: React.FC<PlanCanvasProps> = ({ title, features }) => {
+  // Node React Flow dirender di luar pohon React biasa, jadi tidak bisa memanggil
+  // useT() sendiri; t dititipkan lewat data node.
+  const { t } = useT();
+
   const { nodes, edges } = useMemo(() => {
     const nodes: Node[] = [];
     const edges: Edge[] = [];
@@ -125,7 +131,7 @@ export const PlanCanvas: React.FC<PlanCanvasProps> = ({ title, features }) => {
       id: "root",
       type: "planRoot",
       position: { x: COLUMN_X[0], y: centerY },
-      data: { title },
+      data: { title, t },
       draggable: false,
     });
 
@@ -135,7 +141,7 @@ export const PlanCanvas: React.FC<PlanCanvasProps> = ({ title, features }) => {
         id: featureId,
         type: "feature",
         position: { x: COLUMN_X[1], y: idx * ROW_GAP },
-        data: { name: feature.name, description: feature.description, priority: feature.priority },
+        data: { name: feature.name, description: feature.description, priority: feature.priority, t },
       });
       edges.push({ id: `root-${featureId}`, source: "root", target: featureId });
 
@@ -147,13 +153,13 @@ export const PlanCanvas: React.FC<PlanCanvasProps> = ({ title, features }) => {
         id: subId,
         type: "subFeatures",
         position: { x: COLUMN_X[2], y: idx * ROW_GAP },
-        data: { items: subFeatures },
+        data: { items: subFeatures, t },
       });
       edges.push({ id: `${featureId}-${subId}`, source: featureId, target: subId });
     });
 
     return { nodes, edges };
-  }, [title, features]);
+  }, [title, features, t]);
 
   return (
     <div className="h-[600px] rounded-xl overflow-hidden border border-line bg-subtle">

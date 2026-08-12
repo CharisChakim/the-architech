@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { ProjectSession, SessionSummary, LLMConfig } from "./types";
 import {
   createEmptySession,
@@ -11,7 +11,8 @@ import {
 } from "./lib/localStorage";
 import { fetchSessionList, fetchSession, persistSession, removeSession } from "./lib/sessionStore";
 import { Theme, loadTheme, saveTheme, applyTheme } from "./lib/theme";
-import { SampleProject } from "./lib/sampleData";
+import { Language, loadLanguage, saveLanguage, makeT, LanguageProvider } from "./lib/i18n";
+import { SampleProject, sampleText } from "./lib/sampleData";
 import { Sidebar } from "./components/Sidebar";
 import { Topbar } from "./components/Topbar";
 import { Step1Plan } from "./components/Step1Plan";
@@ -31,6 +32,12 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(loadSidebarCollapsed);
   const [theme, setTheme] = useState<Theme>(loadTheme);
+  const [lang, setLang] = useState<Language>(loadLanguage);
+
+  // App ikut memakai t untuk teksnya sendiri, jadi fungsinya dibuat di sini dan
+  // nilai yang sama diteruskan ke provider — sebuah komponen tidak bisa membaca
+  // context yang ia sediakan sendiri.
+  const t = useMemo(() => makeT(lang), [lang]);
 
   const toggleSidebarCollapsed = () => {
     setIsSidebarCollapsed((prev) => {
@@ -39,10 +46,24 @@ export default function App() {
     });
   };
 
+  const toggleLanguage = () => {
+    setLang((prev) => {
+      const next = prev === "en" ? "id" : "en";
+      saveLanguage(next);
+      return next;
+    });
+  };
+
   useEffect(() => {
     applyTheme(theme);
     saveTheme(theme);
   }, [theme]);
+
+  // Dipakai pembaca layar untuk memilih pelafalan, dan browser untuk tawaran
+  // terjemahan otomatis.
+  useEffect(() => {
+    document.documentElement.lang = lang;
+  }, [lang]);
 
   // Snapshot of what the store already holds, so hydrating a session does not
   // immediately write it back (which would reorder history just by opening it).
@@ -76,7 +97,7 @@ export default function App() {
         applySession(restored ?? createEmptySession(llmConfig), Boolean(restored));
       } catch (err: any) {
         if (cancelled) return;
-        setStoreError(err.message || "Gagal menghubungi penyimpanan riwayat.");
+        setStoreError(err.message || t("Could not reach project storage."));
         applySession(createEmptySession(llmConfig), false);
       }
     };
@@ -123,11 +144,12 @@ export default function App() {
 
   const handleSelectSample = (sample: SampleProject) => {
     if (!session) return;
+    const { input } = sampleText(sample, lang);
     applySession(
       {
         ...createEmptySession(session.llmConfig),
-        title: sample.input.title,
-        input: sample.input,
+        title: input.title,
+        input,
       },
       false
     );
@@ -138,13 +160,13 @@ export default function App() {
     try {
       const loaded = await fetchSession(id, session.llmConfig);
       if (!loaded) {
-        setStoreError("Sesi proyek tidak ditemukan lagi di penyimpanan.");
+        setStoreError(t("That project session no longer exists in storage."));
         await refreshHistory();
         return;
       }
       applySession(loaded, true);
     } catch (err: any) {
-      setStoreError(err.message || "Gagal membuka sesi proyek.");
+      setStoreError(err.message || t("Failed to open the project session."));
     }
   };
 
@@ -156,7 +178,7 @@ export default function App() {
         applySession(createEmptySession(session.llmConfig), false);
       }
     } catch (err: any) {
-      setStoreError(err.message || "Gagal menghapus sesi proyek.");
+      setStoreError(err.message || t("Failed to delete the project session."));
     }
   };
 
@@ -170,13 +192,14 @@ export default function App() {
       <div className="min-h-screen bg-canvas flex items-center justify-center">
         <div className="flex items-center gap-3 text-sm text-muted">
           <RefreshCw className="w-4 h-4 animate-spin text-accent" />
-          Memuat riwayat proyek...
+          {t("Loading project history...")}
         </div>
       </div>
     );
   }
 
   return (
+    <LanguageProvider value={{ lang, t }}>
     <div className="min-h-screen bg-canvas text-sm text-ink font-sans antialiased flex selection:bg-accent selection:text-accent-fg">
       <Sidebar
         session={session}
@@ -189,6 +212,7 @@ export default function App() {
         onOpenLLMConfig={() => setIsLLMModalOpen(true)}
         theme={theme}
         onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
+        onToggleLanguage={toggleLanguage}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         collapsed={isSidebarCollapsed}
@@ -209,14 +233,14 @@ export default function App() {
             <div className="mb-6 p-4 bg-warn-soft border border-warn/30 rounded-xl text-warn-ink flex items-start gap-3">
               <AlertTriangle className="w-4 h-4 text-warn shrink-0 mt-0.5" />
               <div className="flex-1">
-                <p className="font-medium">Penyimpanan riwayat bermasalah</p>
+                <p className="font-medium">{t("Project storage is not responding")}</p>
                 <p className="opacity-80 mt-0.5">{storeError}</p>
               </div>
               <button
                 onClick={() => setStoreError(null)}
                 className="text-xs font-medium shrink-0 hover:underline"
               >
-                Tutup
+                {t("Dismiss")}
               </button>
             </div>
           )}
@@ -256,5 +280,6 @@ export default function App() {
         session={session}
       />
     </div>
+    </LanguageProvider>
   );
 }

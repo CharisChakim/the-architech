@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import mermaid from "mermaid";
 import { Download, Code, Eye, Maximize2, Minimize2, ZoomIn, ZoomOut, RefreshCw, Copy, Check } from "lucide-react";
+import { useT } from "../lib/i18n";
 
 interface MermaidViewerProps {
   chart: string;
@@ -28,6 +29,7 @@ const initMermaid = (isDark: boolean) =>
   });
 
 export const MermaidViewer: React.FC<MermaidViewerProps> = ({ chart, explanation, title }) => {
+  const { t } = useT();
   const containerRef = useRef<HTMLDivElement>(null);
   const [svgContent, setSvgContent] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
@@ -75,7 +77,7 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({ chart, explanation
       } catch (err: any) {
         console.error("Mermaid rendering error:", err);
         if (isMounted) {
-          setError("Gagal merender diagram Mermaid. Silakan periksa sintaks di bawah.");
+          setError(t("Could not render the Mermaid diagram. Check the syntax below."));
         }
       }
     };
@@ -110,7 +112,7 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({ chart, explanation
     <div className={`card overflow-hidden transition-all ${isFullscreen ? "fixed inset-4 z-50 flex flex-col shadow-lg" : ""}`}>
       {/* Header Toolbar */}
       <div className="flex flex-wrap items-center justify-between px-4 py-2.5 bg-subtle border-b border-line gap-3">
-        <h4 className="font-medium text-ink text-sm truncate">{title || "Diagram logika sistem"}</h4>
+        <h4 className="font-medium text-ink text-sm truncate">{title || t("System logic diagram")}</h4>
 
         <div className="flex items-center gap-2">
           {/* View Toggle */}
@@ -120,7 +122,7 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({ chart, explanation
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-colors ${activeTab === "visual" ? "bg-subtle text-ink" : "text-muted hover:text-ink"}`}
             >
               <Eye className="w-3.5 h-3.5" />
-              Diagram
+              {t("Diagram")}
             </button>
             <button
               onClick={() => setActiveTab("code")}
@@ -133,38 +135,38 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({ chart, explanation
 
           {activeTab === "visual" && (
             <div className="flex items-center gap-0.5 bg-surface border border-line rounded-lg p-0.5 text-muted">
-              <button onClick={() => setZoom((z) => Math.max(0.5, z - 0.2))} className="p-1 hover:text-ink rounded" title="Perkecil">
+              <button onClick={() => setZoom((z) => Math.max(0.5, z - 0.2))} className="p-1 hover:text-ink rounded" title={t("Zoom out")}>
                 <ZoomOut className="w-3.5 h-3.5" />
               </button>
               <span className="text-xs px-1 font-mono font-medium tabular-nums">{Math.round(zoom * 100)}%</span>
-              <button onClick={() => setZoom((z) => Math.min(2.5, z + 0.2))} className="p-1 hover:text-ink rounded" title="Perbesar">
+              <button onClick={() => setZoom((z) => Math.min(2.5, z + 0.2))} className="p-1 hover:text-ink rounded" title={t("Zoom in")}>
                 <ZoomIn className="w-3.5 h-3.5" />
               </button>
-              <button onClick={() => setZoom(1)} className="p-1 hover:text-ink rounded" title="Reset zoom">
+              <button onClick={() => setZoom(1)} className="p-1 hover:text-ink rounded" title={t("Reset zoom")}>
                 <RefreshCw className="w-3.5 h-3.5" />
               </button>
             </div>
           )}
 
-          <button onClick={handleCopyCode} className="btn-outline text-xs !py-1.5" title="Salin kode Mermaid">
+          <button onClick={handleCopyCode} className="btn-outline text-xs !py-1.5" title={t("Copy Mermaid code")}>
             {copied ? <Check className="w-3.5 h-3.5 text-ok" /> : <Copy className="w-3.5 h-3.5" />}
-            {copied ? "Tersalin" : "Copy code"}
+            {copied ? t("Copied") : t("Copy code")}
           </button>
 
           <button
             onClick={handleDownloadSvg}
             disabled={!svgContent}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent-soft text-accent-ink rounded-lg text-xs font-medium hover:brightness-105 transition-all disabled:opacity-50"
-            title="Unduh SVG"
+            title={t("Download SVG")}
           >
             <Download className="w-3.5 h-3.5" />
-            Export SVG
+            {t("Export SVG")}
           </button>
 
           <button
             onClick={() => setIsFullscreen(!isFullscreen)}
             className="p-1.5 border border-line bg-surface text-muted hover:text-ink rounded-lg transition-colors"
-            title={isFullscreen ? "Keluar layar penuh" : "Layar penuh"}
+            title={isFullscreen ? t("Exit full screen") : t("Full screen")}
           >
             {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
           </button>
@@ -177,12 +179,12 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({ chart, explanation
           error ? (
             <div className="m-auto text-center p-6 bg-warn-soft rounded-xl border border-warn/30 max-w-lg">
               <p className="text-warn-ink text-sm font-medium mb-2">{error}</p>
-              <p className="text-xs text-warn-ink/80 mb-3">Anda tetap dapat melihat dan menyalin sintaks Mermaid lewat tab "Mermaid".</p>
+              <p className="text-xs text-warn-ink/80 mb-3">{t('You can still read and copy the Mermaid syntax from the "Mermaid" tab.')}</p>
               <button
                 onClick={() => setActiveTab("code")}
                 className="px-3 py-1.5 bg-warn text-white rounded-lg text-xs font-medium hover:brightness-110"
               >
-                Lihat sintaks kode
+                {t("View the syntax")}
               </button>
             </div>
           ) : (
@@ -206,7 +208,7 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({ chart, explanation
 
       {explanation && (
         <div className="p-4 bg-subtle border-t border-line text-muted leading-relaxed">
-          <strong className="text-ink font-medium block mb-1">Penjelasan alur logika</strong>
+          <strong className="text-ink font-medium block mb-1">{t("How the flow works")}</strong>
           {explanation}
         </div>
       )}

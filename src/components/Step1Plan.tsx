@@ -23,6 +23,7 @@ import {
   Check,
   Eye,
 } from "lucide-react";
+import { useT } from "../lib/i18n";
 
 interface Step1PlanProps {
   session: ProjectSession;
@@ -41,6 +42,7 @@ const provisionalTitle = (idea: string): string => {
 };
 
 export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, onGoToNextStep }) => {
+  const { t, lang } = useT();
   const [title, setTitle] = useState(session.input.title || "");
   const [description, setDescription] = useState(session.input.description || "");
   const [targetAudience, setTargetAudience] = useState(session.input.targetAudience || "");
@@ -84,7 +86,7 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
   // dan menambah pertanyaan hanya jika benar-benar masih ragu.
   const requestFollowUps = async (isFirstRound: boolean) => {
     if (!description.trim()) {
-      setErrorMessage("Silakan masukkan deskripsi proyek terlebih dahulu.");
+      setErrorMessage(t("Enter a project description first."));
       return;
     }
 
@@ -105,11 +107,12 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
           previousAnswers: isFirstRound ? {} : answers,
           round: nextRound,
           llmConfig: session.llmConfig,
+          language: lang,
         }),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Gagal membuat pertanyaan follow-up.");
+      if (!res.ok) throw new Error(data.error || t("Failed to generate the follow-up questions."));
 
       const newQuestions: FollowUpQuestion[] = data.questions || [];
 
@@ -144,7 +147,7 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
       // Pertanyaan punya halamannya sendiri, jadi pindah setelah ronde pertama.
       if (isFirstRound) setSubView("clarify");
     } catch (err: any) {
-      setErrorMessage(err.message || "Terjadi kesalahan saat berkomunikasi dengan LLM.");
+      setErrorMessage(err.message || t("Something went wrong talking to the LLM."));
     } finally {
       setLoadingQuestions(false);
     }
@@ -171,11 +174,12 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
           techStackPreference,
           answers,
           llmConfig: session.llmConfig,
+          language: lang,
         }),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Gagal membuat Project Plan.");
+      if (!res.ok) throw new Error(data.error || t("Failed to generate the project plan."));
 
       const plan: ProjectPlan = data;
       // Judul dari pengguna selalu menang. Usulan AI hanya mengisi kalau kolom
@@ -198,7 +202,7 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
       // Switch sub-view directly to Architecture & Diagram review page!
       setSubView("plan_review");
     } catch (err: any) {
-      setErrorMessage(err.message || "Gagal membuat Project Plan.");
+      setErrorMessage(err.message || t("Failed to generate the project plan."));
     } finally {
       setLoadingPlan(false);
     }
@@ -235,11 +239,12 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
           answers,
           lockedFeatures,
           llmConfig: session.llmConfig,
+          language: lang,
         }),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Gagal menyelaraskan ulang plan.");
+      if (!res.ok) throw new Error(data.error || t("Failed to re-sync the plan."));
 
       // coreFeatures tidak perlu dipasang ulang di sini: saat lockedFeatures
       // dikirim, server yang menempelkannya kembali (sudah dinormalkan), bukan
@@ -247,7 +252,7 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
       onUpdateSession({ plan: data as ProjectPlan, planFeaturesEdited: false });
       setEditingFeatures(false);
     } catch (err: any) {
-      setErrorMessage(err.message || "Gagal menyelaraskan ulang plan.");
+      setErrorMessage(err.message || t("Failed to re-sync the plan."));
     } finally {
       setResyncing(false);
     }
@@ -278,11 +283,12 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
       <div className="space-y-4">
         <div className="max-w-2xl">
           <h2 className="text-xl font-semibold tracking-tight text-ink">
-            Klarifikasi ide, arsitektur, dan diagram logika
+            {t("Clarify the idea, architecture, and logic diagram")}
           </h2>
           <p className="text-muted mt-1.5 leading-relaxed">
-            Mulai dari ide kasar. AI mengajukan klarifikasi bertahap sampai cukup yakin, lalu menyusun arsitektur dan
-            diagram untuk Anda tinjau sebelum masuk ke PRD.
+            {t(
+              "Start from a rough idea. The AI asks clarifying questions until it is confident enough, then drafts an architecture and diagram for you to review before the PRD."
+            )}
           </p>
         </div>
 
@@ -291,14 +297,14 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
           <div className="inline-flex items-center gap-1 p-1 bg-subtle rounded-lg">
             {(
               [
-                { id: "form", label: "Data proyek", icon: Edit3, available: true },
+                { id: "form", label: t("Project data"), icon: Edit3, available: true },
                 {
                   id: "clarify",
-                  label: "Klarifikasi",
+                  label: t("Clarification"),
                   icon: HelpCircle,
                   available: session.followUps.length > 0,
                 },
-                { id: "plan_review", label: "Review arsitektur", icon: Eye, available: Boolean(plan) },
+                { id: "plan_review", label: t("Architecture review"), icon: Eye, available: Boolean(plan) },
               ] as const
             ).map(({ id, label, icon: Icon, available }) => (
               <button
@@ -325,7 +331,7 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
         <div className="max-w-3xl p-4 bg-danger-soft border border-danger/30 text-danger-ink rounded-xl text-sm flex items-start gap-3">
           <AlertTriangle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
           <div className="flex-1">
-            <strong className="font-semibold block mb-0.5">Terjadi kendala</strong>
+            <strong className="font-semibold block mb-0.5">{t("Something went wrong")}</strong>
             {errorMessage}
           </div>
         </div>
@@ -338,60 +344,62 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
         <form onSubmit={handleAnalyzeQuestions} className="card max-w-3xl p-6 space-y-5">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
-              <label className="field-label">Judul proyek</label>
+              <label className="field-label">{t("Project title")}</label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="misal: AI Code Reviewer Bot"
+                placeholder={t("e.g. AI Code Reviewer Bot")}
                 className="field"
               />
-              <p className="field-hint">Kosong berarti AI mengusulkan judulnya.</p>
+              <p className="field-hint">{t("Leave empty and the AI proposes a title.")}</p>
             </div>
 
             <div>
-              <label className="field-label">Target pengguna</label>
+              <label className="field-label">{t("Target users")}</label>
               <input
                 type="text"
                 value={targetAudience}
                 onChange={(e) => setTargetAudience(e.target.value)}
-                placeholder="misal: Tech Lead, mahasiswa, kasir UMKM"
+                placeholder={t("e.g. tech leads, students, shop cashiers")}
                 className="field"
               />
-              <p className="field-hint">Opsional.</p>
+              <p className="field-hint">{t("Optional.")}</p>
             </div>
           </div>
 
           <div>
             <label className="field-label">
-              Deskripsi detail proyek <span className="text-danger">*</span>
+              {t("Detailed project description")} <span className="text-danger">*</span>
             </label>
             <textarea
               rows={5}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Jelaskan ide Anda: masalah apa yang diselesaikan, fitur utama yang dibayangkan, dan bagaimana cara kerjanya."
+              placeholder={t(
+                "Describe your idea: the problem it solves, the main features you picture, and how it works."
+              )}
               className="field leading-relaxed resize-y"
             />
           </div>
 
           <div>
-            <label className="field-label">Ekspektasi tech stack</label>
+            <label className="field-label">{t("Preferred tech stack")}</label>
             <input
               type="text"
               value={techStackPreference}
               onChange={(e) => setTechStackPreference(e.target.value)}
-              placeholder="misal: React, Node.js, PostgreSQL"
+              placeholder={t("e.g. React, Node.js, PostgreSQL")}
               className="field"
             />
-            <p className="field-hint">Opsional. Kosong berarti AI merekomendasikan.</p>
+            <p className="field-hint">{t("Optional. Leave empty and the AI recommends one.")}</p>
           </div>
 
           {/* Bilah aksi dibuat full-bleed dengan margin negatif agar garis
               pemisahnya menyentuh tepi kartu. */}
           <div className="flex flex-wrap items-center justify-between gap-3 -mx-6 -mb-6 px-6 py-4 border-t border-line">
             <span className="text-xs text-faint truncate">
-              {session.llmConfig.provider} · {session.llmConfig.modelName || "model bawaan"}
+              {session.llmConfig.provider} · {session.llmConfig.modelName || t("default model")}
             </span>
 
             <button
@@ -402,12 +410,12 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
               {loadingQuestions ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin" />
-                  Menganalisis...
+                  {t("Analysing...")}
                 </>
               ) : (
                 <>
                   <Wand2 className="w-4 h-4" />
-                  Analisis ide &amp; buat pertanyaan
+                  {t("Analyse the idea & draft questions")}
                 </>
               )}
             </button>
@@ -422,16 +430,16 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
             <div>
               <h3 className={sectionTitle}>
                 <HelpCircle className="w-4 h-4 text-faint" />
-                Klarifikasi dari AI
+                {t("Clarification from the AI")}
               </h3>
               <p className="text-xs text-faint mt-1">
-                Pilih salah satu opsi jawaban atau tulis jawaban manual bila tidak ada di pilihan.
+                {t("Pick one of the options, or write your own if none of them fit.")}
               </p>
             </div>
 
             <button onClick={handleFillAllSuggested} className="btn-outline text-xs">
               <Zap className="w-3.5 h-3.5 text-faint" />
-              Pakai rekomendasi AI
+              {t("Use the AI recommendations")}
             </button>
           </div>
 
@@ -452,8 +460,12 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
               <div className="leading-relaxed">
                 <strong className="font-semibold block mb-0.5">
                   {session.clarificationComplete
-                    ? `Ronde ${session.clarificationRound}: AI menilai informasi sudah cukup.`
-                    : `Ronde ${session.clarificationRound}: AI masih punya pertanyaan.`}
+                    ? t("Round {round}: the AI considers the information sufficient.", {
+                        round: session.clarificationRound ?? 1,
+                      })
+                    : t("Round {round}: the AI still has questions.", {
+                        round: session.clarificationRound ?? 1,
+                      })}
                 </strong>
                 {session.readinessNote}
               </div>
@@ -475,7 +487,7 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
                       </span>
                       {q.round && q.round > 1 && (
                         <span className="inline-block px-1.5 py-0.5 rounded bg-subtle text-muted text-[11px] font-semibold uppercase tracking-wider">
-                          Ronde {q.round}
+                          {t("Round {round}", { round: q.round })}
                         </span>
                       )}
                     </div>
@@ -521,7 +533,7 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
                       }`}
                     >
                       <Edit3 className="w-3.5 h-3.5 shrink-0" />
-                      <span>Jawaban sendiri</span>
+                      <span>{t("My own answer")}</span>
                     </button>
                   </div>
 
@@ -531,7 +543,7 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
                       type="text"
                       value={currentAnswer}
                       onChange={(e) => setAnswers({ ...answers, [q.question]: e.target.value })}
-                      placeholder="Ketik jawaban kustom Anda di sini..."
+                      placeholder={t("Type your own answer here...")}
                       className="field animate-in fade-in"
                     />
                   )}
@@ -545,17 +557,17 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
               onClick={() => requestFollowUps(false)}
               disabled={loadingQuestions || loadingPlan}
               className="btn-outline"
-              title="Kirim jawaban saat ini agar AI menilai apakah masih ada yang perlu ditanyakan"
+              title={t("Send the current answers so the AI can judge whether anything is still missing")}
             >
               {loadingQuestions ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin" />
-                  Menilai jawaban Anda...
+                  {t("Reviewing your answers...")}
                 </>
               ) : (
                 <>
                   <HelpCircle className="w-4 h-4" />
-                  Lanjutkan klarifikasi (ronde {(session.clarificationRound || 1) + 1})
+                  {t("Continue clarifying (round {round})", { round: (session.clarificationRound || 1) + 1 })}
                 </>
               )}
             </button>
@@ -564,12 +576,12 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
               {loadingPlan ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin" />
-                  Menyusun arsitektur &amp; diagram...
+                  {t("Drafting the architecture & diagram...")}
                 </>
               ) : (
                 <>
                   <Sparkles className="w-4 h-4" />
-                  Generate project plan
+                  {t("Generate project plan")}
                 </>
               )}
             </button>
@@ -584,7 +596,7 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
           <div className="card p-5 flex flex-wrap items-start justify-between gap-5">
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 text-ok text-xs font-medium mb-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Plan &amp; arsitektur tersusun
+                <CheckCircle2 className="w-3.5 h-3.5" /> {t("Plan & architecture ready")}
               </div>
               <h3 className="text-base font-semibold text-ink">{session.input.title || session.title}</h3>
               <p className="text-muted mt-1 max-w-2xl leading-relaxed">{plan.summary}</p>
@@ -592,11 +604,11 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
 
             <div className="flex items-center gap-2 shrink-0">
               <button onClick={() => setSubView("form")} className="btn-ghost">
-                <Edit3 className="w-3.5 h-3.5" /> Edit input
+                <Edit3 className="w-3.5 h-3.5" /> {t("Edit input")}
               </button>
 
               <button onClick={onGoToNextStep} className="btn-primary">
-                Lanjut ke PRD
+                {t("Continue to the PRD")}
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
@@ -608,9 +620,12 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
               <div className="flex items-start gap-3 min-w-0">
                 <AlertTriangle className="w-4 h-4 text-warn shrink-0 mt-0.5" />
                 <div className="text-warn-ink leading-relaxed">
-                  <strong className="font-semibold block mb-0.5">Fitur sudah diubah, bagian lain belum menyesuaikan.</strong>
-                  Arsitektur, diagram, roadmap, dan estimasi masih susunan sebelum suntingan Anda. Selaraskan ulang agar
-                  PRD tidak mewarisi bagian yang sudah tidak relevan.
+                  <strong className="font-semibold block mb-0.5">
+                    {t("Features changed; the rest has not caught up.")}
+                  </strong>
+                  {t(
+                    "The architecture, diagram, roadmap and estimate still describe the version before your edit. Re-sync so the PRD does not inherit parts that no longer apply."
+                  )}
                 </div>
               </div>
 
@@ -620,7 +635,7 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
                 className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-warn text-white text-sm font-medium hover:brightness-110 transition-all disabled:opacity-50 shrink-0"
               >
                 <RefreshCw className={`w-4 h-4 ${resyncing ? "animate-spin" : ""}`} />
-                {resyncing ? "Menyelaraskan..." : "Selaraskan ulang"}
+                {resyncing ? t("Re-syncing...") : t("Re-sync")}
               </button>
             </div>
           )}
@@ -630,21 +645,23 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h4 className={sectionTitle}>
                 <Network className="w-4 h-4 text-faint" />
-                Struktur fitur
+                {t("Feature structure")}
               </h4>
               <div className="flex items-center gap-3">
                 <span className="text-xs text-faint">
-                  {plan.specs.coreFeatures.length} fitur ·{" "}
-                  {plan.specs.coreFeatures.reduce((n, f) => n + (f.subFeatures?.length || 0), 0)} sub fitur
+                  {t("{features} features · {subs} sub features", {
+                    features: plan.specs.coreFeatures.length,
+                    subs: plan.specs.coreFeatures.reduce((n, f) => n + (f.subFeatures?.length || 0), 0),
+                  })}
                 </span>
                 <button onClick={() => setEditingFeatures((v) => !v)} className="btn-ghost">
                   {editingFeatures ? <Check className="w-3.5 h-3.5" /> : <Edit3 className="w-3.5 h-3.5" />}
-                  {editingFeatures ? "Selesai edit" : "Edit fitur"}
+                  {editingFeatures ? t("Done editing") : t("Edit features")}
                 </button>
               </div>
             </div>
 
-            <PlanCanvas title={session.input.title || session.title || "Perencanaan"} features={plan.specs.coreFeatures} />
+            <PlanCanvas title={session.input.title || session.title || t("Planning")} features={plan.specs.coreFeatures} />
 
             {/* Kanvas di atas ikut berubah begitu daftar fitur disunting. */}
             {editingFeatures && <FeatureEditor features={plan.specs.coreFeatures} onChange={handleFeaturesChange} />}
@@ -655,13 +672,13 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
             <div className="space-y-2.5 pt-2">
               <h4 className={sectionTitle}>
                 <Layers className="w-4 h-4 text-faint" />
-                Diagram logika &amp; arsitektur sistem
+                {t("System logic & architecture diagram")}
               </h4>
 
               <MermaidViewer
                 chart={plan.architectureDraft.diagramMermaid}
                 explanation={plan.architectureDraft.dataFlow}
-                title={`Arsitektur sistem: ${session.input.title || session.title}`}
+title={t("System architecture: {title}", { title: session.input.title || session.title })}
               />
             </div>
           )}
@@ -672,7 +689,7 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
             <div className="card p-5 space-y-3">
               <h4 className={`${sectionTitle} border-b border-line pb-3`}>
                 <ListTodo className="w-4 h-4 text-faint" />
-                Prioritas fitur utama
+                {t("Core feature priorities")}
               </h4>
               <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
                 {plan.specs.coreFeatures.map((feat, idx) => (
@@ -688,7 +705,7 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
                               : "bg-surface text-muted"
                         }`}
                       >
-                        {feat.priority} {feat.priority === "P0" ? "(MVP)" : ""}
+                        {feat.priority} {feat.priority === "P0" ? t("(MVP)") : ""}
                       </span>
                     </div>
                     <p className="text-muted leading-relaxed">{feat.description}</p>
@@ -701,7 +718,7 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
             <div className="card p-5 space-y-3">
               <h4 className={`${sectionTitle} border-b border-line pb-3`}>
                 <Cpu className="w-4 h-4 text-faint" />
-                Rekomendasi stack teknologi
+                {t("Recommended tech stack")}
               </h4>
               <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
                 {plan.specs.techStack.map((tech, idx) => (
@@ -723,17 +740,17 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
           <div className="card p-5 space-y-5">
             <h4 className={sectionTitle}>
               <Layers className="w-4 h-4 text-faint" />
-              Detail komponen &amp; keamanan
+              {t("Component & security detail")}
             </h4>
 
             <div>
-              <p className="text-xs font-medium text-faint mb-1.5">Gambaran umum arsitektur</p>
+              <p className="text-xs font-medium text-faint mb-1.5">{t("Architecture overview")}</p>
               <p className="text-muted leading-relaxed max-w-4xl">{plan.architectureDraft.overview}</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="space-y-2">
-                <p className="text-xs font-medium text-faint">Komponen utama</p>
+                <p className="text-xs font-medium text-faint">{t("Main components")}</p>
                 <ul className="space-y-2">
                   {plan.architectureDraft.components.map((comp, idx) => (
                     <li key={idx} className="bg-subtle p-3 rounded-lg">
@@ -749,13 +766,13 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
 
               <div className="space-y-5">
                 <div>
-                  <p className="text-xs font-medium text-faint mb-1.5">Alur data</p>
+                  <p className="text-xs font-medium text-faint mb-1.5">{t("Data flow")}</p>
                   <p className="text-muted leading-relaxed">{plan.architectureDraft.dataFlow}</p>
                 </div>
 
                 <div>
                   <p className="text-xs font-medium text-faint mb-1.5 flex items-center gap-1.5">
-                    <ShieldCheck className="w-3.5 h-3.5" /> Keamanan &amp; otentikasi
+                    <ShieldCheck className="w-3.5 h-3.5" /> {t("Security & authentication")}
                   </p>
                   <p className="text-muted leading-relaxed">{plan.architectureDraft.securityAndAuth}</p>
                 </div>
@@ -768,7 +785,7 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
             <div className="lg:col-span-2 card p-5 space-y-4">
               <h4 className={sectionTitle}>
                 <Compass className="w-4 h-4 text-faint" />
-                Roadmap tahapan pengerjaan
+                {t("Delivery roadmap")}
               </h4>
               <ol className="space-y-4">
                 {plan.roadmap.map((phase, idx) => (
@@ -798,22 +815,22 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
             <div className="card p-5 space-y-4">
               <h4 className={sectionTitle}>
                 <Clock className="w-4 h-4 text-faint" />
-                Estimasi &amp; sumber daya
+                {t("Estimate & resources")}
               </h4>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-subtle rounded-lg p-3">
-                  <p className="text-xs font-medium text-faint">Total estimasi</p>
+                  <p className="text-xs font-medium text-faint">{t("Total estimate")}</p>
                   <p className="text-base font-semibold text-ink mt-0.5">{plan.estimation.totalTimeWeeks}</p>
                 </div>
                 <div className="bg-subtle rounded-lg p-3">
-                  <p className="text-xs font-medium text-faint">Kompleksitas</p>
+                  <p className="text-xs font-medium text-faint">{t("Complexity")}</p>
                   <p className="text-base font-semibold text-ink mt-0.5">{plan.estimation.complexityLevel}</p>
                 </div>
               </div>
 
               <div>
-                <p className="text-xs font-medium text-faint mb-1.5">Sumber daya dibutuhkan</p>
+                <p className="text-xs font-medium text-faint mb-1.5">{t("Resources needed")}</p>
                 <ul className="space-y-1 text-muted">
                   {plan.estimation.requiredResources.map((res, idx) => (
                     <li key={idx} className="flex gap-2">
