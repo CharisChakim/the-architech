@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { ProjectSession, PRDData, PRDExtraSection } from "../types";
 import { MermaidViewer } from "./MermaidViewer";
+import { GenerationProgress } from "./GenerationProgress";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -20,6 +21,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useT, TFunction } from "../lib/i18n";
+import { generatePrd } from "../lib/generate";
 
 interface Step2PRDProps {
   session: ProjectSession;
@@ -197,24 +199,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
     setErrorMessage(null);
 
     try {
-      const res = await fetch("/api/generate-prd", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: session.input.title || session.title || "Aplikasi AI",
-          plan: session.plan,
-          llmConfig: session.llmConfig,
-          language: lang,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || t("Failed to generate the PRD."));
-
-      const generatedPrd: PRDData = data;
-      onUpdateSession({
-        prd: generatedPrd,
-      });
+      onUpdateSession({ prd: await generatePrd(session, lang) });
     } catch (err: any) {
       setErrorMessage(err.message || t("Something went wrong while generating the PRD."));
     } finally {
@@ -304,6 +289,12 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
           <strong className="font-semibold">{t("Error")}:</strong> {errorMessage}
         </div>
       )}
+
+      <GenerationProgress
+        active={loading}
+        label={t("Assembling the PRD & diagram...")}
+        expectedMs={45000}
+      />
 
       {/* Generate Action Card if no PRD */}
       {!prd ? (

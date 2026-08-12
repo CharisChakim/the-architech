@@ -7,10 +7,12 @@ import {
   Handle,
   Position,
   type Edge,
+  type FitViewOptions,
   type Node,
   type NodeProps,
+  type ReactFlowInstance,
 } from "@xyflow/react";
-import { FileText, LayoutGrid, Layers, ChevronRight } from "lucide-react";
+import { FileText, LayoutGrid, Layers, ChevronRight, Maximize } from "lucide-react";
 import { FeatureSpec } from "../types";
 import { useT, TFunction } from "../lib/i18n";
 
@@ -19,6 +21,13 @@ import { useT, TFunction } from "../lib/i18n";
 const COLUMN_X = [0, 420, 780];
 const ROW_GAP = 200;
 const SUB_FEATURES_SHOWN = 3;
+
+// fitView memperkecil sampai SEMUA muat, dan dengan enam fitur itu berarti
+// tinggi ~1100px dijejalkan ke kanvas 600px — kartu jadi tak terbaca. Batas
+// bawah 0.75 membalik prioritasnya: keterbacaan dulu, sisanya digulung. Batas
+// ini hanya berlaku untuk fitView; minZoom pada instance tetap longgar, dan
+// tombol fit bawaan React Flow di kiri bawah tetap bisa memuat semuanya.
+const FIT_VIEW: FitViewOptions = { padding: 0.15, minZoom: 0.75, maxZoom: 1 };
 
 const CARD = "w-56 rounded-xl px-3.5 py-3 bg-surface border border-line shadow-sm dark:shadow-none";
 
@@ -161,14 +170,31 @@ export const PlanCanvas: React.FC<PlanCanvasProps> = ({ title, features }) => {
     return { nodes, edges };
   }, [title, features, t]);
 
+  // Instance disimpan saat init supaya tombol reset di luar kanvas bisa memanggil
+  // fitView tanpa harus menjadi anak dari <ReactFlow>.
+  const [flow, setFlow] = useState<ReactFlowInstance | null>(null);
+
   return (
-    <div className="h-[600px] rounded-xl overflow-hidden border border-line bg-subtle">
+    <div className="relative h-[600px] rounded-xl overflow-hidden border border-line bg-subtle">
+      <button
+        onClick={() => flow?.fitView({ ...FIT_VIEW, duration: 300 })}
+        disabled={!flow}
+        title={t("Back to the default view")}
+        className="absolute top-3 right-3 z-10 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg
+          bg-surface border border-line text-xs font-medium text-muted hover:text-ink shadow-sm
+          transition-colors disabled:opacity-40"
+      >
+        <Maximize className="w-3.5 h-3.5" />
+        {t("Reset view")}
+      </button>
+
       <ReactFlow
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
+        onInit={setFlow}
         fitView
-        fitViewOptions={{ padding: 0.2 }}
+        fitViewOptions={FIT_VIEW}
         minZoom={0.3}
         maxZoom={1.75}
         proOptions={{ hideAttribution: false }}

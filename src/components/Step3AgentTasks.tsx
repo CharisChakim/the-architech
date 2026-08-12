@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { ProjectSession, AgentTask } from "../types";
 import confetti from "canvas-confetti";
+import { GenerationProgress } from "./GenerationProgress";
 import {
   Bot,
   Sparkles,
@@ -198,6 +199,12 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
           <strong className="font-semibold">{t("Error")}:</strong> {errorMessage}
         </div>
       )}
+
+      <GenerationProgress
+        active={loading}
+        label={t("Building the task board...")}
+        expectedMs={45000}
+      />
 
       {/* Generate Card if no tasks yet */}
       {tasks.length === 0 ? (
