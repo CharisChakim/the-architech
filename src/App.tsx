@@ -12,6 +12,7 @@ import {
 import { fetchSessionList, fetchSession, persistSession, removeSession } from "./lib/sessionStore";
 import { Theme, loadTheme, saveTheme, applyTheme } from "./lib/theme";
 import { Language, loadLanguage, saveLanguage, makeT, LanguageProvider } from "./lib/i18n";
+import { STEP_PATHS, pathToStep, isStepReachable, Step } from "./lib/routing";
 import { SampleProject, sampleText } from "./lib/sampleData";
 import { Sidebar } from "./components/Sidebar";
 import { Topbar } from "./components/Topbar";
@@ -31,6 +32,7 @@ export default function App() {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(loadSidebarCollapsed);
+
   const [theme, setTheme] = useState<Theme>(loadTheme);
   const [lang, setLang] = useState<Language>(loadLanguage);
 
@@ -68,6 +70,42 @@ export default function App() {
   // Snapshot of what the store already holds, so hydrating a session does not
   // immediately write it back (which would reorder history just by opening it).
   const lastPersistedRef = useRef<string | null>(null);
+
+  // Sekali saja saat sesi pertama termuat: kalau URL menunjuk langkah lain dan
+  // langkah itu memang boleh dibuka, URL yang menang — itu gunanya alamat bisa
+  // disimpan. Setelah itu arahnya berbalik: URL yang mengikuti langkah aktif.
+  const urlSynced = useRef(false);
+
+  useEffect(() => {
+    if (!session || urlSynced.current) return;
+    urlSynced.current = true;
+
+    const fromUrl = pathToStep(window.location.pathname);
+    if (fromUrl && fromUrl !== session.currentStep && isStepReachable(fromUrl, session)) {
+      handleUpdateSession({ currentStep: fromUrl });
+    } else {
+      window.history.replaceState({}, "", STEP_PATHS[session.currentStep]);
+    }
+  }, [session]);
+
+  useEffect(() => {
+    if (!session || !urlSynced.current) return;
+    const path = STEP_PATHS[session.currentStep];
+    if (window.location.pathname !== path) window.history.pushState({}, "", path);
+  }, [session?.currentStep]);
+
+  // Tombol back/forward browser. setSession dipakai langsung, bukan
+  // handleUpdateSession, supaya sekadar menavigasi tidak menaikkan updatedAt
+  // dan mengacak urutan riwayat.
+  useEffect(() => {
+    const handlePopState = () => {
+      const step = pathToStep(window.location.pathname);
+      if (!step) return;
+      setSession((prev) => (prev && isStepReachable(step, prev) ? { ...prev, currentStep: step } : prev));
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   const applySession = (next: ProjectSession, markAsPersisted: boolean) => {
     if (markAsPersisted) lastPersistedRef.current = JSON.stringify(next);
@@ -133,9 +171,10 @@ export default function App() {
     );
   };
 
-  const handleSelectStep = (step: 1 | 2 | 3) => {
+  const handleSelectStep = (step: Step) => {
     handleUpdateSession({ currentStep: step });
   };
+
 
   const handleNewProject = () => {
     if (!session) return;
@@ -250,6 +289,7 @@ export default function App() {
               session={session}
               onUpdateSession={handleUpdateSession}
               onGoToNextStep={() => handleSelectStep(2)}
+              onSelectSample={handleSelectSample}
             />
           )}
 

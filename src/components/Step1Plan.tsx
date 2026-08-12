@@ -3,6 +3,9 @@ import { ProjectSession, FollowUpQuestion, ProjectPlan, FeatureSpec } from "../t
 import { MermaidViewer } from "./MermaidViewer";
 import { PlanCanvas } from "./PlanCanvas";
 import { FeatureEditor } from "./FeatureEditor";
+import { GenerationProgress } from "./GenerationProgress";
+import { SAMPLE_PROJECTS, SampleProject, sampleText } from "../lib/sampleData";
+import { generatePrd } from "../lib/generate";
 import {
   Network,
   Compass,
@@ -22,6 +25,7 @@ import {
   Edit3,
   Check,
   Eye,
+  Undo2,
 } from "lucide-react";
 import { useT } from "../lib/i18n";
 
@@ -29,6 +33,7 @@ interface Step1PlanProps {
   session: ProjectSession;
   onUpdateSession: (updated: Partial<ProjectSession>) => void;
   onGoToNextStep: () => void;
+  onSelectSample: (sample: SampleProject) => void;
 }
 
 const sectionTitle = "font-semibold text-ink text-sm flex items-center gap-2";
@@ -41,7 +46,12 @@ const provisionalTitle = (idea: string): string => {
   return firstLine.slice(0, 57).trimEnd() + "...";
 };
 
-export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, onGoToNextStep }) => {
+export const Step1Plan: React.FC<Step1PlanProps> = ({
+  session,
+  onUpdateSession,
+  onGoToNextStep,
+  onSelectSample,
+}) => {
   const { t, lang } = useT();
   const [title, setTitle] = useState(session.input.title || "");
   const [description, setDescription] = useState(session.input.description || "");
@@ -56,6 +66,41 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [editingFeatures, setEditingFeatures] = useState(false);
   const [resyncing, setResyncing] = useState(false);
+  const [generatingPrd, setGeneratingPrd] = useState(false);
+
+  // Suntingan fitur langsung mengubah sesi, jadi menghapus fitur secara keliru
+  // tidak bisa dibatalkan tanpa salinan. Ini dipotret saat masuk mode edit dan
+  // dikembalikan utuh kalau pengguna membatalkan — termasuk penanda tidak
+  // sinkron, yang kalau tidak ikut dipulihkan akan menyisakan peringatan
+  // "selaraskan ulang" untuk perubahan yang sudah dibuang.
+  const [featuresBackup, setFeaturesBackup] = useState<{
+    features: FeatureSpec[];
+    wasEdited: boolean;
+  } | null>(null);
+
+  const startEditingFeatures = () => {
+    if (!session.plan) return;
+    setFeaturesBackup({
+      features: JSON.parse(JSON.stringify(session.plan.specs.coreFeatures)),
+      wasEdited: Boolean(session.planFeaturesEdited),
+    });
+    setEditingFeatures(true);
+  };
+
+  const finishEditingFeatures = () => {
+    setFeaturesBackup(null);
+    setEditingFeatures(false);
+  };
+
+  const cancelEditingFeatures = () => {
+    if (featuresBackup && session.plan) {
+      onUpdateSession({
+        plan: { ...session.plan, specs: { ...session.plan.specs, coreFeatures: featuresBackup.features } },
+        planFeaturesEdited: featuresBackup.wasEdited,
+      });
+    }
+    finishEditingFeatures();
+  };
 
   // Tiga tahap di dalam Step 1, masing-masing halamannya sendiri: isi data ->
   // jawab pertanyaan klarifikasi -> tinjau arsitektur.
@@ -78,6 +123,7 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
     setCustomAnswerActive({});
     setErrorMessage(null);
     setEditingFeatures(false);
+    setFeaturesBackup(null);
     setSubView(initialSubView());
   }, [session.id]);
 
@@ -250,11 +296,34 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
       // dikirim, server yang menempelkannya kembali (sudah dinormalkan), bukan
       // model yang menyusunnya.
       onUpdateSession({ plan: data as ProjectPlan, planFeaturesEdited: false });
-      setEditingFeatures(false);
+      finishEditingFeatures();
     } catch (err: any) {
       setErrorMessage(err.message || t("Failed to re-sync the plan."));
     } finally {
       setResyncing(false);
+    }
+  };
+
+  // Pindah ke halaman PRD hanya setelah PRD-nya benar-benar ada. Kalau
+  // dibalik, pengguna mendarat di halaman kosong dan menunggu di sana; di sini
+  // ia menunggu di halaman yang sudah dikenalnya, dan bisa membatalkan dengan
+  // tetap tinggal. PRD yang sudah ada tidak dibuat ulang diam-diam.
+  const handleContinueToPrd = async () => {
+    if (session.prd) {
+      onGoToNextStep();
+      return;
+    }
+
+    setErrorMessage(null);
+    setGeneratingPrd(true);
+    try {
+      const prd = await generatePrd(session, lang);
+      onUpdateSession({ prd });
+      onGoToNextStep();
+    } catch (err: any) {
+      setErrorMessage(err.message || t("Something went wrong while generating the PRD."));
+    } finally {
+      setGeneratingPrd(false);
     }
   };
 
@@ -339,9 +408,12 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
 
       {/* SUBVIEW 1: DATA PROYEK */}
       {subView === "form" && (
-        // Data awal proyek. Semakin lengkap di sini, semakin sedikit yang
-        // perlu ditanyakan AI di tahap klarifikasi.
-        <form onSubmit={handleAnalyzeQuestions} className="card max-w-3xl p-6 space-y-5">
+        // Formulir sendirian menyisakan kolom kosong lebar di kanan. Ruang itu
+        // diisi hal yang memang dibutuhkan tepat di layar ini: jalan pintas
+        // template, dan penjelasan apa yang membuat deskripsi cukup baik —
+        // deskripsi adalah satu-satunya isian wajib dan penentu mutu keluaran.
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-4 items-start max-w-6xl">
+        <form onSubmit={handleAnalyzeQuestions} className="card p-6 space-y-5">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
               <label className="field-label">{t("Project title")}</label>
@@ -421,11 +493,70 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
             </button>
           </div>
         </form>
+
+        <aside className="space-y-4">
+          <GenerationProgress
+            active={loadingQuestions}
+            label={t("Analysing your idea...")}
+            expectedMs={15000}
+          />
+
+          <div className="card p-5 space-y-3">
+            <h3 className={sectionTitle}>
+              <Layers className="w-4 h-4 text-faint" />
+              {t("Start from a template")}
+            </h3>
+            <p className="text-xs text-faint leading-relaxed">
+              {t("Fills the form with a worked example you can edit.")}
+            </p>
+            <div className="space-y-1.5">
+              {SAMPLE_PROJECTS.map((sample) => {
+                const copy = sampleText(sample, lang);
+                return (
+                  <button
+                    key={sample.id}
+                    type="button"
+                    onClick={() => onSelectSample(sample)}
+                    className="w-full text-left p-3 rounded-lg border border-line hover:bg-subtle transition-colors"
+                  >
+                    <span className="block text-xs font-medium text-ink">{copy.name}</span>
+                    <span className="block text-xs text-faint leading-relaxed mt-0.5">{copy.tagline}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="card p-5 space-y-3">
+            <h3 className={sectionTitle}>
+              <Wand2 className="w-4 h-4 text-faint" />
+              {t("What makes a good description")}
+            </h3>
+            <ul className="space-y-2 text-xs text-muted leading-relaxed">
+              {[
+                t("Name the problem it solves, and who runs into it."),
+                t("List the features you already picture, even roughly."),
+                t("Mention hard constraints: an existing stack, a deadline, something you must not use."),
+                t("The more you put here, the fewer clarification rounds the AI needs."),
+              ].map((tip) => (
+                <li key={tip} className="flex gap-2">
+                  <span className="text-faint shrink-0">&middot;</span>
+                  {tip}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </aside>
+        </div>
       )}
 
       {/* SUBVIEW 2: HALAMAN KLARIFIKASI */}
       {subView === "clarify" && session.followUps.length > 0 && (
-        <div className="max-w-3xl space-y-4">
+        // Sama seperti halaman data proyek: kolom kanan diisi konteks yang
+        // dibutuhkan sambil menjawab — apa yang tadi ditulis, dan jalan pintas
+        // untuk memperbaikinya.
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-4 items-start max-w-6xl">
+        <div className="space-y-4">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
               <h3 className={sectionTitle}>
@@ -587,6 +718,63 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
             </button>
           </div>
         </div>
+
+        <aside className="space-y-4">
+          <GenerationProgress
+            active={loadingQuestions || loadingPlan}
+            label={loadingPlan ? t("Drafting the architecture & diagram...") : t("Reviewing your answers...")}
+            expectedMs={loadingPlan ? 40000 : 18000}
+          />
+
+          <div className="card p-5 space-y-3">
+            <div className="flex items-start justify-between gap-2">
+              <h3 className={sectionTitle}>
+                <Edit3 className="w-4 h-4 text-faint" />
+                {t("Your project")}
+              </h3>
+              <button onClick={() => setSubView("form")} className="btn-ghost !py-1 !px-2 text-xs shrink-0">
+                {t("Edit")}
+              </button>
+            </div>
+
+            <div>
+              <p className="text-xs font-medium text-faint mb-0.5">{t("Project title")}</p>
+              <p className="text-xs text-ink">{title || t("Untitled project")}</p>
+            </div>
+
+            <div>
+              <p className="text-xs font-medium text-faint mb-0.5">{t("Detailed project description")}</p>
+              <p className="text-xs text-muted leading-relaxed max-h-40 overflow-y-auto">{description}</p>
+            </div>
+
+            {targetAudience && (
+              <div>
+                <p className="text-xs font-medium text-faint mb-0.5">{t("Target users")}</p>
+                <p className="text-xs text-muted">{targetAudience}</p>
+              </div>
+            )}
+
+            {techStackPreference && (
+              <div>
+                <p className="text-xs font-medium text-faint mb-0.5">{t("Preferred tech stack")}</p>
+                <p className="text-xs text-muted">{techStackPreference}</p>
+              </div>
+            )}
+          </div>
+
+          <div className="card p-5 space-y-2">
+            <h3 className={sectionTitle}>
+              <HelpCircle className="w-4 h-4 text-faint" />
+              {t("What happens next")}
+            </h3>
+            <p className="text-xs text-muted leading-relaxed">
+              {t(
+                "Answer what you can, then generate the plan. If the AI still has gaps it will say so above, and one more round costs you nothing but a minute."
+              )}
+            </p>
+          </div>
+        </aside>
+        </div>
       )}
 
       {/* SUBVIEW 3: REVIEW ARSITEKTUR & DIAGRAM */}
@@ -607,9 +795,18 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
                 <Edit3 className="w-3.5 h-3.5" /> {t("Edit input")}
               </button>
 
-              <button onClick={onGoToNextStep} className="btn-primary">
-                {t("Continue to the PRD")}
-                <ArrowRight className="w-4 h-4" />
+              <button onClick={handleContinueToPrd} disabled={generatingPrd} className="btn-primary">
+                {generatingPrd ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    {t("Assembling the PRD & diagram...")}
+                  </>
+                ) : (
+                  <>
+                    {t("Continue to the PRD")}
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -640,6 +837,12 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
             </div>
           )}
 
+          <GenerationProgress
+            active={resyncing || generatingPrd}
+            label={resyncing ? t("Re-syncing the plan...") : t("Assembling the PRD & diagram...")}
+            expectedMs={resyncing ? 40000 : 45000}
+          />
+
           {/* Kanvas struktur: Perencanaan -> Fitur -> Sub Fitur */}
           <div className="space-y-2.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -654,10 +857,23 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({ session, onUpdateSession, 
                     subs: plan.specs.coreFeatures.reduce((n, f) => n + (f.subFeatures?.length || 0), 0),
                   })}
                 </span>
-                <button onClick={() => setEditingFeatures((v) => !v)} className="btn-ghost">
-                  {editingFeatures ? <Check className="w-3.5 h-3.5" /> : <Edit3 className="w-3.5 h-3.5" />}
-                  {editingFeatures ? t("Done editing") : t("Edit features")}
-                </button>
+                {editingFeatures ? (
+                  <div className="flex items-center gap-1">
+                    <button onClick={cancelEditingFeatures} className="btn-ghost">
+                      <Undo2 className="w-3.5 h-3.5" />
+                      {t("Cancel edit")}
+                    </button>
+                    <button onClick={finishEditingFeatures} className="btn-ghost">
+                      <Check className="w-3.5 h-3.5" />
+                      {t("Done editing")}
+                    </button>
+                  </div>
+                ) : (
+                  <button onClick={startEditingFeatures} className="btn-ghost">
+                    <Edit3 className="w-3.5 h-3.5" />
+                    {t("Edit features")}
+                  </button>
+                )}
               </div>
             </div>
 
