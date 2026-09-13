@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Send, X, Wrench, Check, AlertTriangle, RefreshCw } from "lucide-react";
+import { LLMConfig } from "../types";
 import { useT } from "../lib/i18n";
 
 // Satu baris di layar. Bukan bentuk yang dikirim ke model — riwayat untuk model
@@ -15,12 +16,19 @@ interface ChatEntry {
 
 interface ChatPanelProps {
   sessionId: string;
+  llmConfig: LLMConfig;
   open: boolean;
   onClose: () => void;
   onToolApplied: () => void;
 }
 
-export const ChatPanel: React.FC<ChatPanelProps> = ({ sessionId, open, onClose, onToolApplied }) => {
+export const ChatPanel: React.FC<ChatPanelProps> = ({
+  sessionId,
+  llmConfig,
+  open,
+  onClose,
+  onToolApplied,
+}) => {
   const { t } = useT();
   const [entries, setEntries] = useState<ChatEntry[]>([]);
   const [draft, setDraft] = useState("");
@@ -55,7 +63,18 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ sessionId, open, onClose, 
       const res = await fetch("/api/agent/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId, history: history.current, message }),
+        // Chat memakai endpoint yang sama dengan pengaturan LLM, tapi lewat
+        // format Anthropic — router lokal melayani keduanya di base URL itu.
+        body: JSON.stringify({
+          sessionId,
+          history: history.current,
+          message,
+          agentConfig: {
+            baseUrl: llmConfig.baseUrl,
+            apiKey: llmConfig.apiKey,
+            model: llmConfig.modelName,
+          },
+        }),
       });
       if (!res.ok || !res.body) throw new Error(t("The assistant is unreachable."));
 
