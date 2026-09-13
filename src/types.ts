@@ -178,6 +178,13 @@ export interface ProjectSession {
   // roadmap, dan estimasi masih hasil generate sebelum suntingan itu. Dibersihkan
   // setelah plan diselaraskan ulang.
   planFeaturesEdited?: boolean;
+  // Akar folder yang boleh disentuh tool file dan shell di chat. Kosong berarti
+  // tool itu tidak ditawarkan sama sekali — disengaja, supaya tidak ada folder
+  // bawaan yang ikut terjangkau tanpa pengguna memilihnya.
+  workspaceRoot?: string;
+  // Menjalankan perintah adalah kewenangan terpisah dari membaca dan menulis
+  // berkas, jadi izinnya juga terpisah dan mati secara bawaan.
+  allowShell?: boolean;
 }
 
 // Baris riwayat dari SQLite — cukup untuk daftar, tanpa memuat payload penuh.

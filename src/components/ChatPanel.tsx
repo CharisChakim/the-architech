@@ -17,17 +17,23 @@ interface ChatEntry {
 interface ChatPanelProps {
   sessionId: string;
   llmConfig: LLMConfig;
+  workspaceRoot: string;
+  allowShell: boolean;
   open: boolean;
   onClose: () => void;
   onToolApplied: () => void;
+  onChangeWorkspace: (patch: { workspaceRoot?: string; allowShell?: boolean }) => void;
 }
 
 export const ChatPanel: React.FC<ChatPanelProps> = ({
   sessionId,
   llmConfig,
+  workspaceRoot,
+  allowShell,
   open,
   onClose,
   onToolApplied,
+  onChangeWorkspace,
 }) => {
   const { t } = useT();
   const [entries, setEntries] = useState<ChatEntry[]>([]);
@@ -140,6 +146,40 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         <button onClick={onClose} aria-label={t("Close")} className="text-faint hover:text-ink">
           <X className="w-4 h-4" />
         </button>
+      </div>
+
+      {/* Folder kerja sengaja selalu terlihat: ini yang menentukan apa saja yang
+          bisa disentuh model, dan bukan sesuatu yang layak disembunyikan. */}
+      <div className="px-4 py-3 border-b border-line space-y-2">
+        <label className="block text-xs font-medium text-muted">{t("Working folder")}</label>
+        <input
+          type="text"
+          value={workspaceRoot}
+          onChange={(e) => onChangeWorkspace({ workspaceRoot: e.target.value })}
+          placeholder={t("Empty — no file access")}
+          spellCheck={false}
+          className="w-full rounded-lg border border-line bg-canvas px-2.5 py-1.5 text-xs font-mono text-ink placeholder:text-faint focus:outline-hidden focus:ring-2 focus:ring-accent"
+        />
+
+        <label
+          className={`flex items-start gap-2 text-xs ${workspaceRoot.trim() ? "text-muted" : "text-faint"}`}
+        >
+          <input
+            type="checkbox"
+            checked={allowShell}
+            disabled={!workspaceRoot.trim()}
+            onChange={(e) => onChangeWorkspace({ allowShell: e.target.checked })}
+            className="mt-0.5 shrink-0"
+          />
+          <span>
+            {t("Allow shell commands")}
+            {allowShell && (
+              <span className="block text-warn-ink mt-0.5">
+                {t("The model can run any command in that folder.")}
+              </span>
+            )}
+          </span>
+        </label>
       </div>
 
       <div ref={scroller} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">

@@ -1,4 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
+import fs from "node:fs/promises";
+import path from "node:path";
+import { execFile } from "node:child_process";
 import { getSession, saveSession } from "./db.ts";
 
 // Inti harness: model meminta tool, di sinilah tool itu benar-benar dijalankan,
@@ -27,7 +30,110 @@ export interface AgentConfig {
 const DEFAULT_BASE_URL = "http://localhost:20128/v1";
 const DEFAULT_MODEL = "claude-combo";
 
-const TOOLS: Anthropic.Tool[] = [
+const MAX_READ_CHARS = 60_000;
+const MAX_OUTPUT_CHARS = 20_000;
+const COMMAND_TIMEOUT_MS = 120_000;
+
+// Menyaring "../" dari teks path tidak cukup: symlink dan path absolut tetap
+// lolos. Yang menentukan adalah hasil resolve-nya, dan untuk berkas yang sudah
+// ada, jalur nyatanya setelah symlink diikuti.
+async function resolveInsideRoot(root: string, relative: string): Promise<string> {
+  const rootReal = await fs.realpath(root);
+  const target = path.resolve(rootReal, relative);
+
+  const contains = (base: string, p: string) => p === base || p.startsWith(base + path.sep);
+  if (!contains(rootReal, target)) {
+    throw new Error(`Path ${relative} berada di luar folder kerja.`);
+  }
+
+  // Berkas baru belum punya realpath; yang diperiksa folder induknya.
+  try {
+    const real = await fs.realpath(target);
+    if (!contains(rootReal, real)) throw new Error(`Path ${relative} menunjuk keluar folder kerja lewat symlink.`);
+    return real;
+  } catch (err: any) {
+    if (err?.code !== "ENOENT") throw err;
+    const parentReal = await fs.realpath(path.dirname(target));
+    if (!contains(rootReal, parentReal)) {
+      throw new Error(`Folder tujuan untuk ${relative} berada di luar folder kerja.`);
+    }
+    return path.join(parentReal, path.basename(target));
+  }
+}
+
+function runCommand(command: string, cwd: string): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  return new Promise((resolve) => {
+    // Dijalankan lewat shell karena model menulis perintah utuh dengan pipe dan
+    // operator. Itu juga sebabnya tool ini berizin terpisah.
+    const shell = process.platform === "win32" ? "powershell.exe" : "/bin/sh";
+    const args = process.platform === "win32" ? ["-NoProfile", "-Command", command] : ["-c", command];
+
+    execFile(
+      shell,
+      args,
+      { cwd, timeout: COMMAND_TIMEOUT_MS, maxBuffer: 10 * 1024 * 1024, windowsHide: true },
+      (err: any, stdout, stderr) => {
+        const cut = (s: string) =>
+          s.length > MAX_OUTPUT_CHARS ? s.slice(0, MAX_OUTPUT_CHARS) + "\n...[dipangkas]" : s;
+        resolve({
+          stdout: cut(stdout || ""),
+          stderr: cut(stderr || (err?.killed ? `Dihentikan setelah ${COMMAND_TIMEOUT_MS / 1000} detik.` : "")),
+          exitCode: typeof err?.code === "number" ? err.code : err ? 1 : 0,
+        });
+      }
+    );
+  });
+}
+
+const WORKSPACE_TOOLS: Anthropic.Tool[] = [
+  {
+    name: "list_files",
+    description:
+      "Daftar isi satu folder di dalam folder kerja. Pakai untuk menemukan berkas sebelum membacanya, jangan menebak nama berkas.",
+    input_schema: {
+      type: "object",
+      properties: {
+        dir: { type: "string", description: "Path relatif terhadap folder kerja. Kosongkan untuk akarnya." },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "read_file",
+    description: "Baca isi satu berkas teks di dalam folder kerja. Berkas panjang dipotong.",
+    input_schema: {
+      type: "object",
+      properties: { file: { type: "string", description: "Path relatif terhadap folder kerja." } },
+      required: ["file"],
+    },
+  },
+  {
+    name: "write_file",
+    description:
+      "Tulis berkas di dalam folder kerja, menimpa isinya kalau sudah ada. Baca dulu berkas yang mau diubah supaya isinya tidak hilang tertimpa.",
+    input_schema: {
+      type: "object",
+      properties: {
+        file: { type: "string", description: "Path relatif terhadap folder kerja." },
+        content: { type: "string", description: "Isi berkas seutuhnya setelah perubahan." },
+      },
+      required: ["file", "content"],
+    },
+  },
+];
+
+const SHELL_TOOL: Anthropic.Tool = {
+  name: "run_command",
+  description:
+    "Jalankan satu perintah shell dengan folder kerja sebagai direktori aktif. Kembalikan stdout, stderr, dan exit code. Perintah yang berjalan lebih dari dua menit dihentikan.",
+  input_schema: {
+    type: "object",
+    properties: { command: { type: "string", description: "Perintah lengkap, boleh memakai pipe dan operator." } },
+    required: ["command"],
+  },
+};
+
+const PROJECT_TOOLS: Anthropic.Tool[] = [
   {
     name: "get_project",
     description:
@@ -135,7 +241,85 @@ async function executeTool(name: string, input: any, sessionId: string): Promise
     return { ok: true, taskId: task.id, status: task.status };
   }
 
+  // Tool berikut hanya ada kalau pengguna menunjuk folder kerja. Dicek ulang di
+  // sini, bukan hanya saat menyusun daftar tool: daftar itu dibangun sekali di
+  // awal giliran, sedangkan izinnya bisa dicabut di tengah jalan.
+  const root = session.workspaceRoot?.trim();
+  if (["list_files", "read_file", "write_file", "run_command"].includes(name)) {
+    if (!root) return { error: "Folder kerja belum ditentukan, jadi tool berkas dan perintah tidak tersedia." };
+    if (name === "run_command" && !session.allowShell) {
+      return { error: "Menjalankan perintah belum diizinkan untuk proyek ini." };
+    }
+  }
+
+  try {
+    if (name === "list_files") {
+      const dir = await resolveInsideRoot(root!, String(input?.dir ?? "."));
+      const entries = await fs.readdir(dir, { withFileTypes: true });
+      return {
+        dir: path.relative(root!, dir) || ".",
+        entries: entries.map((e) => ({ name: e.name, type: e.isDirectory() ? "dir" : "file" })),
+      };
+    }
+
+    if (name === "read_file") {
+      const file = await resolveInsideRoot(root!, String(input?.file ?? ""));
+      const text = await fs.readFile(file, "utf8");
+      return {
+        file: path.relative(root!, file),
+        truncated: text.length > MAX_READ_CHARS,
+        content: text.slice(0, MAX_READ_CHARS),
+      };
+    }
+
+    if (name === "write_file") {
+      const file = await resolveInsideRoot(root!, String(input?.file ?? ""));
+      await fs.mkdir(path.dirname(file), { recursive: true });
+      const content = String(input?.content ?? "");
+      await fs.writeFile(file, content, "utf8");
+      return { ok: true, file: path.relative(root!, file), bytes: Buffer.byteLength(content, "utf8") };
+    }
+
+    if (name === "run_command") {
+      const command = String(input?.command ?? "").trim();
+      if (!command) return { error: "Perintah kosong." };
+      const rootReal = await fs.realpath(root!);
+      const result = await runCommand(command, rootReal);
+      return { command, ...result };
+    }
+  } catch (err: any) {
+    return { error: err?.message || String(err) };
+  }
+
   return { error: `Tool ${name} tidak dikenal.` };
+}
+
+// Tool yang tidak diizinkan tidak sekadar ditolak saat dipanggil — ia tidak
+// pernah ditawarkan, sehingga model tidak menyusun rencana di sekitar kemampuan
+// yang tidak ada.
+function toolsFor(session: any): Anthropic.Tool[] {
+  const tools = [...PROJECT_TOOLS];
+  if (session?.workspaceRoot?.trim()) {
+    tools.push(...WORKSPACE_TOOLS);
+    if (session.allowShell) tools.push(SHELL_TOOL);
+  }
+  return tools;
+}
+
+function systemPromptFor(session: any): string {
+  const root = session?.workspaceRoot?.trim();
+  if (!root) return SYSTEM_PROMPT;
+
+  return `${SYSTEM_PROMPT}
+
+Folder kerja: ${root}
+Semua path pada tool berkas relatif terhadap folder itu, dan tidak ada yang bisa menjangkau ke luarnya.
+- Baca berkas sebelum menimpanya. write_file mengganti seluruh isi, jadi menulis tanpa membaca akan menghapus bagian yang tidak Anda sertakan.
+- Telusuri dengan list_files daripada menebak nama berkas.${
+    session.allowShell
+      ? "\n- run_command berjalan di folder itu. Jelaskan lebih dulu perintah yang berdampak merusak, dan jangan menjalankannya kalau pengguna belum memintanya."
+      : "\n- Menjalankan perintah tidak diizinkan untuk proyek ini. Jangan menyarankan seolah Anda bisa menjalankannya sendiri."
+  }`;
 }
 
 const SYSTEM_PROMPT = `Anda asisten di dalam The Architech, aplikasi perencanaan proyek perangkat lunak.
@@ -172,6 +356,10 @@ export async function runAgent(
     apiKey,
   });
 
+  const session = getSession(sessionId);
+  const tools = toolsFor(session);
+  const system = systemPromptFor(session);
+
   const messages: Anthropic.MessageParam[] = [...history, { role: "user", content: userMessage }];
 
   // Batas putaran. Tanpa ini, model yang terjebak memanggil tool yang sama
@@ -182,8 +370,8 @@ export async function runAgent(
     const stream = client.messages.stream({
       model: config.model || DEFAULT_MODEL,
       max_tokens: 8000,
-      system: SYSTEM_PROMPT,
-      tools: TOOLS,
+      system,
+      tools,
       messages,
     });
 
