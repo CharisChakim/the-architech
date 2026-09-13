@@ -73,6 +73,10 @@ const MESSAGES = {
   planFailed: { en: "Failed to generate the project plan.", id: "Gagal membuat Project Plan." },
   prdFailed: { en: "Failed to generate the PRD.", id: "Gagal membuat PRD." },
   tasksFailed: { en: "Failed to generate the AI agent tasks.", id: "Gagal membuat AI Agent Tasks." },
+  llmTimeout: {
+    en: "No answer from the model within {minutes} minutes at {url}. The request was given up on, not refused — the model may simply be slower than that, or the endpoint may have stalled.",
+    id: "Tidak ada jawaban dari model dalam {minutes} menit di {url}. Permintaan dihentikan sendiri, bukan ditolak — modelnya mungkin memang lebih lambat dari itu, atau endpoint-nya menggantung.",
+  },
   outputTruncated: {
     en: "The model stopped before it finished writing — it hit its output limit. Try again, or switch to a model with a larger output budget.",
     id: "Model berhenti sebelum jawabannya selesai — batas panjang keluarannya tercapai. Coba lagi, atau pakai model dengan jatah keluaran lebih besar.",
@@ -101,6 +105,22 @@ const outputLanguage = (lang: Lang): string =>
 // tidak diberi batas: bawaannya sudah setinggi kemampuan modelnya, dan menaruh
 // angka di atas batas model justru ditolak API-nya.
 const MAX_OUTPUT_TOKENS = 8192;
+
+// Panggilan yang sah di sini bisa memakan dua menit. Batasnya dipasang
+// eksplisit supaya "kelamaan" punya pesannya sendiri, bukan muncul sebagai
+// kegagalan jaringan yang tak jelas.
+const LLM_TIMEOUT_MS = 300_000;
+
+// fetch() Node melempar Error bertuliskan "fetch failed" dan menaruh sebab
+// sebenarnya — ECONNREFUSED, ECONNRESET, socket hang up — di err.cause.
+// Tanpa dibuka, pesan ke pengguna tidak memberi tahu apa pun yang bisa
+// ditindaklanjuti.
+function describeFetchError(err: any): string {
+  const cause = err?.cause;
+  const code = cause?.code || cause?.name;
+  const detail = cause?.message || err?.message || String(err);
+  return code && !detail.includes(code) ? `${code} (${detail})` : detail;
+}
 
 // Jawaban yang terpotong tetap berupa JSON yang "hampir benar", jadi kalau
 // tidak dikenali di sini pesan yang sampai ke pengguna adalah keluhan sintaks
@@ -184,6 +204,8 @@ async function callLlm(prompt: string, systemInstruction: string, llmConfig?: an
     if (!baseUrl) {
       throw new Error(msg(lang, "baseUrlRequired"));
     }
+
+    const chatUrl = openAiChatUrl(baseUrl);
     
     try {
       // Try Ollama native generate endpoint if provider is ollama
@@ -197,6 +219,7 @@ async function callLlm(prompt: string, systemInstruction: string, llmConfig?: an
             stream: false,
             options: { num_predict: MAX_OUTPUT_TOKENS },
           }),
+          signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
         });
 
         if (ollamaRes.ok) {
@@ -212,7 +235,7 @@ async function callLlm(prompt: string, systemInstruction: string, llmConfig?: an
         headers["Authorization"] = `Bearer ${llmConfig.apiKey}`;
       }
       
-      const customRes = await fetch(openAiChatUrl(baseUrl), {
+      const customRes = await fetch(chatUrl, {
         method: "POST",
         headers,
         body: JSON.stringify({
@@ -227,6 +250,7 @@ async function callLlm(prompt: string, systemInstruction: string, llmConfig?: an
           temperature: 0.2,
           max_tokens: MAX_OUTPUT_TOKENS,
         }),
+        signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
       });
       
       if (!customRes.ok) {
@@ -243,7 +267,32 @@ async function callLlm(prompt: string, systemInstruction: string, llmConfig?: an
       // Yang pesannya sudah ditujukan untuk pengguna diteruskan apa adanya;
       // sisanya memang kegagalan menghubungi endpoint.
       if (err instanceof LlmError) throw err;
-      throw new Error(msg(lang, "customUnreachable", { url: baseUrl, detail: err.message }));
+
+      // Kegagalan fetch dicatat utuh: pesan yang sampai ke layar harus ringkas,
+      // tapi tanpa rantai cause, provider, dan model, kegagalan seperti ini
+      // tidak bisa didiagnosis dari laporan pengguna.
+      const chain: string[] = [];
+      for (let c = err, depth = 0; c && depth < 4; c = c.cause, depth++) {
+        chain.push(`${c.name || "Error"}/${c.code || "-"}: ${c.message}`);
+      }
+      console.error(
+        [
+          "--- Panggilan LLM gagal ---",
+          `provider=${provider} model=${model} url=${chatUrl}`,
+          `promptChars=${prompt.length} systemChars=${systemInstruction.length}`,
+          ...chain.map((line, i) => `  [${i}] ${line}`),
+          "--- akhir ---",
+        ].join("\n")
+      );
+
+      if (err?.name === "TimeoutError") {
+        throw new Error(
+          msg(lang, "llmTimeout", { minutes: Math.round(LLM_TIMEOUT_MS / 60000), url: chatUrl })
+        );
+      }
+      // URL yang dilaporkan adalah alamat yang benar-benar dipanggil, bukan
+      // base URL: kalau normalisasi path meleset, itu hanya terlihat di sini.
+      throw new Error(msg(lang, "customUnreachable", { url: chatUrl, detail: describeFetchError(err) }));
     }
   }
   

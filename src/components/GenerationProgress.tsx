@@ -7,12 +7,15 @@ interface GenerationProgressProps {
   label: string;
   /** Perkiraan lama proses, dipakai untuk mengatur kecuraman kurva. */
   expectedMs?: number;
+  /** Tanpa rangka kartu, untuk dipakai di dalam kartu lain (mis. dialog). */
+  plain?: boolean;
 }
 
 export const GenerationProgress: React.FC<GenerationProgressProps> = ({
   active,
   label,
   expectedMs = 30000,
+  plain = false,
 }) => {
   const { t } = useT();
   const [elapsed, setElapsed] = useState(0);
@@ -39,7 +42,7 @@ export const GenerationProgress: React.FC<GenerationProgressProps> = ({
   const seconds = Math.floor(elapsed / 1000);
 
   return (
-    <div className="card p-4 space-y-2.5" role="status" aria-live="polite">
+    <div className={plain ? "space-y-2.5" : "card p-4 space-y-2.5"} role="status" aria-live="polite">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <span className="flex items-center gap-2 text-ink">
           <RefreshCw className="w-4 h-4 animate-spin text-accent shrink-0" />

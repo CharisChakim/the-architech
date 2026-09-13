@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { ProjectSession, FollowUpQuestion, ProjectPlan, FeatureSpec } from "../types";
 import { MermaidViewer } from "./MermaidViewer";
 import { PlanCanvas } from "./PlanCanvas";
 import { FeatureEditor } from "./FeatureEditor";
 import { GenerationProgress } from "./GenerationProgress";
 import { SAMPLE_PROJECTS, SampleProject, sampleText } from "../lib/sampleData";
-import { generatePrd } from "../lib/generate";
+import { generatePrd, isAbort } from "../lib/generate";
+import { GenerationDialog } from "./GenerationDialog";
 import {
   Network,
   Compass,
@@ -67,6 +68,7 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({
   const [editingFeatures, setEditingFeatures] = useState(false);
   const [resyncing, setResyncing] = useState(false);
   const [generatingPrd, setGeneratingPrd] = useState(false);
+  const prdAbort = useRef<AbortController | null>(null);
 
   // Suntingan fitur langsung mengubah sesi, jadi menghapus fitur secara keliru
   // tidak bisa dibatalkan tanpa salinan. Ini dipotret saat masuk mode edit dan
@@ -316,13 +318,21 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({
 
     setErrorMessage(null);
     setGeneratingPrd(true);
+    const controller = new AbortController();
+    prdAbort.current = controller;
+
     try {
-      const prd = await generatePrd(session, lang);
+      const prd = await generatePrd(session, lang, controller.signal);
       onUpdateSession({ prd });
       onGoToNextStep();
     } catch (err: any) {
-      setErrorMessage(err.message || t("Something went wrong while generating the PRD."));
+      // Pembatalan adalah keputusan pengguna, bukan kegagalan: tidak ada yang
+      // perlu dilaporkan selain kembali ke halaman apa adanya.
+      if (!isAbort(err)) {
+        setErrorMessage(err.message || t("Something went wrong while generating the PRD."));
+      }
     } finally {
+      prdAbort.current = null;
       setGeneratingPrd(false);
     }
   };
@@ -796,17 +806,8 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({
               </button>
 
               <button onClick={handleContinueToPrd} disabled={generatingPrd} className="btn-primary">
-                {generatingPrd ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    {t("Assembling the PRD & diagram...")}
-                  </>
-                ) : (
-                  <>
-                    {t("Continue to the PRD")}
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
+                {t("Continue to the PRD")}
+                <ArrowRight className="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -837,11 +838,7 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({
             </div>
           )}
 
-          <GenerationProgress
-            active={resyncing || generatingPrd}
-            label={resyncing ? t("Re-syncing the plan...") : t("Assembling the PRD & diagram...")}
-            expectedMs={resyncing ? 40000 : 45000}
-          />
+          <GenerationProgress active={resyncing} label={t("Re-syncing the plan...")} expectedMs={40000} />
 
           {/* Kanvas struktur: Perencanaan -> Fitur -> Sub Fitur */}
           <div className="space-y-2.5">
@@ -1060,6 +1057,14 @@ title={t("System architecture: {title}", { title: session.input.title || session
           </div>
         </div>
       )}
+      <GenerationDialog
+        open={generatingPrd}
+        title={t("Preparing the PRD")}
+        label={t("Assembling the PRD & diagram...")}
+        expectedMs={45000}
+        onCancel={() => prdAbort.current?.abort()}
+      />
+
     </div>
   );
 };
