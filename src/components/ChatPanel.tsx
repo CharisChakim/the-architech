@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Send, X, Wrench, Check, AlertTriangle, RefreshCw } from "lucide-react";
+import { Send, X, Wrench, Check, AlertTriangle, RefreshCw, Terminal } from "lucide-react";
 import { LLMConfig } from "../types";
 import { useT } from "../lib/i18n";
 
@@ -7,11 +7,16 @@ import { useT } from "../lib/i18n";
 // disimpan terpisah apa adanya dari server, karena blok tool_use dan tool_result
 // harus tetap berpasangan persis atau permintaan berikutnya ditolak.
 interface ChatEntry {
-  role: "user" | "assistant" | "tool";
+  role: "user" | "assistant" | "tool" | "approval";
   text?: string;
   tool?: string;
   isError?: boolean;
   running?: boolean;
+  // approval
+  approvalId?: string;
+  command?: string;
+  decided?: boolean;
+  approved?: boolean;
 }
 
 interface ChatPanelProps {
@@ -53,6 +58,22 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   useEffect(() => {
     scroller.current?.scrollTo({ top: scroller.current.scrollHeight });
   }, [entries]);
+
+  // Kartu tidak ditutup di sini. Server yang mengirim approval_resolved, dan
+  // menutupnya lebih dulu akan berbohong kalau permintaannya ternyata sudah
+  // kedaluwarsa di server.
+  const decideApproval = async (approvalId: string, approved: boolean) => {
+    try {
+      const res = await fetch("/api/agent/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ approvalId, approved }),
+      });
+      if (!res.ok) setError((await res.json()).error || t("That approval request is no longer valid."));
+    } catch {
+      setError(t("That approval request is no longer valid."));
+    }
+  };
 
   const send = async () => {
     const message = draft.trim();
@@ -122,6 +143,21 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
               next[idx] = { ...next[idx], running: false, isError: event.isError };
               return next;
             });
+          } else if (event.type === "approval_request") {
+            setEntries((prev) => [
+              ...prev,
+              { role: "approval", approvalId: event.approvalId, command: event.command },
+            ]);
+          } else if (event.type === "approval_resolved") {
+            // Bisa datang dari klik pengguna maupun dari batas waktu server,
+            // jadi kartunya ditutup oleh peristiwa ini, bukan oleh klik.
+            setEntries((prev) =>
+              prev.map((e) =>
+                e.role === "approval" && e.approvalId === event.approvalId
+                  ? { ...e, decided: true, approved: event.approved }
+                  : e
+              )
+            );
           } else if (event.type === "history") {
             history.current = event.history;
           } else if (event.type === "error") {
@@ -140,7 +176,14 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   if (!open) return null;
 
   return (
-    <aside className="w-96 shrink-0 border-l border-line bg-surface flex flex-col h-screen sticky top-0">
+    // Di layar sempit panel mengambang di atas konten; kalau ikut mendesak
+    // kolom utama, kanvas dan papan kanban tergencet sampai tidak terbaca.
+    // Mulai lg ia kembali mendampingi seperti biasa.
+    <aside
+      className="fixed inset-y-0 right-0 z-40 w-full max-w-sm shadow-lg
+                 lg:static lg:z-auto lg:w-96 lg:max-w-none lg:shadow-none lg:shrink-0
+                 border-l border-line bg-surface flex flex-col h-screen lg:sticky lg:top-0"
+    >
       <div className="flex items-center justify-between px-4 py-3 border-b border-line">
         <h2 className="font-medium text-ink">{t("Assistant")}</h2>
         <button onClick={onClose} aria-label={t("Close")} className="text-faint hover:text-ink">
@@ -190,6 +233,45 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         )}
 
         {entries.map((entry, idx) => {
+          if (entry.role === "approval") {
+            return (
+              <div
+                key={idx}
+                className="rounded-xl border border-warn/40 bg-warn-soft px-3 py-2.5 space-y-2"
+              >
+                <div className="flex items-center gap-2 text-xs font-medium text-warn-ink">
+                  <Terminal className="w-3.5 h-3.5 shrink-0" />
+                  {t("Run this command?")}
+                </div>
+
+                <pre className="text-xs font-mono text-ink whitespace-pre-wrap break-all bg-canvas rounded-lg px-2.5 py-2">
+                  {entry.command}
+                </pre>
+
+                {entry.decided ? (
+                  <p className="text-xs text-muted">
+                    {entry.approved ? t("Approved — it ran.") : t("Denied — nothing ran.")}
+                  </p>
+                ) : (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => decideApproval(entry.approvalId!, true)}
+                      className="px-3 py-1.5 rounded-lg bg-accent text-accent-fg text-xs font-medium"
+                    >
+                      {t("Run it")}
+                    </button>
+                    <button
+                      onClick={() => decideApproval(entry.approvalId!, false)}
+                      className="px-3 py-1.5 rounded-lg border border-line text-xs font-medium text-ink"
+                    >
+                      {t("Don't run")}
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          }
+
           if (entry.role === "tool") {
             return (
               <div key={idx} className="flex items-center gap-2 text-xs text-muted">

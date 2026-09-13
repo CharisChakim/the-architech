@@ -833,6 +833,26 @@ Setelah menyusun 7 poin wajib, nilai apakah proyek ini memerlukan poin tambahan 
 });
 
 // Fitur 3: Generate Agent Tasks
+// SSE hanya mengalir satu arah, jadi jawaban persetujuan masuk lewat permintaan
+// terpisah. Yang menghubungkan keduanya adalah promise yang ditahan di sini
+// selama giliran berjalan. Kalau tidak dijawab, perintah ditolak, bukan
+// digantung selamanya — halaman yang ditutup di tengah jalan tidak boleh
+// meninggalkan proses yang menunggu tanpa akhir.
+const APPROVAL_TIMEOUT_MS = 300_000;
+const pendingApprovals = new Map<string, (approved: boolean) => void>();
+
+app.post("/api/agent/approve", (req, res) => {
+  const { approvalId, approved } = req.body || {};
+  const resolve = pendingApprovals.get(approvalId);
+  if (!resolve) {
+    res.status(404).json({ error: "Permintaan persetujuan ini sudah kedaluwarsa atau tidak ada." });
+    return;
+  }
+  pendingApprovals.delete(approvalId);
+  resolve(Boolean(approved));
+  res.json({ ok: true });
+});
+
 // Chat harness. Dikirim sebagai SSE karena satu giliran bisa berisi beberapa
 // panggilan tool: pengguna harus melihat apa yang sedang dikerjakan, bukan
 // menunggu layar diam lalu tiba-tiba semuanya berubah.
@@ -862,12 +882,29 @@ app.post("/api/agent/chat", async (req, res) => {
       );
     }
 
+    const askApproval = (command: string) =>
+      new Promise<boolean>((resolve) => {
+        const approvalId = `apv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+        const settle = (approved: boolean) => {
+          clearTimeout(timer);
+          pendingApprovals.delete(approvalId);
+          send({ type: "approval_resolved", approvalId, approved });
+          resolve(approved);
+        };
+
+        const timer = setTimeout(() => settle(false), APPROVAL_TIMEOUT_MS);
+        pendingApprovals.set(approvalId, settle);
+        send({ type: "approval_request", approvalId, command });
+      });
+
     const finalMessages = await runAgent(
       sessionId,
       Array.isArray(history) ? history : [],
       String(message),
       agentConfig || {},
-      send
+      send,
+      askApproval
     );
 
     // Riwayat dikembalikan utuh supaya klien mengirimkannya lagi di giliran
