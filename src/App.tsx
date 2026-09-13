@@ -21,6 +21,7 @@ import { Step2PRD } from "./components/Step2PRD";
 import { Step3AgentTasks } from "./components/Step3AgentTasks";
 import { LLMConfigModal } from "./components/LLMConfigModal";
 import { ExportModal } from "./components/ExportModal";
+import { ChatPanel } from "./components/ChatPanel";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 
 export default function App() {
@@ -30,6 +31,7 @@ export default function App() {
 
   const [isLLMModalOpen, setIsLLMModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(loadSidebarCollapsed);
 
@@ -265,6 +267,8 @@ export default function App() {
           session={session}
           onOpenMenu={() => setIsSidebarOpen(true)}
           onOpenExport={() => setIsExportModalOpen(true)}
+          chatOpen={isChatOpen}
+          onToggleChat={() => setIsChatOpen((v) => !v)}
         />
 
         <main className="flex-1 px-4 lg:px-8 py-8">
@@ -306,6 +310,22 @@ export default function App() {
           )}
         </main>
       </div>
+
+      {/* Tool di chat menulis langsung ke SQLite di server, jadi salinan di
+          memori harus dimuat ulang atau layar menampilkan keadaan yang basi. */}
+      <ChatPanel
+        sessionId={session.id}
+        open={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        onToolApplied={async () => {
+          try {
+            const fresh = await fetchSession(session.id, session.llmConfig);
+            if (fresh) setSession(fresh);
+          } catch (err: any) {
+            setStoreError(err?.message || t("Failed to open the project session."));
+          }
+        }}
+      />
 
       <LLMConfigModal
         isOpen={isLLMModalOpen}

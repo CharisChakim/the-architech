@@ -1,15 +1,23 @@
 import React from "react";
 import { ProjectSession } from "../types";
-import { Menu, Download } from "lucide-react";
+import { Menu, Download, MessageSquare } from "lucide-react";
 import { useT } from "../lib/i18n";
 
 interface TopbarProps {
   session: ProjectSession;
   onOpenMenu: () => void;
   onOpenExport: () => void;
+  chatOpen: boolean;
+  onToggleChat: () => void;
 }
 
-export const Topbar: React.FC<TopbarProps> = ({ session, onOpenMenu, onOpenExport }) => {
+export const Topbar: React.FC<TopbarProps> = ({
+  session,
+  onOpenMenu,
+  onOpenExport,
+  chatOpen,
+  onToggleChat,
+}) => {
   const { t } = useT();
   const stepNames: Record<number, string> = {
     1: t("Plan"),
@@ -40,12 +48,24 @@ export const Topbar: React.FC<TopbarProps> = ({ session, onOpenMenu, onOpenExpor
           <span className="text-sm text-muted shrink-0">{stepNames[session.currentStep]}</span>
         </div>
 
-        {hasArtifacts && (
-          <button onClick={onOpenExport} className="ml-auto btn-outline" title={t("Export document & task bundle")}>
-            <Download className="w-4 h-4 text-faint" />
-            <span className="hidden sm:inline">{t("Export")}</span>
+        <div className="ml-auto flex items-center gap-2">
+          {hasArtifacts && (
+            <button onClick={onOpenExport} className="btn-outline" title={t("Export document & task bundle")}>
+              <Download className="w-4 h-4 text-faint" />
+              <span className="hidden sm:inline">{t("Export")}</span>
+            </button>
+          )}
+
+          <button
+            onClick={onToggleChat}
+            className="btn-outline"
+            aria-pressed={chatOpen}
+            title={t("Ask the assistant to change this project")}
+          >
+            <MessageSquare className="w-4 h-4 text-faint" />
+            <span className="hidden sm:inline">{t("Assistant")}</span>
           </button>
-        )}
+        </div>
       </div>
     </header>
   );
