@@ -852,6 +852,16 @@ app.post("/api/agent/chat", async (req, res) => {
     if (!sessionId) throw new Error("sessionId wajib diisi.");
     if (!message || !String(message).trim()) throw new Error("Pesan kosong.");
 
+    // Draf tanpa judul sengaja tidak disimpan ke SQLite, sedangkan tool bekerja
+    // pada sesi yang tersimpan. Dihentikan di sini: dibiarkan jalan, model hanya
+    // menerima "sesi tidak ditemukan" dari setiap tool lalu mengarang jalan
+    // keluar, dan pengguna tidak pernah tahu apa yang sebenarnya salah.
+    if (!getSession(sessionId)) {
+      throw new Error(
+        "Proyek ini belum tersimpan, jadi asisten belum bisa membacanya. Beri judul proyek atau susun rencananya dulu, lalu coba lagi."
+      );
+    }
+
     const finalMessages = await runAgent(
       sessionId,
       Array.isArray(history) ? history : [],
