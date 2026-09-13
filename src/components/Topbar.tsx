@@ -14,7 +14,7 @@ export const Topbar: React.FC<TopbarProps> = ({ session, onOpenMenu, onOpenExpor
   const stepNames: Record<number, string> = {
     1: t("Plan"),
     2: t("PRD"),
-    3: t("AI agent tasks"),
+    3: t("Send to Agent"),
   };
   const activeTitle = session.input.title || session.title;
   const hasArtifacts = Boolean(session.plan || session.prd || session.tasks);

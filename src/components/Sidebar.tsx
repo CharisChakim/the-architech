@@ -75,7 +75,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const steps = [
     {
       num: 1 as const,
-      title: t("Create plan"),
+      title: t("Plan"),
       hint: t("Clarify the idea, architecture, and logic diagram"),
       isCompleted: hasPlan,
       isAvailable: true,
@@ -83,19 +83,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       num: 2 as const,
-      title: t("Write PRD"),
+      title: t("PRD"),
       hint: t("Seven specification points and a flow diagram"),
       isCompleted: hasPrd,
       isAvailable: hasPlan,
-      unlockRequirement: t("Finish step 1 (Create plan) first"),
+      unlockRequirement: t("Finish step 1 (Plan) first"),
     },
     {
       num: 3 as const,
-      title: t("AI agent tasks"),
+      title: t("Send to Agent"),
       hint: t("Kanban board and ready-to-run prompts"),
       isCompleted: hasTasks,
       isAvailable: hasPrd,
-      unlockRequirement: t("Finish step 2 (Write PRD) first"),
+      unlockRequirement: t("Finish step 2 (PRD) first"),
     },
   ];
 
