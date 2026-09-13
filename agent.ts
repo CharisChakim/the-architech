@@ -261,6 +261,16 @@ async function executeTool(
     const tasks = session.tasks || [];
     const task = tasks.find((t: any) => t.id === input?.taskId);
     if (!task) return { error: `Task ${input?.taskId} tidak ada. Panggil get_project untuk melihat id yang tersedia.` };
+
+    // enum di skema tool hanya petunjuk untuk model, bukan aturan yang ditegakkan
+    // API. Papan kanban menyaring persis ketiga nilai ini, jadi nilai lain tidak
+    // membuat kartunya salah kolom — kartunya lenyap dari papan sama sekali.
+    const allowed = ["todo", "in_progress", "done"];
+    if (!allowed.includes(input?.status)) {
+      return {
+        error: `Status "${input?.status}" tidak dikenal. Pakai salah satu dari: ${allowed.join(", ")}.`,
+      };
+    }
     task.status = input.status;
     session.updatedAt = new Date().toISOString();
     saveSession(session);
