@@ -4,6 +4,7 @@ import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 import { listSessions, getSession, saveSession, deleteSession } from "./db.ts";
+import { runAgent } from "./agent.ts";
 
 dotenv.config();
 
@@ -832,6 +833,45 @@ Setelah menyusun 7 poin wajib, nilai apakah proyek ini memerlukan poin tambahan 
 });
 
 // Fitur 3: Generate Agent Tasks
+// Chat harness. Dikirim sebagai SSE karena satu giliran bisa berisi beberapa
+// panggilan tool: pengguna harus melihat apa yang sedang dikerjakan, bukan
+// menunggu layar diam lalu tiba-tiba semuanya berubah.
+app.post("/api/agent/chat", async (req, res) => {
+  const { sessionId, history, message, agentConfig } = req.body;
+
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+
+  const send = (event: unknown) => res.write(`data: ${JSON.stringify(event)}\n\n`);
+
+  try {
+    if (!sessionId) throw new Error("sessionId wajib diisi.");
+    if (!message || !String(message).trim()) throw new Error("Pesan kosong.");
+
+    const finalMessages = await runAgent(
+      sessionId,
+      Array.isArray(history) ? history : [],
+      String(message),
+      agentConfig || {},
+      send
+    );
+
+    // Riwayat dikembalikan utuh supaya klien mengirimkannya lagi di giliran
+    // berikutnya — termasuk blok tool_use dan tool_result, yang harus tetap
+    // berpasangan atau permintaan berikutnya ditolak.
+    send({ type: "history", history: finalMessages });
+  } catch (err: any) {
+    console.error("Error /api/agent/chat:", err);
+    send({ type: "error", message: err?.message || "Gagal menjalankan agent." });
+  } finally {
+    res.end();
+  }
+});
+
 app.post("/api/generate-tasks", async (req, res) => {
   try {
     const { title, plan, prd, llmConfig } = req.body;
