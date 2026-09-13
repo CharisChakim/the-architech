@@ -89,7 +89,7 @@ const WORKSPACE_TOOLS: Anthropic.Tool[] = [
   {
     name: "list_files",
     description:
-      "Daftar isi satu folder di dalam folder kerja. Pakai untuk menemukan berkas sebelum membacanya, jangan menebak nama berkas.",
+      "Daftar isi satu folder di dalam folder kerja. Pakai untuk menemukan berkas sebelum membacanya, jangan menebak nama berkas. TIDAK rekursif: hanya satu tingkat, dan setiap entri ditandai file atau dir — untuk menelusuri lebih dalam, panggil lagi dengan path dir tersebut.",
     input_schema: {
       type: "object",
       properties: {
@@ -100,7 +100,8 @@ const WORKSPACE_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: "read_file",
-    description: "Baca isi satu berkas teks di dalam folder kerja. Berkas panjang dipotong.",
+    description:
+      "Baca isi satu berkas teks di dalam folder kerja. Hanya untuk berkas teks — berkas biner kembali sebagai karakter rusak. Isi lebih dari 60.000 karakter dipotong dan hasilnya menyertakan truncated: true; kalau itu terjadi, jangan menulis ulang berkas tersebut dari isi yang Anda terima, karena bagian yang terpotong akan hilang.",
     input_schema: {
       type: "object",
       properties: { file: { type: "string", description: "Path relatif terhadap folder kerja." } },
@@ -110,7 +111,7 @@ const WORKSPACE_TOOLS: Anthropic.Tool[] = [
   {
     name: "write_file",
     description:
-      "Tulis berkas di dalam folder kerja, menimpa isinya kalau sudah ada. Baca dulu berkas yang mau diubah supaya isinya tidak hilang tertimpa.",
+      "Tulis berkas di dalam folder kerja. Menimpa SELURUH isi kalau berkas sudah ada — tidak ada penyisipan atau penambalan sebagian, jadi baca dulu berkas yang mau diubah dan kirim kembali isi utuhnya. Folder induk yang belum ada dibuatkan sendiri.",
     input_schema: {
       type: "object",
       properties: {
@@ -122,10 +123,21 @@ const WORKSPACE_TOOLS: Anthropic.Tool[] = [
   },
 ];
 
+// Shell-nya disebutkan di deskripsi karena menentukan sintaks yang sah. Tanpa
+// itu model menulis perintah gaya bash di Windows PowerShell, dan "&&" di sana
+// bukan sekadar gagal — ia error saat parsing sebelum apa pun dijalankan.
+const SHELL_NOTE =
+  process.platform === "win32"
+    ? "Shell-nya Windows PowerShell 5.1, bukan bash. Operator '&&' dan '||' TIDAK ada dan menyebabkan error parser; pakai ';' untuk berurutan, atau '; if ($?) { ... }' untuk menjalankan hanya bila perintah sebelumnya berhasil. Tidak ada head, tail, which, atau touch — pakai Select-Object -First/-Last, Get-Command, dan New-Item."
+    : "Shell-nya /bin/sh.";
+
 const SHELL_TOOL: Anthropic.Tool = {
   name: "run_command",
   description:
-    "Jalankan satu perintah shell dengan folder kerja sebagai direktori aktif. Kembalikan stdout, stderr, dan exit code. Perintah yang berjalan lebih dari dua menit dihentikan.",
+    `Jalankan satu perintah shell dengan folder kerja sebagai direktori aktif. Kembalikan stdout, stderr, dan exit code. ${SHELL_NOTE} ` +
+    "Perintah yang berjalan lebih dari dua menit dihentikan, dan keluaran di atas 20.000 karakter dipotong. " +
+    "Perintah berjalan tanpa pengawasan: tidak ada yang bisa menjawab prompt interaktif, jadi pakai flag non-interaktif. " +
+    "Jelaskan lebih dulu perintah yang menghapus atau menimpa sesuatu, dan jangan jalankan kalau pengguna belum memintanya.",
   input_schema: {
     type: "object",
     properties: { command: { type: "string", description: "Perintah lengkap, boleh memakai pipe dan operator." } },
