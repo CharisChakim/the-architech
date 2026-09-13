@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { ProjectSession, PRDData, PRDExtraSection } from "../types";
 import { MermaidViewer } from "./MermaidViewer";
 import { GenerationProgress } from "./GenerationProgress";
@@ -21,7 +21,8 @@ import {
   Trash2,
 } from "lucide-react";
 import { useT, TFunction } from "../lib/i18n";
-import { generatePrd } from "../lib/generate";
+import { generatePrd, generateTasks, isAbort } from "../lib/generate";
+import { GenerationDialog } from "./GenerationDialog";
 
 interface Step2PRDProps {
   session: ProjectSession;
@@ -171,6 +172,8 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
   const [editTechStack, setEditTechStack] = useState(formatTechStackToString(prd?.techStack));
   const [editExtraSections, setEditExtraSections] = useState<PRDExtraSection[]>(prd?.additionalSections || []);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [generatingTasks, setGeneratingTasks] = useState(false);
+  const tasksAbort = useRef<AbortController | null>(null);
 
   const updateExtraSection = (idx: number, patch: Partial<PRDExtraSection>) =>
     setEditExtraSections((prev) => prev.map((s, i) => (i === idx ? { ...s, ...patch } : s)));
@@ -204,6 +207,33 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
       setErrorMessage(err.message || t("Something went wrong while generating the PRD."));
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Sama seperti transisi Step 1 -> Step 2: task disusun dulu sambil menunggu
+  // di halaman ini, baru pindah. Task yang sudah ada tidak dibuat ulang.
+  const handleContinueToTasks = async () => {
+    if (session.tasks && session.tasks.length > 0) {
+      onGoToNextStep();
+      return;
+    }
+
+    setErrorMessage(null);
+    setGeneratingTasks(true);
+    const controller = new AbortController();
+    tasksAbort.current = controller;
+
+    try {
+      const tasks = await generateTasks(session, lang, controller.signal);
+      onUpdateSession({ tasks });
+      onGoToNextStep();
+    } catch (err: any) {
+      if (!isAbort(err)) {
+        setErrorMessage(err.message || t("Something went wrong while generating the agent tasks."));
+      }
+    } finally {
+      tasksAbort.current = null;
+      setGeneratingTasks(false);
     }
   };
 
@@ -349,7 +379,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
                 {t("Download .md")}
               </button>
 
-              <button onClick={onGoToNextStep} className="btn-primary">
+              <button onClick={handleContinueToTasks} disabled={generatingTasks} className="btn-primary">
                 {t("Continue to tasks")}
                 <ArrowRight className="w-4 h-4" />
               </button>
@@ -614,7 +644,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
                   {t("Save changes")}
                 </button>
 
-                <button onClick={onGoToNextStep} className="btn-primary">
+                <button onClick={handleContinueToTasks} disabled={generatingTasks} className="btn-primary">
                   {t("Approve & continue to tasks")}
                   <ArrowRight className="w-4 h-4" />
                 </button>
@@ -630,6 +660,14 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
           )}
         </div>
       )}
+      <GenerationDialog
+        open={generatingTasks}
+        title={t("Preparing the agent tasks")}
+        label={t("Building the task board...")}
+        expectedMs={45000}
+        onCancel={() => tasksAbort.current?.abort()}
+      />
+
     </div>
   );
 };

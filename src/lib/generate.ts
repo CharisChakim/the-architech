@@ -1,22 +1,64 @@
-import { ProjectSession, PRDData } from "../types";
+import { ProjectSession, PRDData, AgentTask } from "../types";
 import { Language, makeT } from "./i18n";
 
-// Dipakai dua tempat: tombol "Continue to the PRD" di Step 1, dan tombol
-// generate / regenerate di Step 2. Keduanya harus mengirim bidang yang sama,
-// jadi permintaannya tinggal di satu tempat.
-export async function generatePrd(session: ProjectSession, lang: Language): Promise<PRDData> {
-  const res = await fetch("/api/generate-prd", {
+// Permintaan generate tinggal di satu tempat karena dipanggil dari dua sisi:
+// tombol transisi di langkah sebelumnya, dan tombol generate/regenerate di
+// halaman tujuannya sendiri. Keduanya harus mengirim bidang yang sama.
+
+// Dilempar saat pengguna menekan Cancel. Pemanggil membedakannya dari kegagalan
+// sungguhan supaya pembatalan tidak memunculkan pesan error.
+export const isAbort = (err: any): boolean => err?.name === "AbortError";
+
+async function postJson(url: string, body: unknown, lang: Language, fallbackKey: string, signal?: AbortSignal) {
+  const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+    body: JSON.stringify(body),
+    signal,
+  });
+
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || makeT(lang)(fallbackKey));
+  return data;
+}
+
+export async function generatePrd(
+  session: ProjectSession,
+  lang: Language,
+  signal?: AbortSignal
+): Promise<PRDData> {
+  return (await postJson(
+    "/api/generate-prd",
+    {
       title: session.input.title || session.title || "AI application",
       plan: session.plan,
       llmConfig: session.llmConfig,
       language: lang,
-    }),
-  });
+    },
+    lang,
+    "Failed to generate the PRD.",
+    signal
+  )) as PRDData;
+}
 
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || makeT(lang)("Failed to generate the PRD."));
-  return data as PRDData;
+export async function generateTasks(
+  session: ProjectSession,
+  lang: Language,
+  signal?: AbortSignal
+): Promise<AgentTask[]> {
+  const data = await postJson(
+    "/api/generate-tasks",
+    {
+      title: session.input.title || session.title || "AI application",
+      plan: session.plan,
+      prd: session.prd,
+      llmConfig: session.llmConfig,
+      language: lang,
+    },
+    lang,
+    "Failed to generate the agent tasks.",
+    signal
+  );
+
+  return (data.tasks || []).map((task: AgentTask) => ({ ...task, status: task.status || "todo" }));
 }

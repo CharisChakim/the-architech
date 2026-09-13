@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { ProjectSession, AgentTask } from "../types";
 import confetti from "canvas-confetti";
-import { GenerationProgress } from "./GenerationProgress";
+import { generateTasks, isAbort } from "../lib/generate";
+import { GenerationDialog } from "./GenerationDialog";
 import {
   Bot,
   Sparkles,
@@ -16,6 +17,7 @@ import {
   ChevronUp,
   Kanban,
   ArrowRight,
+  ArrowLeft,
   X,
 } from "lucide-react";
 import { useT } from "../lib/i18n";
@@ -24,6 +26,8 @@ interface Step3AgentTasksProps {
   session: ProjectSession;
   onUpdateSession: (updated: Partial<ProjectSession>) => void;
 }
+
+type TaskStatus = "todo" | "in_progress" | "done";
 
 export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpdateSession }) => {
   const { t, lang } = useT();
@@ -35,40 +39,28 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
   const [selectedTaskForModal, setSelectedTaskForModal] = useState<AgentTask | null>(null);
 
+  // Kartu dipindah dengan drag-and-drop HTML5 asli — tidak perlu pustaka untuk
+  // tiga kolom. Tombol kecil di kaki kartu tetap ada: drag HTML5 tidak bekerja
+  // di layar sentuh, dan tombol juga terjangkau lewat keyboard.
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<TaskStatus | null>(null);
+  const tasksAbort = useRef<AbortController | null>(null);
+
   const tasks = session.tasks || [];
 
   const handleGenerateTasks = async () => {
     setLoading(true);
     setErrorMessage(null);
+    const controller = new AbortController();
+    tasksAbort.current = controller;
 
     try {
-      const res = await fetch("/api/generate-tasks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: session.input.title || session.title || "AI application",
-          plan: session.plan,
-          prd: session.prd,
-          llmConfig: session.llmConfig,
-          language: lang,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || t("Failed to generate the agent tasks."));
-
-      const generatedTasks: AgentTask[] = (data.tasks || []).map((t: AgentTask) => ({
-        ...t,
-        status: t.status || "todo",
-      }));
-
-      onUpdateSession({
-        tasks: generatedTasks,
-      });
+      const generatedTasks = await generateTasks(session, lang, controller.signal);
+      onUpdateSession({ tasks: generatedTasks });
 
       // Expand all by default
       const initialExpanded: Record<string, boolean> = {};
-      generatedTasks.forEach((t) => (initialExpanded[t.id] = true));
+      generatedTasks.forEach((task) => (initialExpanded[task.id] = true));
       setExpandedTasks(initialExpanded);
 
       // Trigger celebratory confetti
@@ -78,13 +70,16 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
         origin: { y: 0.6 },
       });
     } catch (err: any) {
-      setErrorMessage(err.message || t("Something went wrong while generating the agent tasks."));
+      if (!isAbort(err)) {
+        setErrorMessage(err.message || t("Something went wrong while generating the agent tasks."));
+      }
     } finally {
+      tasksAbort.current = null;
       setLoading(false);
     }
   };
 
-  const handleTaskStatusChange = (taskId: string, newStatus: "todo" | "in_progress" | "done") => {
+  const handleTaskStatusChange = (taskId: string, newStatus: TaskStatus) => {
     const updated = tasks.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t));
     onUpdateSession({ tasks: updated });
     if (selectedTaskForModal && selectedTaskForModal.id === taskId) {
@@ -200,10 +195,12 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
         </div>
       )}
 
-      <GenerationProgress
-        active={loading}
+      <GenerationDialog
+        open={loading}
+        title={t("Preparing the agent tasks")}
         label={t("Building the task board...")}
         expectedMs={45000}
+        onCancel={() => tasksAbort.current?.abort()}
       />
 
       {/* Generate Card if no tasks yet */}
@@ -291,7 +288,35 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
           {viewMode === "kanban" && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
               {columns.map((column) => (
-                <div key={column.status} className="bg-subtle rounded-xl p-3 space-y-2.5">
+                <div
+                  key={column.status}
+                  onDragOver={(e) => {
+                    // Tanpa preventDefault, browser menolak jatuhan apa pun.
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                    if (dropTarget !== column.status) setDropTarget(column.status);
+                  }}
+                  onDragLeave={(e) => {
+                    // Pindah antar anak kolom ikut memicu dragleave; hanya yang
+                    // benar-benar keluar dari kolom yang dihitung.
+                    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                      setDropTarget((current) => (current === column.status ? null : current));
+                    }
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const id = e.dataTransfer.getData("text/plain") || draggingId;
+                    const task = tasks.find((item) => item.id === id);
+                    if (task && (task.status || "todo") !== column.status) {
+                      handleTaskStatusChange(id, column.status);
+                    }
+                    setDropTarget(null);
+                    setDraggingId(null);
+                  }}
+                  className={`bg-subtle rounded-xl p-3 space-y-2.5 min-h-32 transition-colors ${
+                    dropTarget === column.status ? "ring-2 ring-accent ring-inset" : ""
+                  }`}
+                >
                   <div className="flex items-center gap-2 px-1.5 pb-2 border-b border-line text-xs font-semibold uppercase tracking-wider text-muted">
                     <span className={`w-2 h-2 rounded-full ${column.dot}`} />
                     {column.label}
@@ -302,8 +327,20 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
                     {column.tasks.map((task) => (
                       <div
                         key={task.id}
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData("text/plain", task.id);
+                          e.dataTransfer.effectAllowed = "move";
+                          setDraggingId(task.id);
+                        }}
+                        onDragEnd={() => {
+                          setDraggingId(null);
+                          setDropTarget(null);
+                        }}
                         onClick={() => setSelectedTaskForModal(task)}
-                        className="card p-3.5 cursor-pointer transition-colors hover:border-accent space-y-2"
+                        className={`card p-3.5 cursor-grab active:cursor-grabbing transition-colors hover:border-accent space-y-2 ${
+                          draggingId === task.id ? "opacity-40" : ""
+                        }`}
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-[11px] font-mono font-semibold px-1.5 py-0.5 rounded bg-subtle text-muted">
@@ -353,8 +390,9 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
                                   e.stopPropagation();
                                   handleTaskStatusChange(task.id, "todo");
                                 }}
-                                className="text-faint hover:text-ink"
+                                className="text-muted hover:text-ink flex items-center gap-1"
                               >
+                                <ArrowLeft className="w-3 h-3" />
                                 {t("Back")}
                               </button>
                               <button
@@ -379,8 +417,9 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
                                   e.stopPropagation();
                                   handleTaskStatusChange(task.id, "in_progress");
                                 }}
-                                className="text-faint hover:text-ink"
+                                className="text-muted hover:text-ink flex items-center gap-1"
                               >
+                                <ArrowLeft className="w-3 h-3" />
                                 {t("Reopen")}
                               </button>
                             </>
