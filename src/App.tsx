@@ -315,6 +315,7 @@ export default function App() {
           memori harus dimuat ulang atau layar menampilkan keadaan yang basi. */}
       <ChatPanel
         sessionId={session.id}
+        llmConfig={session.llmConfig}
         open={isChatOpen}
         onClose={() => setIsChatOpen(false)}
         onToolApplied={async () => {

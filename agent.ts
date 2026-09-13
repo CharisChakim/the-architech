@@ -25,7 +25,7 @@ export interface AgentConfig {
 // Default menunjuk ke 9Router lokal: satu endpoint format Anthropic yang
 // meneruskan ke langganan Claude Code, Codex, Antigravity, dan lainnya.
 const DEFAULT_BASE_URL = "http://localhost:20128/v1";
-const DEFAULT_MODEL = "cc/claude-opus-4-7";
+const DEFAULT_MODEL = "claude-combo";
 
 const TOOLS: Anthropic.Tool[] = [
   {
@@ -157,9 +157,19 @@ export async function runAgent(
   config: AgentConfig,
   onEvent: (event: AgentEvent) => void
 ): Promise<Anthropic.MessageParam[]> {
+  // SDK menolak kunci kosong dengan pesan tentang "authentication method" yang
+  // tidak memberi tahu apa pun. Dicegat di sini supaya yang terbaca adalah apa
+  // yang sebenarnya kurang.
+  const apiKey = config.apiKey || process.env.ANTHROPIC_AUTH_TOKEN || process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      "API key untuk endpoint chat belum diisi. Isi di Pengaturan LLM, atau set ANTHROPIC_AUTH_TOKEN di environment server."
+    );
+  }
+
   const client = new Anthropic({
     baseURL: config.baseUrl || DEFAULT_BASE_URL,
-    apiKey: config.apiKey || process.env.ANTHROPIC_AUTH_TOKEN || "",
+    apiKey,
   });
 
   const messages: Anthropic.MessageParam[] = [...history, { role: "user", content: userMessage }];
