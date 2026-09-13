@@ -316,6 +316,9 @@ export default function App() {
       <ChatPanel
         sessionId={session.id}
         llmConfig={session.llmConfig}
+        workspaceRoot={session.workspaceRoot || ""}
+        allowShell={Boolean(session.allowShell)}
+        onChangeWorkspace={(patch) => handleUpdateSession(patch)}
         open={isChatOpen}
         onClose={() => setIsChatOpen(false)}
         onToolApplied={async () => {
