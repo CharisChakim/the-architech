@@ -10,14 +10,23 @@ import { getSession, saveSession } from "./db.ts";
 // sana alurnya ditulis di kode, di sini model yang menentukan langkahnya.
 
 export interface AgentEvent {
-  type: "text" | "tool_start" | "tool_done" | "done" | "error";
+  type: "text" | "tool_start" | "tool_done" | "approval_request" | "approval_resolved" | "done" | "error";
   text?: string;
   tool?: string;
   input?: unknown;
   result?: unknown;
   isError?: boolean;
   message?: string;
+  // approval_request / approval_resolved
+  approvalId?: string;
+  command?: string;
+  approved?: boolean;
 }
+
+// Menjalankan perintah menunggu jawaban pengguna. Callback ini yang menahan
+// eksekusi sampai jawabannya tiba, sehingga perintah tidak pernah berjalan lebih
+// dulu lalu dilaporkan setelahnya.
+export type ApprovalAsker = (command: string) => Promise<boolean>;
 
 export interface AgentConfig {
   baseUrl?: string;
@@ -198,7 +207,12 @@ const PROJECT_TOOLS: Anthropic.Tool[] = [
 
 // Setiap tool bekerja pada sesi yang sedang dibuka dan menulis balik ke SQLite,
 // jadi perubahan dari chat langsung terlihat di kanvas dan papan task.
-async function executeTool(name: string, input: any, sessionId: string): Promise<unknown> {
+async function executeTool(
+  name: string,
+  input: any,
+  sessionId: string,
+  askApproval: ApprovalAsker
+): Promise<unknown> {
   const session = getSession(sessionId);
   if (!session) return { error: `Sesi ${sessionId} tidak ditemukan.` };
 
@@ -295,6 +309,15 @@ async function executeTool(name: string, input: any, sessionId: string): Promise
     if (name === "run_command") {
       const command = String(input?.command ?? "").trim();
       if (!command) return { error: "Perintah kosong." };
+
+      // Persetujuan diminta sebelum apa pun dijalankan. Hasilnya dikembalikan
+      // sebagai tool_result biasa, bukan dilempar, supaya model tahu perintahnya
+      // ditolak dan bisa menawarkan jalan lain daripada giliran berhenti.
+      const approved = await askApproval(command);
+      if (!approved) {
+        return { error: "Pengguna menolak menjalankan perintah ini.", command, ranAnything: false };
+      }
+
       const rootReal = await fs.realpath(root!);
       const result = await runCommand(command, rootReal);
       return { command, ...result };
@@ -351,7 +374,8 @@ export async function runAgent(
   history: Anthropic.MessageParam[],
   userMessage: string,
   config: AgentConfig,
-  onEvent: (event: AgentEvent) => void
+  onEvent: (event: AgentEvent) => void,
+  askApproval: ApprovalAsker
 ): Promise<Anthropic.MessageParam[]> {
   // SDK menolak kunci kosong dengan pesan tentang "authentication method" yang
   // tidak memberi tahu apa pun. Dicegat di sini supaya yang terbaca adalah apa
@@ -406,7 +430,7 @@ export async function runAgent(
       onEvent({ type: "tool_start", tool: block.name, input: block.input });
       let result: any;
       try {
-        result = await executeTool(block.name, block.input, sessionId);
+        result = await executeTool(block.name, block.input, sessionId, askApproval);
       } catch (err: any) {
         result = { error: err?.message || String(err) };
       }
