@@ -2,6 +2,7 @@ import { getSession } from "../../db.ts";
 import type { ToolDef } from "../llm/types.ts";
 import { resolveInsideRoot } from "./sandbox.ts";
 import { fsTools } from "./tools/fs.ts";
+import { pipelineTools } from "./tools/pipeline.ts";
 import { projectTools } from "./tools/project.ts";
 import { shellTools } from "./tools/shell.ts";
 
@@ -52,7 +53,7 @@ export interface ToolSpec {
   run(input: any, ctx: ToolContext): Promise<unknown>;
 }
 
-const BUILTIN_TOOLS: ToolSpec[] = [...projectTools, ...fsTools, ...shellTools];
+const BUILTIN_TOOLS: ToolSpec[] = [...projectTools, ...fsTools, ...shellTools, ...pipelineTools];
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
