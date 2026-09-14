@@ -2,6 +2,8 @@ import { ProjectSession } from "../types";
 
 export type Step = 1 | 2 | 3;
 
+export const AGENT_PATH = "/";
+
 // Satu path per langkah. Sengaja tidak memuat id proyek: proyek yang sedang
 // dibuka sudah diingat di localStorage, dan menaruhnya di URL berarti setiap
 // tautan yang dibagikan menunjuk sesi yang hanya ada di mesin pengirimnya.

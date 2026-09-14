@@ -16,6 +16,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Languages,
+  MessageSquare,
 } from "lucide-react";
 import { SAMPLE_PROJECTS, SampleProject, sampleText } from "../lib/sampleData";
 import { Theme } from "../lib/theme";
@@ -37,6 +38,8 @@ interface SidebarProps {
   onClose: () => void;
   collapsed: boolean;
   onToggleCollapsed: () => void;
+  layoutMode?: "agent" | "split" | "board";
+  onSelectAgent?: () => void;
 }
 
 const sectionLabel = "px-2.5 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-faint";
@@ -63,6 +66,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onClose,
   collapsed,
   onToggleCollapsed,
+  layoutMode,
+  onSelectAgent,
 }) => {
   const { lang, t } = useT();
   const [showSamples, setShowSamples] = useState(false);
@@ -165,6 +170,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div>
             {!isRail && <p className={sectionLabel}>{t("Workflow")}</p>}
             <nav className="space-y-0.5">
+              <button
+                type="button"
+                onClick={() => {
+                  onSelectAgent?.();
+                  onClose();
+                }}
+                aria-current={layoutMode === "agent" ? "page" : undefined}
+                title={`${t("Agent")} /`}
+                className={`flex items-center gap-2.5 rounded-lg text-left transition-colors ${
+                  isRail ? "w-10 h-10 mx-auto justify-center" : "w-full px-2.5 py-2"
+                } ${
+                  layoutMode === "agent"
+                    ? "bg-accent-soft text-accent-ink"
+                    : "text-muted hover:text-ink hover:bg-subtle"
+                }`}
+              >
+                <MessageSquare className="w-4 h-4 shrink-0" />
+                {!isRail && (
+                  <span className="min-w-0 flex-1 text-sm font-medium">
+                    {t("Agent")}
+                    <span className="float-right text-faint" aria-hidden>
+                      /
+                    </span>
+                  </span>
+                )}
+              </button>
+
               {steps.map((step) => {
                 const isActive = session.currentStep === step.num;
                 const isLocked = !step.isAvailable;

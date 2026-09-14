@@ -300,7 +300,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
   };
 
   return (
-    <div className="max-w-4xl space-y-6 pb-12">
+    <div className="max-w-none space-y-6 pb-12">
       {/* Page heading */}
       <div className="max-w-2xl">
         <h2 className="text-xl font-semibold tracking-tight text-ink">{t("Product Requirement Document")}</h2>
@@ -436,7 +436,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
               </PrdSection>
 
               <PrdSection t={t} number={3} title={t("Core features (phase 1, 2, 3+)")}>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-5">
+                <div className="grid grid-cols-1 @3xl/pane:grid-cols-3 gap-x-6 gap-y-5">
                   {(
                     [
                       [t("Phase 1"), t("Core MVP"), "fase1"],

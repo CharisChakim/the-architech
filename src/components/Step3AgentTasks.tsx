@@ -287,7 +287,7 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
 
           {/* VIEW 1: KANBAN BOARD */}
           {viewMode === "kanban" && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+            <div className="grid grid-cols-1 @4xl/pane:grid-cols-3 gap-4 items-start">
               {columns.map((column) => (
                 <div
                   key={column.status}
@@ -442,7 +442,7 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
 
           {/* VIEW 2: DETAILED LIST VIEW */}
           {viewMode === "list" && (
-            <div className="max-w-5xl space-y-3">
+            <div className="max-w-none space-y-3">
               {tasks.map((task, idx) => {
                 const isExpanded = expandedTasks[task.id] ?? true;
                 const isCopied = copiedTaskId === task.id;
@@ -490,7 +490,7 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
 
                     {isExpanded && (
                       <div className="p-5 space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 @xl/pane:grid-cols-2 gap-4">
                           <div>
                             <span className="text-[11px] font-semibold text-faint uppercase tracking-wider block mb-1.5">
                               {t("Target files")}

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import mermaid from "mermaid";
 import { Download, Code, Eye, Maximize2, Minimize2, ZoomIn, ZoomOut, RefreshCw, Copy, Check } from "lucide-react";
 import { useT } from "../lib/i18n";
@@ -108,7 +109,7 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({ chart, explanation
     URL.revokeObjectURL(url);
   };
 
-  return (
+  const viewer = (
     <div className={`card overflow-hidden transition-all ${isFullscreen ? "fixed inset-4 z-50 flex flex-col shadow-lg" : ""}`}>
       {/* Header Toolbar */}
       <div className="flex flex-wrap items-center justify-between px-4 py-2.5 bg-subtle border-b border-line gap-3">
@@ -214,4 +215,6 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({ chart, explanation
       )}
     </div>
   );
+
+  return isFullscreen ? createPortal(viewer, document.body) : viewer;
 };

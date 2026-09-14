@@ -12,17 +12,15 @@ import {
 import { fetchSessionList, fetchSession, persistSession, removeSession } from "./lib/sessionStore";
 import { Theme, loadTheme, saveTheme, applyTheme } from "./lib/theme";
 import { Language, loadLanguage, saveLanguage, makeT, LanguageProvider } from "./lib/i18n";
-import { STEP_PATHS, pathToStep, isStepReachable, Step } from "./lib/routing";
+import { AGENT_PATH, STEP_PATHS, pathToStep, isStepReachable, Step } from "./lib/routing";
+import { LayoutMode, loadLayout, saveLayout } from "./lib/layout";
 import { SampleProject, sampleText } from "./lib/sampleData";
 import { Sidebar } from "./components/Sidebar";
 import { Topbar } from "./components/Topbar";
-import { Step1Plan } from "./components/Step1Plan";
-import { Step2PRD } from "./components/Step2PRD";
-import { Step3AgentTasks } from "./components/Step3AgentTasks";
+import { Workbench } from "./components/shell/Workbench";
 import { LLMConfigModal } from "./components/LLMConfigModal";
 import { ExportModal } from "./components/ExportModal";
-import { ChatPanel } from "./components/ChatPanel";
-import { AlertTriangle, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 
 export default function App() {
   const [session, setSession] = useState<ProjectSession | null>(null);
@@ -31,9 +29,11 @@ export default function App() {
 
   const [isLLMModalOpen, setIsLLMModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-  const [isChatOpen, setIsChatOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(loadSidebarCollapsed);
+  const [layout, setLayout] = useState(loadLayout);
+  const [isNarrow, setIsNarrow] = useState(() => window.innerWidth <= 1100);
+  const lastSingleMode = useRef<Exclude<LayoutMode, "split">>(layout.mode === "board" ? "board" : "agent");
 
   const [theme, setTheme] = useState<Theme>(loadTheme);
   const [lang, setLang] = useState<Language>(loadLanguage);
@@ -79,22 +79,55 @@ export default function App() {
   const urlSynced = useRef(false);
 
   useEffect(() => {
+    const onResize = () => setIsNarrow(window.innerWidth <= 1100);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  useEffect(() => {
+    if (layout.mode !== "split") lastSingleMode.current = layout.mode;
+  }, [layout.mode]);
+
+  const effectiveLayoutMode: LayoutMode =
+    isNarrow && layout.mode === "split" ? lastSingleMode.current : layout.mode;
+
+  const handleLayoutModeChange = (mode: LayoutMode) => {
+    if (isNarrow && mode === "split") mode = "board";
+    if (mode !== "split") lastSingleMode.current = mode;
+    const next = { ...layout, mode };
+    setLayout(next);
+    saveLayout(next);
+  };
+
+  const handleRatioChange = (ratio: number) => setLayout((previous) => ({ ...previous, ratio }));
+
+  const handleRatioCommit = (ratio: number) => {
+    const next = { ...layout, ratio };
+    setLayout(next);
+    saveLayout(next);
+  };
+
+  useEffect(() => {
     if (!session || urlSynced.current) return;
     urlSynced.current = true;
 
     const fromUrl = pathToStep(window.location.pathname);
-    if (fromUrl && fromUrl !== session.currentStep && isStepReachable(fromUrl, session)) {
-      handleUpdateSession({ currentStep: fromUrl });
+    if (window.location.pathname === AGENT_PATH) {
+      handleLayoutModeChange("agent");
+    } else if (fromUrl && isStepReachable(fromUrl, session)) {
+      if (fromUrl !== session.currentStep) handleUpdateSession({ currentStep: fromUrl });
+      if (effectiveLayoutMode === "agent") handleLayoutModeChange(isNarrow ? "board" : "split");
     } else {
-      window.history.replaceState({}, "", STEP_PATHS[session.currentStep]);
+      const path = effectiveLayoutMode === "agent" ? AGENT_PATH : STEP_PATHS[session.currentStep];
+      window.history.replaceState({}, "", path);
     }
   }, [session]);
 
   useEffect(() => {
     if (!session || !urlSynced.current) return;
-    const path = STEP_PATHS[session.currentStep];
+    const path = effectiveLayoutMode === "agent" ? AGENT_PATH : STEP_PATHS[session.currentStep];
     if (window.location.pathname !== path) window.history.pushState({}, "", path);
-  }, [session?.currentStep]);
+  }, [session?.currentStep, effectiveLayoutMode]);
 
   // Tombol back/forward browser. setSession dipakai langsung, bukan
   // handleUpdateSession, supaya sekadar menavigasi tidak menaikkan updatedAt
@@ -102,12 +135,16 @@ export default function App() {
   useEffect(() => {
     const handlePopState = () => {
       const step = pathToStep(window.location.pathname);
-      if (!step) return;
+      if (!step) {
+        if (window.location.pathname === AGENT_PATH) handleLayoutModeChange("agent");
+        return;
+      }
       setSession((prev) => (prev && isStepReachable(step, prev) ? { ...prev, currentStep: step } : prev));
+      handleLayoutModeChange(isNarrow ? "board" : "split");
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, []);
+  }, [isNarrow]);
 
   const applySession = (next: ProjectSession, markAsPersisted: boolean) => {
     if (markAsPersisted) lastPersistedRef.current = JSON.stringify(next);
@@ -175,6 +212,7 @@ export default function App() {
 
   const handleSelectStep = (step: Step) => {
     handleUpdateSession({ currentStep: step });
+    handleLayoutModeChange(isNarrow ? "board" : "split");
   };
 
 
@@ -246,6 +284,8 @@ export default function App() {
         session={session}
         historySessions={historySessions}
         onSelectStep={handleSelectStep}
+        layoutMode={effectiveLayoutMode}
+        onSelectAgent={() => handleLayoutModeChange("agent")}
         onNewProject={handleNewProject}
         onSelectSample={handleSelectSample}
         onSelectHistorySession={handleSelectHistorySession}
@@ -267,69 +307,36 @@ export default function App() {
           session={session}
           onOpenMenu={() => setIsSidebarOpen(true)}
           onOpenExport={() => setIsExportModalOpen(true)}
-          chatOpen={isChatOpen}
-          onToggleChat={() => setIsChatOpen((v) => !v)}
+          layoutMode={effectiveLayoutMode}
+          onLayoutModeChange={handleLayoutModeChange}
+          isNarrow={isNarrow}
+          connectionLabel={session.llmConfig.provider}
+          modelLabel={session.llmConfig.modelName || t("default model")}
+          connectionStatus="connected"
         />
 
-        <main className="flex-1 px-4 lg:px-8 py-8">
-          {storeError && (
-            <div className="mb-6 p-4 bg-warn-soft border border-warn/30 rounded-xl text-warn-ink flex items-start gap-3">
-              <AlertTriangle className="w-4 h-4 text-warn shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="font-medium">{t("Project storage is not responding")}</p>
-                <p className="opacity-80 mt-0.5">{storeError}</p>
-              </div>
-              <button
-                onClick={() => setStoreError(null)}
-                className="text-xs font-medium shrink-0 hover:underline"
-              >
-                {t("Dismiss")}
-              </button>
-            </div>
-          )}
-
-          {session.currentStep === 1 && (
-            <Step1Plan
-              session={session}
-              onUpdateSession={handleUpdateSession}
-              onGoToNextStep={() => handleSelectStep(2)}
-              onSelectSample={handleSelectSample}
-            />
-          )}
-
-          {session.currentStep === 2 && (
-            <Step2PRD
-              session={session}
-              onUpdateSession={handleUpdateSession}
-              onGoToNextStep={() => handleSelectStep(3)}
-            />
-          )}
-
-          {session.currentStep === 3 && (
-            <Step3AgentTasks session={session} onUpdateSession={handleUpdateSession} />
-          )}
-        </main>
+        <Workbench
+          session={session}
+          storeError={storeError}
+          onDismissStoreError={() => setStoreError(null)}
+          onUpdateSession={handleUpdateSession}
+          onSelectStep={handleSelectStep}
+          onSelectSample={handleSelectSample}
+          onToolApplied={async () => {
+            try {
+              const fresh = await fetchSession(session.id, session.llmConfig);
+              if (fresh) setSession(fresh);
+            } catch (err: any) {
+              setStoreError(err?.message || t("Failed to open the project session."));
+            }
+          }}
+          layoutMode={effectiveLayoutMode}
+          ratio={layout.ratio}
+          onLayoutModeChange={handleLayoutModeChange}
+          onRatioChange={handleRatioChange}
+          onRatioCommit={handleRatioCommit}
+        />
       </div>
-
-      {/* Tool di chat menulis langsung ke SQLite di server, jadi salinan di
-          memori harus dimuat ulang atau layar menampilkan keadaan yang basi. */}
-      <ChatPanel
-        sessionId={session.id}
-        llmConfig={session.llmConfig}
-        workspaceRoot={session.workspaceRoot || ""}
-        allowShell={Boolean(session.allowShell)}
-        onChangeWorkspace={(patch) => handleUpdateSession(patch)}
-        open={isChatOpen}
-        onClose={() => setIsChatOpen(false)}
-        onToolApplied={async () => {
-          try {
-            const fresh = await fetchSession(session.id, session.llmConfig);
-            if (fresh) setSession(fresh);
-          } catch (err: any) {
-            setStoreError(err?.message || t("Failed to open the project session."));
-          }
-        }}
-      />
 
       <LLMConfigModal
         isOpen={isLLMModalOpen}

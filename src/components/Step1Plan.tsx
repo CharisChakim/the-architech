@@ -421,9 +421,9 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({
         // diisi hal yang memang dibutuhkan tepat di layar ini: jalan pintas
         // template, dan penjelasan apa yang membuat deskripsi cukup baik —
         // deskripsi adalah satu-satunya isian wajib dan penentu mutu keluaran.
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-4 items-start max-w-6xl">
+        <div className="grid grid-cols-1 @5xl/pane:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-4 items-start max-w-none">
         <form onSubmit={handleAnalyzeQuestions} className="card p-6 space-y-5">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 @2xl/pane:grid-cols-2 gap-5">
             <div>
               <label className="field-label">{t("Project title")}</label>
               <input
@@ -564,7 +564,7 @@ export const Step1Plan: React.FC<Step1PlanProps> = ({
         // Sama seperti halaman data proyek: kolom kanan diisi konteks yang
         // dibutuhkan sambil menjawab — apa yang tadi ditulis, dan jalan pintas
         // untuk memperbaikinya.
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-4 items-start max-w-6xl">
+        <div className="grid grid-cols-1 @5xl/pane:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-4 items-start max-w-none">
         <div className="space-y-4">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
@@ -896,7 +896,7 @@ title={t("System architecture: {title}", { title: session.input.title || session
           )}
 
           {/* Grid Core Features & Tech Stack */}
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 pt-2">
+          <div className="grid grid-cols-1 @4xl/pane:grid-cols-2 gap-4 pt-2">
             {/* Core Features */}
             <div className="card p-5 space-y-3">
               <h4 className={`${sectionTitle} border-b border-line pb-3`}>
@@ -960,7 +960,7 @@ title={t("System architecture: {title}", { title: session.input.title || session
               <p className="text-muted leading-relaxed max-w-4xl">{plan.architectureDraft.overview}</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 @2xl/pane:grid-cols-2 gap-5">
               <div className="space-y-2">
                 <p className="text-xs font-medium text-faint">{t("Main components")}</p>
                 <ul className="space-y-2">
@@ -993,8 +993,8 @@ title={t("System architecture: {title}", { title: session.input.title || session
           </div>
 
           {/* Roadmap & Estimasi */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="lg:col-span-2 card p-5 space-y-4">
+          <div className="grid grid-cols-1 @4xl/pane:grid-cols-3 gap-4">
+            <div className="@4xl/pane:col-span-2 card p-5 space-y-4">
               <h4 className={sectionTitle}>
                 <Compass className="w-4 h-4 text-faint" />
                 {t("Delivery roadmap")}
