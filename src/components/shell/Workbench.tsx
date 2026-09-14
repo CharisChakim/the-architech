@@ -5,7 +5,8 @@ import { SampleProject } from "../../lib/sampleData";
 import { isStepReachable, Step } from "../../lib/routing";
 import { LayoutMode } from "../../lib/layout";
 import { useT } from "../../lib/i18n";
-import { ChatPanel } from "../ChatPanel";
+import { useAgentRun } from "../../lib/useAgentRun";
+import { AgentPane } from "../agent/AgentPane";
 import { PipelinePane } from "./PipelinePane";
 import { Splitter } from "./Splitter";
 
@@ -47,6 +48,15 @@ export const Workbench: React.FC<WorkbenchProps> = ({
   const { t } = useT();
   const taskCount = session.tasks?.length ?? 0;
   const completedTasks = (session.tasks ?? []).filter((task) => task.status === "done").length;
+  const handleToolApplied = React.useCallback(() => {
+    void onToolApplied?.();
+  }, [onToolApplied]);
+  const agentRun = useAgentRun({
+    sessionId: session.id,
+    workspaceRoot: session.workspaceRoot || "",
+    llmConfig: session.llmConfig,
+    onToolApplied: handleToolApplied,
+  });
 
   const openPipeline = (step: Step) => {
     if (!isStepReachable(step, session)) return;
@@ -85,17 +95,18 @@ export const Workbench: React.FC<WorkbenchProps> = ({
 
   const agentPane = (
     <div className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-surface [&>aside]:!static [&>aside]:!inset-auto [&>aside]:!h-full [&>aside]:!w-full [&>aside]:!max-w-none [&>aside]:!shadow-none">
-      <ChatPanel
-        sessionId={session.id}
-        llmConfig={session.llmConfig}
+      <AgentPane
         workspaceRoot={session.workspaceRoot || ""}
         allowShell={Boolean(session.allowShell)}
         onChangeWorkspace={onUpdateSession}
-        open
-        onClose={() => undefined}
-        onToolApplied={() => {
-          void onToolApplied?.();
-        }}
+        onNavigatePipeline={openPipeline}
+        entries={agentRun.entries}
+        busy={agentRun.busy}
+        error={agentRun.error}
+        onSend={agentRun.send}
+        onRetry={agentRun.retry}
+        onDecideApproval={agentRun.decideApproval}
+        onStop={agentRun.stop}
       />
     </div>
   );
@@ -119,11 +130,12 @@ export const Workbench: React.FC<WorkbenchProps> = ({
 
       <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="flex min-h-0 flex-1 flex-row overflow-hidden">
-          {layoutMode !== "board" && (
-            <div className="min-h-0 min-w-0" style={{ width: layoutMode === "split" ? `${ratio * 100}%` : "100%" }}>
+          <div
+            className={`min-h-0 min-w-0 ${layoutMode === "board" ? "hidden" : ""}`}
+            style={{ width: layoutMode === "split" ? `${ratio * 100}%` : "100%" }}
+          >
               {agentPane}
-            </div>
-          )}
+          </div>
 
           {layoutMode === "split" && <Splitter ratio={ratio} onRatioChange={onRatioChange} onCommit={onRatioCommit} />}
 
