@@ -1,97 +1,23 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 import { listSessions, getSession, saveSession, deleteSession } from "./db.ts";
-import { runAgent } from "./agent.ts";
+import { Lang, langOf, msg } from "./server/messages.ts";
+import { parseJsonFromLlm } from "./server/llm/json.ts";
+import { callLlm as callLlmCore } from "./server/llm/call.ts";
+import { resolveFor, type Role } from "./server/connections/store.ts";
+import connectionsRouter from "./server/connections/routes.ts";
+import agentRouter from "./server/routes/agent.ts";
 
 dotenv.config();
 
 const app = express();
 app.use(express.json({ limit: "10mb" }));
+app.use(connectionsRouter);
+app.use(agentRouter);
 
 const PORT = 3000;
-
-// Initialize Gemini Client. Key dari UI didahulukan; environment jadi cadangan.
-const getGeminiClient = (userApiKey?: string) => {
-  const apiKey = userApiKey?.trim() || process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    console.warn("Warning: no Gemini API key from the request and GEMINI_API_KEY is unset.");
-  }
-  return new GoogleGenAI({
-    apiKey: apiKey || "",
-    httpOptions: {
-      headers: {
-        "User-Agent": "aistudio-build",
-      },
-    },
-  });
-};
-
-// Bahasa antarmuka. Klien mengirimnya lewat body (endpoint POST) atau query
-// (?lang=, untuk GET/DELETE riwayat). Yang tidak dikenali jatuh ke Inggris,
-// bahasa bawaan aplikasi.
-type Lang = "en" | "id";
-
-const langOf = (req: any): Lang => ((req.body?.language ?? req.query?.lang) === "id" ? "id" : "en");
-
-// Hanya pesan yang bisa muncul di layar pengguna yang diterjemahkan. Log server
-// tetap satu bahasa supaya mudah dicari.
-const MESSAGES = {
-  emptyResponse: { en: "The LLM returned an empty response.", id: "Respons LLM kosong." },
-  jsonFailedLogged: {
-    en: "Could not parse the JSON from the LLM: {detail}. The raw output is in the server log.",
-    id: "Gagal memproses JSON dari LLM: {detail}. Output mentah ada di log server.",
-  },
-  jsonFailedRaw: {
-    en: "Could not parse the JSON from the LLM: {detail}. Raw output: {raw}",
-    id: "Gagal memproses JSON dari LLM: {detail}. Output mentah: {raw}",
-  },
-  baseUrlRequired: {
-    en: "A base URL is required for a custom LLM / Ollama endpoint.",
-    id: "Base URL endpoint LLM kustom / Ollama wajib diisi.",
-  },
-  customEndpointError: {
-    en: "The custom LLM endpoint returned an error ({status}): {detail}",
-    id: "Endpoint custom LLM mengembalikan error ({status}): {detail}",
-  },
-  customUnreachable: {
-    en: "Could not reach the custom LLM / Ollama at {url}: {detail}. Check that the service is running and reachable.",
-    id: "Gagal menghubungi Custom LLM / Ollama ({url}): {detail}. Pastikan service aktif dan terjangkau.",
-  },
-  geminiError: { en: "Error from the Gemini API: {detail}", id: "Error dari Gemini API: {detail}" },
-  historyLoadFailed: { en: "Failed to load project history.", id: "Gagal memuat riwayat proyek." },
-  sessionNotFound: { en: "Project session not found.", id: "Sesi proyek tidak ditemukan." },
-  sessionLoadFailed: { en: "Failed to open the project session.", id: "Gagal memuat sesi proyek." },
-  sessionIdMismatch: {
-    en: "The session ID in the URL does not match the one in the body.",
-    id: "ID sesi pada URL dan body tidak cocok.",
-  },
-  sessionSaveFailed: { en: "Failed to save the project session.", id: "Gagal menyimpan sesi proyek." },
-  sessionDeleteFailed: { en: "Failed to delete the project session.", id: "Gagal menghapus sesi proyek." },
-  followUpFailed: { en: "Failed to generate the follow-up questions.", id: "Gagal membuat pertanyaan follow-up." },
-  planFailed: { en: "Failed to generate the project plan.", id: "Gagal membuat Project Plan." },
-  prdFailed: { en: "Failed to generate the PRD.", id: "Gagal membuat PRD." },
-  tasksFailed: { en: "Failed to generate the AI agent tasks.", id: "Gagal membuat AI Agent Tasks." },
-  llmTimeout: {
-    en: "No answer from the model within {minutes} minutes at {url}. The request was given up on, not refused — the model may simply be slower than that, or the endpoint may have stalled.",
-    id: "Tidak ada jawaban dari model dalam {minutes} menit di {url}. Permintaan dihentikan sendiri, bukan ditolak — modelnya mungkin memang lebih lambat dari itu, atau endpoint-nya menggantung.",
-  },
-  outputTruncated: {
-    en: "The model stopped before it finished writing — it hit its output limit. Try again, or switch to a model with a larger output budget.",
-    id: "Model berhenti sebelum jawabannya selesai — batas panjang keluarannya tercapai. Coba lagi, atau pakai model dengan jatah keluaran lebih besar.",
-  },
-} as const;
-
-// Error yang pesannya sudah ditujukan untuk pengguna. Penandanya dibutuhkan
-// karena jalur Ollama/custom membungkus apa pun yang dilempar di dalamnya
-// menjadi "tidak bisa dihubungi" — tanpa ini, sebab yang sebenarnya (endpoint
-// menolak, jawaban terpotong) hilang di balik pesan yang salah.
-class LlmError extends Error {}
-
-const msg = (lang: Lang, key: keyof typeof MESSAGES, vars: Record<string, any> = {}): string =>
-  MESSAGES[key][lang].replace(/\{(\w+)\}/g, (whole, name) => (name in vars ? String(vars[name]) : whole));
 
 // Prompt-nya sendiri tetap ditulis dalam Bahasa Indonesia — itu instruksi untuk
 // model, bukan teks yang dilihat pengguna, dan sudah disetel apa adanya. Yang
@@ -101,224 +27,19 @@ const outputLanguage = (lang: Lang): string =>
     ? "Gunakan Bahasa Indonesia yang profesional, jelas, dan ramah untuk SELURUH nilai teks pada JSON keluaran."
     : "Write EVERY text value in the JSON output in professional, clear, friendly English.";
 
-// Jatah keluaran. Tanpa ini sebagian gateway OpenAI-compatible memakai
-// bawaannya sendiri yang kecil, dan PRD terpotong di tengah kalimat. Gemini
-// tidak diberi batas: bawaannya sudah setinggi kemampuan modelnya, dan menaruh
-// angka di atas batas model justru ditolak API-nya.
-const MAX_OUTPUT_TOKENS = 8192;
-
-// Panggilan yang sah di sini bisa memakan dua menit. Batasnya dipasang
-// eksplisit supaya "kelamaan" punya pesannya sendiri, bukan muncul sebagai
-// kegagalan jaringan yang tak jelas.
-const LLM_TIMEOUT_MS = 300_000;
-
-// fetch() Node melempar Error bertuliskan "fetch failed" dan menaruh sebab
-// sebenarnya — ECONNREFUSED, ECONNRESET, socket hang up — di err.cause.
-// Tanpa dibuka, pesan ke pengguna tidak memberi tahu apa pun yang bisa
-// ditindaklanjuti.
-function describeFetchError(err: any): string {
-  const cause = err?.cause;
-  const code = cause?.code || cause?.name;
-  const detail = cause?.message || err?.message || String(err);
-  return code && !detail.includes(code) ? `${code} (${detail})` : detail;
-}
-
-// Jawaban yang terpotong tetap berupa JSON yang "hampir benar", jadi kalau
-// tidak dikenali di sini pesan yang sampai ke pengguna adalah keluhan sintaks
-// di posisi sekian — menyesatkan, karena yang salah bukan bentuknya melainkan
-// panjangnya. Kurung yang tidak seimbang adalah tanda paling andal.
-function looksTruncated(text: string): boolean {
-  let depth = 0;
-  let inString = false;
-  let escaped = false;
-  for (const ch of text) {
-    if (escaped) { escaped = false; continue; }
-    if (ch === "\\") { escaped = true; continue; }
-    if (ch === '"') { inString = !inString; continue; }
-    if (inString) continue;
-    if (ch === "{" || ch === "[") depth++;
-    else if (ch === "}" || ch === "]") depth--;
-  }
-  return depth > 0 || inString;
-}
-
-// Helper function to extract and parse JSON safely
-function parseJsonFromLlm(text: string, lang: Lang = "en"): any {
-  if (!text) throw new Error(msg(lang, "emptyResponse"));
-  let cleaned = text.trim();
-  
-  // Remove markdown code fence if present
-  if (cleaned.startsWith("```")) {
-    const firstLineEnd = cleaned.indexOf("\n");
-    if (firstLineEnd !== -1) {
-      cleaned = cleaned.substring(firstLineEnd + 1);
-    }
-    if (cleaned.endsWith("```")) {
-      cleaned = cleaned.substring(0, cleaned.length - 3);
-    }
-  }
-  
-  cleaned = cleaned.trim();
-  
-  try {
-    return JSON.parse(cleaned);
-  } catch (err: any) {
-    // Ambil dari '{' atau '[' pertama sampai penutup terakhir, lalu buang koma
-    // menggantung — model yang lebih lemah sering menyisakannya sebelum } atau ].
-    const firstBrace = cleaned.search(/[\{\[]/);
-    const lastBrace = Math.max(cleaned.lastIndexOf("}"), cleaned.lastIndexOf("]"));
-    if (firstBrace !== -1 && lastBrace > firstBrace) {
-      const extracted = cleaned.substring(firstBrace, lastBrace + 1).replace(/,(\s*[}\]])/g, "$1");
-      try {
-        return JSON.parse(extracted);
-      } catch (retryErr: any) {
-        // Output penuh ke log server: pesan ke pengguna harus tetap ringkas,
-        // tapi tanpa teks aslinya kegagalan ini tidak bisa didiagnosis.
-        console.error("--- Output LLM yang gagal diparse ---\n" + cleaned + "\n--- akhir output ---");
-        if (looksTruncated(cleaned)) throw new Error(msg(lang, "outputTruncated"));
-        throw new Error(msg(lang, "jsonFailedLogged", { detail: retryErr.message }));
-      }
-    }
-    if (looksTruncated(cleaned)) throw new Error(msg(lang, "outputTruncated"));
-    throw new Error(msg(lang, "jsonFailedRaw", { detail: err.message, raw: cleaned.substring(0, 400) }));
-  }
-}
-
-// Base URL endpoint OpenAI-compatible ditulis orang dengan tiga cara yang
-// sama-sama wajar: root polos, sudah termasuk "/v1" (bentuk baku OpenAI), atau
-// path lengkap. Tanpa normalisasi, bentuk kedua menjadi "/v1/v1/chat/completions".
-function openAiChatUrl(baseUrl: string): string {
-  const root = baseUrl.trim().replace(/\/+$/, "");
-  if (/\/chat\/completions$/.test(root)) return root;
-  if (/\/v\d+$/.test(root)) return `${root}/chat/completions`;
-  return `${root}/v1/chat/completions`;
-}
-
-// Flexible LLM caller handling Gemini or Ollama / Custom API
-async function callLlm(prompt: string, systemInstruction: string, llmConfig?: any, lang: Lang = "en"): Promise<string> {
-  const provider = llmConfig?.provider || "gemini";
-  
-  if (provider === "ollama" || provider === "custom") {
-    const baseUrl = llmConfig?.baseUrl || (provider === "ollama" ? "http://localhost:11434" : "");
-    const model = llmConfig?.modelName || (provider === "ollama" ? "llama3" : "gpt-3.5-turbo");
-    
-    if (!baseUrl) {
-      throw new Error(msg(lang, "baseUrlRequired"));
-    }
-
-    const chatUrl = openAiChatUrl(baseUrl);
-    
-    try {
-      // Try Ollama native generate endpoint if provider is ollama
-      if (provider === "ollama") {
-        const ollamaRes = await fetch(`${baseUrl.replace(/\/$/, "")}/api/generate`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: model,
-            prompt: `${systemInstruction}\n\nUSER PROMPT:\n${prompt}`,
-            stream: false,
-            options: { num_predict: MAX_OUTPUT_TOKENS },
-          }),
-          signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-        });
-
-        if (ollamaRes.ok) {
-          const data = await ollamaRes.json();
-          if (data.done_reason === "length") throw new LlmError(msg(lang, "outputTruncated"));
-          return data.response || data.text || "";
-        }
-      }
-      
-      // Fallback or OpenAI compatibility route for Ollama/Custom (/v1/chat/completions)
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (llmConfig?.apiKey) {
-        headers["Authorization"] = `Bearer ${llmConfig.apiKey}`;
-      }
-      
-      const customRes = await fetch(chatUrl, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          model: model,
-          // Eksplisit non-streaming: sebagian gateway OpenAI-compatible mengirim
-          // SSE bila bidang ini tidak ada, dan respons itu bukan JSON valid.
-          stream: false,
-          messages: [
-            { role: "system", content: systemInstruction },
-            { role: "user", content: prompt },
-          ],
-          temperature: 0.2,
-          max_tokens: MAX_OUTPUT_TOKENS,
-        }),
-        signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-      });
-      
-      if (!customRes.ok) {
-        const errText = await customRes.text();
-        throw new LlmError(msg(lang, "customEndpointError", { status: customRes.status, detail: errText }));
-      }
-      
-      const customData = await customRes.json();
-      if (customData.choices?.[0]?.finish_reason === "length") {
-        throw new LlmError(msg(lang, "outputTruncated"));
-      }
-      return customData.choices?.[0]?.message?.content || "";
-    } catch (err: any) {
-      // Yang pesannya sudah ditujukan untuk pengguna diteruskan apa adanya;
-      // sisanya memang kegagalan menghubungi endpoint.
-      if (err instanceof LlmError) throw err;
-
-      // Kegagalan fetch dicatat utuh: pesan yang sampai ke layar harus ringkas,
-      // tapi tanpa rantai cause, provider, dan model, kegagalan seperti ini
-      // tidak bisa didiagnosis dari laporan pengguna.
-      const chain: string[] = [];
-      for (let c = err, depth = 0; c && depth < 4; c = c.cause, depth++) {
-        chain.push(`${c.name || "Error"}/${c.code || "-"}: ${c.message}`);
-      }
-      console.error(
-        [
-          "--- Panggilan LLM gagal ---",
-          `provider=${provider} model=${model} url=${chatUrl}`,
-          `promptChars=${prompt.length} systemChars=${systemInstruction.length}`,
-          ...chain.map((line, i) => `  [${i}] ${line}`),
-          "--- akhir ---",
-        ].join("\n")
-      );
-
-      if (err?.name === "TimeoutError") {
-        throw new Error(
-          msg(lang, "llmTimeout", { minutes: Math.round(LLM_TIMEOUT_MS / 60000), url: chatUrl })
-        );
-      }
-      // URL yang dilaporkan adalah alamat yang benar-benar dipanggil, bukan
-      // base URL: kalau normalisasi path meleset, itu hanya terlihat di sini.
-      throw new Error(msg(lang, "customUnreachable", { url: chatUrl, detail: describeFetchError(err) }));
-    }
-  }
-  
-  // Default to Gemini API
-  const ai = getGeminiClient(llmConfig?.apiKey);
-  const modelName = llmConfig?.modelName || "gemini-3.6-flash";
-  
-  try {
-    const response = await ai.models.generateContent({
-      model: modelName,
-      contents: prompt,
-      config: {
-        systemInstruction,
-        responseMimeType: "application/json",
-      },
-    });
-    
-    if (response.candidates?.[0]?.finishReason === "MAX_TOKENS") {
-      throw new LlmError(msg(lang, "outputTruncated"));
-    }
-    return response.text || "";
-  } catch (err: any) {
-    if (err instanceof LlmError) throw err;
-    throw new Error(msg(lang, "geminiError", { detail: err.message }));
-  }
+// Route lama tetap memakai signature ini supaya klien dan keempat generator tidak
+// perlu berubah saat transport provider dipindahkan ke layer netral.
+async function callLlm(
+  prompt: string,
+  systemInstruction: string,
+  llmConfig?: any,
+  lang: Lang = "en",
+  role: Role = "plan",
+  requestBody: any = {},
+): Promise<string> {
+  const { conn, model } = resolveFor(role, { ...requestBody, llmConfig }, lang);
+  if (!conn.baseUrl) throw new Error(msg(lang, "baseUrlRequired"));
+  return callLlmCore({ prompt, system: systemInstruction, conn, model, lang, jsonMode: conn.jsonMode });
 }
 
 // API Routes
@@ -477,7 +198,7 @@ ${
 
 Jawab dalam format JSON yang telah ditentukan. Sertakan bidang "options" dengan minimal 3 pilihan ringkas untuk setiap pertanyaan.`;
 
-    const rawText = await callLlm(prompt, systemInstruction, llmConfig, lang);
+    const rawText = await callLlm(prompt, systemInstruction, llmConfig, lang, "plan", req.body);
     const data = parseJsonFromLlm(rawText, lang);
 
     const questions = (data.questions || []).map((q: any) => ({
@@ -684,8 +405,8 @@ Daftar fitur sudah final (ada di instruksi sistem). Susun arsitektur, techStack,
 Jangan mengeluarkan bidang "coreFeatures". Jawab dalam format JSON sesuai skema.`;
 
     const rawText = hasLock
-      ? await callLlm(resyncPrompt, resyncSystemInstruction, llmConfig, lang)
-      : await callLlm(prompt, systemInstruction, llmConfig, lang);
+      ? await callLlm(resyncPrompt, resyncSystemInstruction, llmConfig, lang, "plan", req.body)
+      : await callLlm(prompt, systemInstruction, llmConfig, lang, "plan", req.body);
     const data = parseJsonFromLlm(rawText, lang);
 
     // Daftar fitur tidak pernah datang dari model saat mode terkunci.
@@ -807,7 +528,7 @@ Arsitektur: ${JSON.stringify(plan?.architectureDraft || {})}
 Susunkan dokumen PRD yang Wajib memuat 7 poin standar secara lengkap beserta diagram horizontal (graph LR) dalam format JSON yang diminta.
 Setelah menyusun 7 poin wajib, nilai apakah proyek ini memerlukan poin tambahan (8, 9, dst). Tambahkan lewat "additionalSections" hanya jika benar-benar perlu, dan pastikan ikut tertulis di "fullMarkdownText".`;
 
-    const rawText = await callLlm(prompt, systemInstruction, llmConfig, lang);
+    const rawText = await callLlm(prompt, systemInstruction, llmConfig, lang, "prd", req.body);
     const data = parseJsonFromLlm(rawText, lang);
 
     // Ensure fallback properties for legacy component support if needed
@@ -829,93 +550,6 @@ Setelah menyusun 7 poin wajib, nilai apakah proyek ini memerlukan poin tambahan 
   } catch (err: any) {
     console.error("Error /api/generate-prd:", err);
     res.status(500).json({ error: err.message || msg(langOf(req), "prdFailed") });
-  }
-});
-
-// Fitur 3: Generate Agent Tasks
-// SSE hanya mengalir satu arah, jadi jawaban persetujuan masuk lewat permintaan
-// terpisah. Yang menghubungkan keduanya adalah promise yang ditahan di sini
-// selama giliran berjalan. Kalau tidak dijawab, perintah ditolak, bukan
-// digantung selamanya — halaman yang ditutup di tengah jalan tidak boleh
-// meninggalkan proses yang menunggu tanpa akhir.
-const APPROVAL_TIMEOUT_MS = 300_000;
-const pendingApprovals = new Map<string, (approved: boolean) => void>();
-
-app.post("/api/agent/approve", (req, res) => {
-  const { approvalId, approved } = req.body || {};
-  const resolve = pendingApprovals.get(approvalId);
-  if (!resolve) {
-    res.status(404).json({ error: "Permintaan persetujuan ini sudah kedaluwarsa atau tidak ada." });
-    return;
-  }
-  pendingApprovals.delete(approvalId);
-  resolve(Boolean(approved));
-  res.json({ ok: true });
-});
-
-// Chat harness. Dikirim sebagai SSE karena satu giliran bisa berisi beberapa
-// panggilan tool: pengguna harus melihat apa yang sedang dikerjakan, bukan
-// menunggu layar diam lalu tiba-tiba semuanya berubah.
-app.post("/api/agent/chat", async (req, res) => {
-  const { sessionId, history, message, agentConfig } = req.body;
-
-  res.writeHead(200, {
-    "Content-Type": "text/event-stream",
-    "Cache-Control": "no-cache",
-    Connection: "keep-alive",
-    "X-Accel-Buffering": "no",
-  });
-
-  const send = (event: unknown) => res.write(`data: ${JSON.stringify(event)}\n\n`);
-
-  try {
-    if (!sessionId) throw new Error("sessionId wajib diisi.");
-    if (!message || !String(message).trim()) throw new Error("Pesan kosong.");
-
-    // Draf tanpa judul sengaja tidak disimpan ke SQLite, sedangkan tool bekerja
-    // pada sesi yang tersimpan. Dihentikan di sini: dibiarkan jalan, model hanya
-    // menerima "sesi tidak ditemukan" dari setiap tool lalu mengarang jalan
-    // keluar, dan pengguna tidak pernah tahu apa yang sebenarnya salah.
-    if (!getSession(sessionId)) {
-      throw new Error(
-        "Proyek ini belum tersimpan, jadi asisten belum bisa membacanya. Beri judul proyek atau susun rencananya dulu, lalu coba lagi."
-      );
-    }
-
-    const askApproval = (command: string) =>
-      new Promise<boolean>((resolve) => {
-        const approvalId = `apv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-
-        const settle = (approved: boolean) => {
-          clearTimeout(timer);
-          pendingApprovals.delete(approvalId);
-          send({ type: "approval_resolved", approvalId, approved });
-          resolve(approved);
-        };
-
-        const timer = setTimeout(() => settle(false), APPROVAL_TIMEOUT_MS);
-        pendingApprovals.set(approvalId, settle);
-        send({ type: "approval_request", approvalId, command });
-      });
-
-    const finalMessages = await runAgent(
-      sessionId,
-      Array.isArray(history) ? history : [],
-      String(message),
-      agentConfig || {},
-      send,
-      askApproval
-    );
-
-    // Riwayat dikembalikan utuh supaya klien mengirimkannya lagi di giliran
-    // berikutnya — termasuk blok tool_use dan tool_result, yang harus tetap
-    // berpasangan atau permintaan berikutnya ditolak.
-    send({ type: "history", history: finalMessages });
-  } catch (err: any) {
-    console.error("Error /api/agent/chat:", err);
-    send({ type: "error", message: err?.message || "Gagal menjalankan agent." });
-  } finally {
-    res.end();
   }
 });
 
@@ -959,7 +593,7 @@ Skema Database: ${JSON.stringify(prd?.databaseSchema || prd?.dataSchema || [])}
 Silakan buatkan pecahan Task AI Agent yang komprehensif (minimal 5-10 task atomik berurutan).
 Setiap task harus menyertakan promptInstructions lengkap yang siap di-copy/paste atau dibaca oleh AI Agent untuk coding tanpa ambigu.`;
 
-    const rawText = await callLlm(prompt, systemInstruction, llmConfig, lang);
+    const rawText = await callLlm(prompt, systemInstruction, llmConfig, lang, "tasks", req.body);
     const data = parseJsonFromLlm(rawText, lang);
     
     const tasks = (data.tasks || []).map((t: any) => ({

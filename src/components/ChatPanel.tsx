@@ -103,7 +103,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
           },
         }),
       });
-      if (!res.ok || !res.body) throw new Error(t("The assistant is unreachable."));
+      if (!res.ok || !res.body) throw new Error(t("The agent is unreachable."));
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -166,7 +166,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         }
       }
     } catch (err: any) {
-      setError(err?.message || t("The assistant is unreachable."));
+      setError(err?.message || t("The agent is unreachable."));
     } finally {
       setBusy(false);
       if (toolTouchedSession) onToolApplied();
@@ -185,7 +185,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                  border-l border-line bg-surface flex flex-col h-screen lg:sticky lg:top-0"
     >
       <div className="flex items-center justify-between px-4 py-3 border-b border-line">
-        <h2 className="font-medium text-ink">{t("Assistant")}</h2>
+        <h2 className="font-medium text-ink">{t("Agent")}</h2>
         <button onClick={onClose} aria-label={t("Close")} className="text-faint hover:text-ink">
           <X className="w-4 h-4" />
         </button>
@@ -228,7 +228,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
       <div ref={scroller} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
         {entries.length === 0 && (
           <p className="text-xs text-faint leading-relaxed">
-            {t("Ask for a change to this project — the assistant can read it and edit the features or the task board directly.")}
+            {t("Ask for a change to this project — the agent can read it and edit the features or the task board directly.")}
           </p>
         )}
 

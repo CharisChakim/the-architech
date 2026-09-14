@@ -60,10 +60,10 @@ export const Topbar: React.FC<TopbarProps> = ({
             onClick={onToggleChat}
             className="btn-outline"
             aria-pressed={chatOpen}
-            title={t("Ask the assistant to change this project")}
+            title={t("Ask the agent to change this project")}
           >
             <MessageSquare className="w-4 h-4 text-faint" />
-            <span className="hidden sm:inline">{t("Assistant")}</span>
+            <span className="hidden sm:inline">{t("Agent")}</span>
           </button>
         </div>
       </div>

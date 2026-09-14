@@ -1,6 +1,5 @@
 import React, { useRef, useState } from "react";
 import { ProjectSession, AgentTask } from "../types";
-import confetti from "canvas-confetti";
 import { generateTasks, isAbort } from "../lib/generate";
 import { GenerationDialog } from "./GenerationDialog";
 import {
@@ -63,7 +62,9 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
       generatedTasks.forEach((task) => (initialExpanded[task.id] = true));
       setExpandedTasks(initialExpanded);
 
-      // Trigger celebratory confetti
+      // Trigger celebratory confetti. Dimuat saat dipakai supaya paketnya
+      // tidak ikut bundel awal hanya untuk satu perayaan.
+      const { default: confetti } = await import("canvas-confetti");
       confetti({
         particleCount: 80,
         spread: 70,

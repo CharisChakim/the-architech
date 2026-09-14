@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { ProjectSession, PRDData, PRDExtraSection } from "../types";
-import { MermaidViewer } from "./MermaidViewer";
+import { MermaidViewer, Markdown } from "./lazy";
 import { GenerationProgress } from "./GenerationProgress";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import {
   FileText,
   Sparkles,
@@ -655,7 +653,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
           {/* TAB 3: RAW MARKDOWN DOCUMENT */}
           {activeTab === "markdown" && (
             <div className="card p-6 markdown-body">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{prd.fullMarkdownText}</ReactMarkdown>
+              <Markdown>{prd.fullMarkdownText}</Markdown>
             </div>
           )}
         </div>

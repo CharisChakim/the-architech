@@ -7,7 +7,7 @@ const DB_PATH = path.join(DB_DIR, "architech.db");
 
 fs.mkdirSync(DB_DIR, { recursive: true });
 
-const db = new DatabaseSync(DB_PATH);
+export const db = new DatabaseSync(DB_PATH);
 
 // Queryable columns drive the history list; payload holds the whole session as
 // JSON because plan/prd/tasks come from an LLM and their shape is loose.

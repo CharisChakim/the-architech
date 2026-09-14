@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { ProjectSession, FollowUpQuestion, ProjectPlan, FeatureSpec } from "../types";
-import { MermaidViewer } from "./MermaidViewer";
-import { PlanCanvas } from "./PlanCanvas";
+import { MermaidViewer, PlanCanvas } from "./lazy";
 import { FeatureEditor } from "./FeatureEditor";
 import { GenerationProgress } from "./GenerationProgress";
 import { SAMPLE_PROJECTS, SampleProject, sampleText } from "../lib/sampleData";
