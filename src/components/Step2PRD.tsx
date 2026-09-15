@@ -182,6 +182,8 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [generatingTasks, setGeneratingTasks] = useState(false);
   const [generationChars, setGenerationChars] = useState(0);
+  const [briefTitle, setBriefTitle] = useState(session.input.title || session.title || "");
+  const [briefDescription, setBriefDescription] = useState(session.input.description || "");
   const prdAbort = useRef<AbortController | null>(null);
   const tasksAbort = useRef<AbortController | null>(null);
 
@@ -207,6 +209,11 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
     }
   }, [prd]);
 
+  useEffect(() => {
+    setBriefTitle(session.input.title || session.title || "");
+    setBriefDescription(session.input.description || "");
+  }, [session.id]);
+
   const handleGeneratePRD = async () => {
     if (loading || generatingTasks) return;
     setLoading(true);
@@ -216,7 +223,15 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
     prdAbort.current = controller;
 
     try {
-      const generatedPrd = await generatePrd(session, lang, controller.signal, setGenerationChars);
+      const title = briefTitle.trim() || session.input.title || session.title;
+      const description = briefDescription.trim() || session.input.description;
+      const sourceSession: ProjectSession = {
+        ...session,
+        title,
+        input: { ...session.input, title, description },
+      };
+      if (!session.plan) onUpdateSession({ title, input: sourceSession.input });
+      const generatedPrd = await generatePrd(sourceSession, lang, controller.signal, setGenerationChars);
       const recorded = recordPrdVersion(generatedPrd, session.prdVersions);
       const versionedPrd = attachPrdVersionToPrd(generatedPrd, recorded.version);
       onUpdateSession({
@@ -377,11 +392,11 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
 
       {/* Generate Action Card if no PRD */}
       {!prd ? (
-        <div className="card p-10 text-center space-y-4">
+        <div className="card mx-auto max-w-2xl space-y-5 p-6 sm:p-8">
           <div className="w-12 h-12 bg-accent-soft text-accent-ink rounded-xl mx-auto flex items-center justify-center">
             <Sparkles className="w-6 h-6" />
           </div>
-          <div className="max-w-md mx-auto space-y-1.5">
+          <div className="mx-auto max-w-md space-y-1.5 text-center">
             <h3 className="font-semibold text-ink text-base">{t("Generate the 7-point PRD automatically")}</h3>
             <p className="text-muted leading-relaxed">
               {session.plan
@@ -389,7 +404,19 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
                 : t("Build the PRD straight from the project description you entered.")}
             </p>
           </div>
-          <button onClick={handleGeneratePRD} disabled={loading || generatingTasks} className="btn-primary mx-auto">
+          {!session.plan && (
+            <div className="space-y-4 rounded-xl border border-line bg-canvas p-4 text-left">
+              <div>
+                <label className="field-label" htmlFor="prd-project-title">{t("Project name")}</label>
+                <input id="prd-project-title" className="field" value={briefTitle} onChange={(event) => setBriefTitle(event.target.value)} placeholder={t("Project name from the selected folder")} />
+              </div>
+              <div>
+                <label className="field-label" htmlFor="prd-project-brief">{t("Project brief")} <span className="text-danger">*</span></label>
+                <textarea id="prd-project-brief" rows={5} className="field resize-y leading-relaxed" value={briefDescription} onChange={(event) => setBriefDescription(event.target.value)} placeholder={t("Describe the product, users, problem, and main outcome...")} />
+              </div>
+            </div>
+          )}
+          <button onClick={handleGeneratePRD} disabled={loading || generatingTasks || (!session.plan && !briefDescription.trim())} className="btn-primary mx-auto">
             {loading ? (
               <>
                 <RefreshCw className="w-4 h-4 animate-spin" />

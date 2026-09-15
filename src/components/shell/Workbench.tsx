@@ -1,7 +1,6 @@
 import React from "react";
 import { AlertTriangle, Bot, Check } from "lucide-react";
 import type { AgentTask, ProjectSession } from "../../types";
-import { SampleProject } from "../../lib/sampleData";
 import { isStepReachable, Step } from "../../lib/routing";
 import { LayoutMode } from "../../lib/layout";
 import { useT } from "../../lib/i18n";
@@ -17,8 +16,8 @@ export interface WorkbenchProps {
   storeError?: string | null;
   onDismissStoreError?: () => void;
   onUpdateSession: (updated: Partial<ProjectSession>) => void;
+  onWorkspaceSelected: (workspaceRoot: string) => void | Promise<void>;
   onSelectStep: (step: Step) => void;
-  onSelectSample: (sample: SampleProject) => void;
   onToolApplied?: () => void | Promise<void>;
   onPrepareAgentPlan?: (idea: string) => void | Promise<void>;
   layoutMode: LayoutMode;
@@ -40,8 +39,8 @@ export const Workbench: React.FC<WorkbenchProps> = ({
   storeError,
   onDismissStoreError,
   onUpdateSession,
+  onWorkspaceSelected,
   onSelectStep,
-  onSelectSample,
   onToolApplied,
   onPrepareAgentPlan,
   layoutMode,
@@ -109,7 +108,7 @@ export const Workbench: React.FC<WorkbenchProps> = ({
         <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-faint">{t("Project context")}</span>
         <div className="flex items-center gap-1 rounded-lg bg-subtle p-0.5">
           <button type="button" aria-current="page" onClick={() => onLayoutModeChange("agent")} className="rounded-md bg-surface px-2.5 py-1.5 text-[11px] font-medium text-accent-ink shadow-xs">{t("Chat")}</button>
-          <button type="button" disabled={!isStepReachable(2, session)} onClick={() => openPipeline(2)} title={!isStepReachable(2, session) ? t("Finish step 1 (Plan) first") : undefined} className="rounded-md px-2.5 py-1.5 text-[11px] font-medium text-muted hover:text-ink disabled:cursor-not-allowed disabled:text-faint">{t("PRD")}</button>
+          <button type="button" onClick={() => openPipeline(2)} className="rounded-md px-2.5 py-1.5 text-[11px] font-medium text-muted hover:text-ink">{t("PRD")}</button>
           <button type="button" disabled={!isStepReachable(3, session)} onClick={() => openPipeline(3)} title={!isStepReachable(3, session) ? t("Finish step 2 (PRD) first") : undefined} className="rounded-md px-2.5 py-1.5 text-[11px] font-medium text-muted hover:text-ink disabled:cursor-not-allowed disabled:text-faint">{t("Kanban")} {taskCount > 0 && <span className="text-faint">{completedTasks}/{taskCount}</span>}</button>
         </div>
         <button type="button" onClick={() => openPipeline(1)} className="ml-auto inline-flex items-center gap-1.5 text-[11px] text-muted hover:text-accent-ink">{session.plan ? <Check className="h-3 w-3 text-ok" /> : <span className="h-1.5 w-1.5 rounded-full bg-faint" />}{t("Plan")}</button>
@@ -124,6 +123,7 @@ export const Workbench: React.FC<WorkbenchProps> = ({
         workspaceRoot={session.workspaceRoot || ""}
         allowShell={Boolean(session.allowShell)}
         onChangeWorkspace={onUpdateSession}
+        onWorkspaceSelected={onWorkspaceSelected}
         onNavigatePipeline={openPipeline}
         entries={agentRun.entries}
         busy={agentRun.busy}
@@ -134,7 +134,6 @@ export const Workbench: React.FC<WorkbenchProps> = ({
         onRespondQuestions={agentRun.respondQuestions}
         onStop={agentRun.stop}
         hasPlan={Boolean(session.plan)}
-        onSelectSample={onSelectSample}
         onPreparePlan={onPrepareAgentPlan}
         runtimeSelection={runtimeSelection}
         runtimeReport={runtimeDiscovery.report}
@@ -181,7 +180,6 @@ export const Workbench: React.FC<WorkbenchProps> = ({
                 session={session}
                 onUpdateSession={onUpdateSession}
                 onGoToNextStep={() => onSelectStep(session.currentStep === 3 ? 3 : (session.currentStep + 1) as Step)}
-                onSelectSample={onSelectSample}
                 onSelectStep={openPipeline}
                 onSelectAgent={() => onLayoutModeChange("agent")}
                 onRunTask={handleRunTask}

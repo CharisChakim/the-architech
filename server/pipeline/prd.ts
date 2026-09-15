@@ -15,6 +15,7 @@ export async function generatePrd(
   model: string,
   lang: Lang,
   options?: PipelineOptions,
+  description = "",
 ): Promise<any> {
   const systemInstruction = `Anda adalah Technical Product Manager & Software Architect berpengalaman.
 ${outputLanguage(lang)}
@@ -98,6 +99,7 @@ Kembalikan respon PERSIS dalam format JSON berikut:
 
   const prompt = `Data Project Plan yang telah disetujui:
 Judul: ${title}
+Deskripsi / product brief: ${description || "Belum tersedia"}
 Plan Summary: ${plan?.summary || ""}
 Fitur Utama: ${JSON.stringify(plan?.specs?.coreFeatures || [])}
 Stack Teknologi: ${JSON.stringify(plan?.specs?.techStack || [])}

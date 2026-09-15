@@ -6,6 +6,8 @@ import { useT } from "../../lib/i18n";
 type SendHandler = (text: string) => void | Promise<void | boolean>;
 type ActionHandler = () => void | Promise<void>;
 
+export type ComposerMode = "agent" | "plan" | "prd";
+
 export interface ComposerProps {
   send?: SendHandler;
   onSend?: SendHandler;
@@ -18,6 +20,11 @@ export interface ComposerProps {
   placeholder?: string;
   sessionId?: string;
   conversationId?: string;
+  mode?: ComposerMode;
+  onModeChange?: (mode: ComposerMode) => void;
+  controls?: React.ReactNode;
+  secondaryControls?: React.ReactNode;
+  variant?: "default" | "hero";
 }
 
 export const Composer: React.FC<ComposerProps> = ({
@@ -32,6 +39,11 @@ export const Composer: React.FC<ComposerProps> = ({
   placeholder,
   sessionId,
   conversationId,
+  mode = "agent",
+  onModeChange,
+  controls,
+  secondaryControls,
+  variant = "default",
 }) => {
   const { t } = useT();
   const [draft, setDraft, clearDraft] = useDraft(
@@ -60,10 +72,13 @@ export const Composer: React.FC<ComposerProps> = ({
   };
 
   return (
-    <form className="border-t border-line bg-surface p-3" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
-      <div className="flex min-w-0 items-end gap-2">
+    <form
+      className={variant === "hero" ? "mt-6 w-full" : "bg-surface px-3 pb-3 pt-2"}
+      onSubmit={(event) => { event.preventDefault(); void submit(); }}
+    >
+      <div className="overflow-visible rounded-2xl border border-strong bg-surface shadow-[0_8px_30px_rgb(35_35_65/0.08)] focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/15">
         <textarea
-          rows={2}
+          rows={variant === "hero" ? 4 : 2}
           value={draft}
           disabled={disabled || busy}
           onChange={(event) => setDraft(event.target.value)}
@@ -71,44 +86,46 @@ export const Composer: React.FC<ComposerProps> = ({
           placeholder={placeholder ?? t("Ask for a change...")}
           aria-label={placeholder ?? t("Ask for a change...")}
           aria-describedby="agent-composer-hint"
-          className="flex-1 min-w-0 resize-none rounded-lg border border-line bg-canvas px-3 py-2 text-ink placeholder:text-faint focus:outline-hidden focus:ring-2 focus:ring-accent disabled:opacity-60"
+          className={`block w-full resize-none rounded-t-2xl border-0 bg-transparent px-4 py-3 text-ink outline-hidden placeholder:text-faint disabled:opacity-60 ${variant === "hero" ? "min-h-28" : "min-h-16"}`}
         />
 
-        {retryHandler && !busy && (
-          <button
-            type="button"
-            onClick={() => void retryHandler()}
-            disabled={disabled}
-            aria-label={t("Retry")}
-            title={t("Retry")}
-            className="shrink-0 rounded-lg border border-line text-muted p-2.5 hover:bg-subtle hover:text-ink disabled:opacity-40"
+        <div className="flex min-w-0 flex-wrap items-center gap-2 border-t border-line px-2 py-2">
+          {controls}
+          <label className="sr-only" htmlFor="agent-composer-mode">{t("Interaction mode")}</label>
+          <select
+            id="agent-composer-mode"
+            value={mode}
+            onChange={(event) => onModeChange?.(event.target.value as ComposerMode)}
+            disabled={disabled || busy}
+            className="h-8 rounded-lg border border-line bg-canvas px-2 text-[11px] font-medium text-ink outline-hidden hover:border-strong focus:border-accent"
           >
-            <RotateCcw className="w-4 h-4" aria-hidden />
-          </button>
-        )}
+            <option value="agent">{t("Agent mode")}</option>
+            <option value="plan">{t("Plan mode")}</option>
+            <option value="prd">{t("PRD mode")}</option>
+          </select>
 
-        {busy && stopHandler ? (
-          <button
-            type="button"
-            onClick={() => void stopHandler()}
-            aria-label={t("Stop")}
-            title={t("Stop")}
-            className="shrink-0 rounded-lg border border-danger/30 text-danger-ink p-2.5 hover:bg-danger-soft"
-          >
-            <Square className="w-4 h-4" aria-hidden />
-          </button>
-        ) : (
-          <button
-            type="submit"
-            disabled={busy || disabled || !draft.trim() || !sendHandler}
-            aria-label={t("Send")}
-            className="shrink-0 rounded-lg bg-accent text-accent-fg p-2.5 disabled:opacity-40"
-          >
-            {busy ? <LoaderCircle className="w-4 h-4 animate-spin" aria-hidden /> : <Send className="w-4 h-4" aria-hidden />}
-          </button>
-        )}
+          <div className="min-w-2 flex-1" />
+
+          {retryHandler && !busy && (
+            <button type="button" onClick={() => void retryHandler()} disabled={disabled} aria-label={t("Retry")} title={t("Retry")} className="shrink-0 rounded-lg border border-line p-2 text-muted hover:bg-subtle hover:text-ink disabled:opacity-40">
+              <RotateCcw className="h-4 w-4" aria-hidden />
+            </button>
+          )}
+
+          {busy && stopHandler ? (
+            <button type="button" onClick={() => void stopHandler()} aria-label={t("Stop")} title={t("Stop")} className="shrink-0 rounded-lg border border-danger/30 p-2 text-danger-ink hover:bg-danger-soft">
+              <Square className="h-4 w-4" aria-hidden />
+            </button>
+          ) : (
+            <button type="submit" disabled={busy || disabled || !draft.trim() || !sendHandler} aria-label={t("Send")} className="shrink-0 rounded-lg bg-accent p-2 text-accent-fg disabled:opacity-40">
+              {busy ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden /> : <Send className="h-4 w-4" aria-hidden />}
+            </button>
+          )}
+        </div>
+
+        {secondaryControls && <div className="border-t border-line px-3 py-2">{secondaryControls}</div>}
       </div>
-      <p id="agent-composer-hint" className="mt-1.5 text-[11px] text-faint">{t("Press Enter to send · Shift+Enter for a new line")}</p>
+      <p id="agent-composer-hint" className="mt-1.5 px-1 text-[11px] text-faint">{t("Press Enter to send · Shift+Enter for a new line")}</p>
     </form>
   );
 };

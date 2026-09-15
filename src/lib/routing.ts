@@ -21,7 +21,9 @@ export const pathToStep = (pathname: string): Step | null => {
 // Aturannya sama dengan kunci di sidebar: URL tidak boleh membuka langkah yang
 // belum punya bahan.
 export const isStepReachable = (step: Step, session: ProjectSession): boolean => {
-  if (step === 2) return Boolean(session.plan);
+  // PRD can start directly from the project brief; a Plan improves its input
+  // but is not a prerequisite.
+  if (step === 2) return true;
   if (step === 3) return Boolean(session.prd);
   return true;
 };

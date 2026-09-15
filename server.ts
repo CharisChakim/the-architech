@@ -168,18 +168,18 @@ app.post("/api/generate-plan", async (req, res) => {
 app.post("/api/generate-prd", async (req, res) => {
   if (acceptsEventStream(req)) {
     await streamGeneration(req, res, ({ signal, onProgress }) => {
-      const { title, plan } = req.body;
+      const { title, plan, description } = req.body;
       const lang = langOf(req);
       const { conn, model } = resolveFor("prd", req.body, lang);
-      return generatePrd(title, plan, conn, model, lang, { signal, onProgress });
+      return generatePrd(title, plan, conn, model, lang, { signal, onProgress }, description);
     });
     return;
   }
   try {
-    const { title, plan } = req.body;
+    const { title, plan, description } = req.body;
     const lang = langOf(req);
     const { conn, model } = resolveFor("prd", req.body, lang);
-    const data = await generatePrd(title, plan, conn, model, lang);
+    const data = await generatePrd(title, plan, conn, model, lang, undefined, description);
     res.json(data);
   } catch (err: any) {
     console.error("Error /api/generate-prd:", err);

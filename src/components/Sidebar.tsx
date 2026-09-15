@@ -63,7 +63,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const steps = [
     { num: 1 as const, label: t("Plan"), complete: hasPlan, available: true },
-    { num: 2 as const, label: t("PRD"), complete: hasPrd, available: hasPlan },
+    { num: 2 as const, label: t("PRD"), complete: hasPrd, available: true },
     { num: 3 as const, label: t("Kanban"), complete: hasTasks, available: hasPrd },
   ];
 
@@ -79,7 +79,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const handleStepClick = (step: (typeof steps)[number]) => {
     if (!step.available) {
-      setLockNotice(step.num === 2 ? t("Finish step 1 (Plan) first") : t("Finish step 2 (PRD) first"));
+      setLockNotice(t("Finish step 2 (PRD) first"));
       window.setTimeout(() => setLockNotice(null), 3000);
       return;
     }
@@ -159,7 +159,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
             {!isRail && <div className="mt-2 space-y-0.5 pl-2">
               {steps.map((step) => (
-                <button key={step.num} type="button" onClick={() => handleStepClick(step)} className={`shell-step ${session.currentStep === step.num ? "is-active" : ""} ${!step.available ? "is-locked" : ""}`} title={!step.available ? (step.num === 2 ? t("Finish step 1 (Plan) first") : t("Finish step 2 (PRD) first")) : step.label}>
+                <button key={step.num} type="button" onClick={() => handleStepClick(step)} className={`shell-step ${session.currentStep === step.num ? "is-active" : ""} ${!step.available ? "is-locked" : ""}`} title={!step.available ? t("Finish step 2 (PRD) first") : step.label}>
                   <span className="grid h-4 w-4 shrink-0 place-items-center rounded-full border border-line text-[9px]">{!step.available ? <Lock className="h-2.5 w-2.5" /> : step.complete ? <Check className="h-2.5 w-2.5 text-ok" /> : step.num}</span><span className="truncate">{step.label}</span>
                 </button>
               ))}

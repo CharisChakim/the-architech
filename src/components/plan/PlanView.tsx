@@ -4,7 +4,6 @@ import { MermaidViewer, PlanCanvas } from "../lazy";
 import { FeatureEditor } from "../FeatureEditor";
 import { GenerationProgress } from "../GenerationProgress";
 import { generatePrd, generateProjectPlan, isAbort } from "../../lib/generate";
-import type { SampleProject } from "../../lib/sampleData";
 import { useT } from "../../lib/i18n";
 import { AlertTriangle, ArrowRight, Check, CheckCircle2, Clock, Compass, Cpu, Edit3, Layers, ListTodo, Network, RefreshCw, ShieldCheck, Undo2 } from "lucide-react";
 import { readStoredFollowUpAnswers, toTransportAnswers } from "./followups";
@@ -14,7 +13,6 @@ export interface PlanViewProps {
   session: ProjectSession;
   onUpdateSession: (updated: Partial<ProjectSession>) => void;
   onGoToNextStep: () => void;
-  onSelectSample: (sample: SampleProject) => void;
 }
 
 const sectionTitle = "font-semibold text-ink text-sm flex items-center gap-2";
@@ -29,7 +27,6 @@ export const PlanView: React.FC<PlanViewProps> = ({
   session,
   onUpdateSession,
   onGoToNextStep,
-  onSelectSample,
 }) => {
   const { t, lang } = useT();
   const plan = session.plan;
@@ -155,7 +152,6 @@ export const PlanView: React.FC<PlanViewProps> = ({
         session={session}
         onUpdateSession={onUpdateSession}
         onGoToNextStep={onGoToNextStep}
-        onSelectSample={onSelectSample}
         initialView="form"
         onPlanGenerated={() => setEditingInput(false)}
         onCancel={() => setEditingInput(false)}

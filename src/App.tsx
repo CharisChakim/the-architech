@@ -20,6 +20,7 @@ import { Workbench } from "./components/shell/Workbench";
 import { ConnectionsModal } from "./components/connections/ConnectionsModal";
 import { ExportModal } from "./components/ExportModal";
 import { RefreshCw } from "lucide-react";
+import { projectNameFromWorkspaceRoot } from "./lib/workspace";
 
 export default function App() {
   const [session, setSession] = useState<ProjectSession | null>(null);
@@ -228,6 +229,26 @@ export default function App() {
     applySession(createEmptySession(session.llmConfig), false);
   };
 
+  const handleWorkspaceSelected = async (workspaceRoot: string) => {
+    if (!session) return;
+    const inferredName = projectNameFromWorkspaceRoot(workspaceRoot);
+    const existingName = session.input.title.trim() || session.title.trim();
+    const projectName = existingName || inferredName;
+    const next: ProjectSession = {
+      ...session,
+      workspaceRoot,
+      title: projectName,
+      input: { ...session.input, title: projectName },
+      updatedAt: new Date().toISOString(),
+    };
+
+    await persistSession(next);
+    lastPersistedRef.current = JSON.stringify(next);
+    setSession(next);
+    saveActiveSessionId(next.id);
+    await refreshHistory();
+  };
+
   const handleSelectSample = (sample: SampleProject) => {
     if (!session) return;
     const { input } = sampleText(sample, lang);
@@ -236,6 +257,8 @@ export default function App() {
         ...createEmptySession(session.llmConfig),
         title: input.title,
         input,
+        workspaceRoot: session.workspaceRoot,
+        allowShell: session.allowShell,
       },
       false
     );
@@ -336,8 +359,8 @@ export default function App() {
           storeError={storeError}
           onDismissStoreError={() => setStoreError(null)}
           onUpdateSession={handleUpdateSession}
+          onWorkspaceSelected={handleWorkspaceSelected}
           onSelectStep={handleSelectStep}
-          onSelectSample={handleSelectSample}
           onToolApplied={async () => {
             try {
               const fresh = await fetchSession(session.id, session.llmConfig);

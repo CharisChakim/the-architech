@@ -123,6 +123,7 @@ export async function generatePrd(
     {
       title: session.input.title || session.title || "AI application",
       plan: session.plan,
+      description: session.input.description || "",
       language: lang,
     },
     lang,

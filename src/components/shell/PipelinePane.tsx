@@ -1,7 +1,6 @@
 import React, { Suspense } from "react";
 import { Check, Lock } from "lucide-react";
 import type { AgentTask, ProjectSession } from "../../types";
-import { SampleProject } from "../../lib/sampleData";
 import { isStepReachable, STEP_PATHS, Step } from "../../lib/routing";
 import { useT } from "../../lib/i18n";
 
@@ -18,7 +17,6 @@ export interface PipelinePaneProps {
   session: ProjectSession;
   onUpdateSession: (updated: Partial<ProjectSession>) => void;
   onGoToNextStep: () => void;
-  onSelectSample: (sample: SampleProject) => void;
   onSelectStep: (step: Step) => void;
   onSelectAgent?: () => void;
   onRunTask?: (task: AgentTask) => void;
@@ -70,8 +68,7 @@ export const TabStrip: React.FC<TabStripProps> = ({ step, session, onSelectStep,
         const reachable = isStepReachable(tab.step, session);
         const active = step === tab.step;
         const label = t(tab.label);
-        const unlockReason =
-          tab.step === 2 ? t("Finish step 1 (Plan) first") : tab.step === 3 ? t("Finish step 2 (PRD) first") : undefined;
+        const unlockReason = tab.step === 3 ? t("Finish step 2 (PRD) first") : undefined;
 
         return (
           <button
@@ -107,7 +104,6 @@ export const PipelinePane: React.FC<PipelinePaneProps> = ({
   session,
   onUpdateSession,
   onGoToNextStep,
-  onSelectSample,
   onSelectStep,
   onSelectAgent,
   onRunTask,
@@ -122,7 +118,6 @@ export const PipelinePane: React.FC<PipelinePaneProps> = ({
             session={session}
             onUpdateSession={onUpdateSession}
             onGoToNextStep={onGoToNextStep}
-            onSelectSample={onSelectSample}
           />
         )}
         {step === 2 && (

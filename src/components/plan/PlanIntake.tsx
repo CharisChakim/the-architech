@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import type { ProjectSession, FollowUpQuestion } from "../../types";
 import { GenerationProgress } from "../GenerationProgress";
-import { SAMPLE_PROJECTS, SampleProject, sampleText } from "../../lib/sampleData";
 import {
   Check,
   CheckCircle2,
@@ -30,7 +29,6 @@ export interface PlanIntakeProps {
   session: ProjectSession;
   onUpdateSession: (updated: Partial<ProjectSession>) => void;
   onGoToNextStep: () => void;
-  onSelectSample: (sample: SampleProject) => void;
   initialView?: IntakeView;
   onPlanGenerated?: () => void;
   onCancel?: () => void;
@@ -49,7 +47,6 @@ type IntakeView = "form" | "clarify";
 export const PlanIntake: React.FC<PlanIntakeProps> = ({
   session,
   onUpdateSession,
-  onSelectSample,
   initialView,
   onPlanGenerated,
   onCancel,
@@ -299,16 +296,6 @@ export const PlanIntake: React.FC<PlanIntakeProps> = ({
 
           <aside className="space-y-4">
             <GenerationProgress active={loadingQuestions} label={t("Analysing your idea...")} chars={generationChars} onCancel={() => generationAbort.current?.abort()} />
-            <div className="card p-5 space-y-3">
-              <h3 className={sectionTitle}><Layers className="w-4 h-4 text-faint" /> {t("Start from a template")}</h3>
-              <p className="text-xs text-faint leading-relaxed">{t("Fills the form with a worked example you can edit.")}</p>
-              <div className="space-y-1.5">
-                {SAMPLE_PROJECTS.map((sample) => {
-                  const copy = sampleText(sample, lang);
-                  return <button key={sample.id} type="button" onClick={() => onSelectSample(sample)} className="w-full text-left p-3 rounded-lg border border-line hover:bg-subtle transition-colors"><span className="block text-xs font-medium text-ink">{copy.name}</span><span className="block text-xs text-faint leading-relaxed mt-0.5">{copy.tagline}</span></button>;
-                })}
-              </div>
-            </div>
             <div className="card p-5 space-y-3">
               <h3 className={sectionTitle}><Wand2 className="w-4 h-4 text-faint" /> {t("What makes a good description")}</h3>
               <ul className="space-y-2 text-xs text-muted leading-relaxed">
