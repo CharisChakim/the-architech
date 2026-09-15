@@ -1,6 +1,6 @@
 import React, { Suspense } from "react";
 import { Check, Lock } from "lucide-react";
-import { ProjectSession } from "../../types";
+import type { AgentTask, ProjectSession } from "../../types";
 import { SampleProject } from "../../lib/sampleData";
 import { isStepReachable, STEP_PATHS, Step } from "../../lib/routing";
 import { useT } from "../../lib/i18n";
@@ -20,6 +20,8 @@ export interface PipelinePaneProps {
   onGoToNextStep: () => void;
   onSelectSample: (sample: SampleProject) => void;
   onSelectStep: (step: Step) => void;
+  onRunTask?: (task: AgentTask) => void;
+  runningTaskId?: string | null;
 }
 
 const tabs: { step: Step; label: string; path: string }[] = [
@@ -97,6 +99,8 @@ export const PipelinePane: React.FC<PipelinePaneProps> = ({
   onGoToNextStep,
   onSelectSample,
   onSelectStep,
+  onRunTask,
+  runningTaskId,
 }) => (
   <div className="@container/pane flex min-h-0 flex-1 min-w-0 flex-col overflow-y-auto">
     <TabStrip step={step} session={session} onSelectStep={onSelectStep} />
@@ -113,7 +117,14 @@ export const PipelinePane: React.FC<PipelinePaneProps> = ({
         {step === 2 && (
           <Step2PRD session={session} onUpdateSession={onUpdateSession} onGoToNextStep={onGoToNextStep} />
         )}
-        {step === 3 && <Step3AgentTasks session={session} onUpdateSession={onUpdateSession} />}
+        {step === 3 && (
+          <Step3AgentTasks
+            session={session}
+            onUpdateSession={onUpdateSession}
+            onRunTask={onRunTask}
+            runningTaskId={runningTaskId}
+          />
+        )}
       </Suspense>
     </div>
   </div>

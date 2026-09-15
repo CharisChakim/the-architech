@@ -3,7 +3,7 @@ import { loadLanguage, makeT } from "./i18n";
 
 // Riwayat proyek disimpan server-side di SQLite. llmConfig tidak ikut disimpan:
 // itu preferensi per-device (dan bisa memuat API key), jadi tetap di localStorage.
-function stripLocalOnlyFields(session: ProjectSession) {
+export function stripLocalOnlyFields(session: ProjectSession) {
   const { llmConfig, ...persisted } = session;
   return persisted;
 }

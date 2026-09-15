@@ -2,6 +2,9 @@ import React from "react";
 import { ProjectSession } from "../types";
 import { X, Download, FileText, Compass, Bot, FileCode, CheckCircle2 } from "lucide-react";
 import { useT } from "../lib/i18n";
+import { agentsMarkdownFilename, buildAgentsMarkdown } from "../lib/agentsMd";
+import { downloadFile } from "../lib/download";
+import { stripLocalOnlyFields } from "../lib/sessionStore";
 
 interface ExportModalProps {
   isOpen: boolean;
@@ -15,18 +18,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, sessi
 
   const projectTitle = session.input.title || session.title || "Project";
   const slug = projectTitle.toLowerCase().replace(/[^a-z0-9]/g, "_");
-
-  const downloadFile = (filename: string, content: string, mime: string) => {
-    const blob = new Blob([content], { type: `${mime};charset=utf-8` });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
 
   const handleDownloadPlan = () => {
     if (!session.plan) return;
@@ -63,22 +54,11 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, sessi
 
   const handleDownloadTasks = () => {
     if (!session.tasks) return;
-    let md = `# AI AGENT EXECUTION TASKS: ${projectTitle.toUpperCase()}\n\n`;
-    session.tasks.forEach((t) => {
-      md += `### [${t.id}] ${t.title}\n`;
-      md += `- Phase: ${t.phase}\n`;
-      md += `- Priority: ${t.priority}\n`;
-      md += `- Target Files: ${(t.targetFiles || []).join(", ")}\n\n`;
-      md += `#### Instructions:\n\`\`\`\n${t.promptInstructions}\n\`\`\`\n\n`;
-      md += `#### Verification:\n${t.verificationSteps}\n\n`;
-      md += `---------------------------------------------------\n\n`;
-    });
-
-    downloadFile(`AGENTS_${slug}.md`, md, "text/markdown");
+    downloadFile(agentsMarkdownFilename(session), buildAgentsMarkdown(session), "text/markdown");
   };
 
   const handleDownloadJsonBackup = () => {
-    const jsonStr = JSON.stringify(session, null, 2);
+    const jsonStr = JSON.stringify(stripLocalOnlyFields(session), null, 2);
     downloadFile(`PROJECT_BUNDLE_${slug}.json`, jsonStr, "application/json");
   };
 
@@ -132,7 +112,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, sessi
                 disabled: false,
                 icon: FileCode,
                 title: t("Full backup of the project session (.json)"),
-                caption: t("Every piece of planning state in one file."),
+                caption: t("Model credentials are not included in this backup."),
               },
             ].map(({ onClick, disabled, icon: Icon, title, caption }) => (
               <button

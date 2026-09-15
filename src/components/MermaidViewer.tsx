@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import mermaid from "mermaid";
 import { Download, Code, Eye, Maximize2, Minimize2, ZoomIn, ZoomOut, RefreshCw, Copy, Check } from "lucide-react";
 import { useT } from "../lib/i18n";
+import { downloadFile } from "../lib/download";
 
 interface MermaidViewerProps {
   chart: string;
@@ -98,15 +99,11 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({ chart, explanation
 
   const handleDownloadSvg = () => {
     if (!svgContent) return;
-    const blob = new Blob([svgContent], { type: "image/svg+xml;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${(title || "diagram_logika").toLowerCase().replace(/[^a-z0-9]/g, "_")}.svg`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    downloadFile(
+      `${(title || "diagram_logika").toLowerCase().replace(/[^a-z0-9]/g, "_")}.svg`,
+      svgContent,
+      "image/svg+xml",
+    );
   };
 
   const viewer = (

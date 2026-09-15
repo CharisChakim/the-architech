@@ -1,6 +1,6 @@
 import React from "react";
 import { AlertTriangle, Bot, Check } from "lucide-react";
-import { ProjectSession } from "../../types";
+import type { AgentTask, ProjectSession } from "../../types";
 import { SampleProject } from "../../lib/sampleData";
 import { isStepReachable, Step } from "../../lib/routing";
 import { LayoutMode } from "../../lib/layout";
@@ -50,6 +50,7 @@ export const Workbench: React.FC<WorkbenchProps> = ({
   const { t } = useT();
   const taskCount = session.tasks?.length ?? 0;
   const completedTasks = (session.tasks ?? []).filter((task) => task.status === "done").length;
+  const [runningTaskId, setRunningTaskId] = React.useState<string | null>(null);
   const handleToolApplied = React.useCallback(() => {
     void onToolApplied?.();
   }, [onToolApplied]);
@@ -58,6 +59,24 @@ export const Workbench: React.FC<WorkbenchProps> = ({
     workspaceRoot: session.workspaceRoot || "",
     onToolApplied: handleToolApplied,
   });
+
+  const handleRunTask = React.useCallback((task: AgentTask): void => {
+    if (agentRun.busy) return;
+    setRunningTaskId(task.id);
+    // Di layar sempit split dipetakan App menjadi board, jadi agent dibuka
+    // langsung agar klik Run tetap menghasilkan permukaan kerja yang terlihat.
+    onLayoutModeChange(window.innerWidth <= 1100 ? "agent" : "split");
+    const prompt = [
+      `Execute task ${task.id}: ${task.title}`,
+      `Target files: ${(task.targetFiles || []).join(", ") || "None"}`,
+      `Dependencies: ${(task.dependencies || []).join(", ") || "None"}`,
+      `Instructions:\n${task.promptInstructions}`,
+      `Verification steps:\n${task.verificationSteps}`,
+      `Before coding, call set_task_status with taskId "${task.id}" and status "in_progress". After verification passes, call it again with status "done".`,
+    ].join("\n\n");
+
+    void agentRun.send(prompt).finally(() => setRunningTaskId(null));
+  }, [agentRun.busy, agentRun.send, onLayoutModeChange]);
 
   const openPipeline = (step: Step) => {
     if (!isStepReachable(step, session)) return;
@@ -153,6 +172,8 @@ export const Workbench: React.FC<WorkbenchProps> = ({
                 onGoToNextStep={() => onSelectStep(session.currentStep === 3 ? 3 : (session.currentStep + 1) as Step)}
                 onSelectSample={onSelectSample}
                 onSelectStep={openPipeline}
+                onRunTask={handleRunTask}
+                runningTaskId={runningTaskId}
               />
             </div>
           )}
