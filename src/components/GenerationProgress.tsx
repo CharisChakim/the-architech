@@ -5,19 +5,17 @@ import { useT } from "../lib/i18n";
 interface GenerationProgressProps {
   active: boolean;
   label: string;
-  /** Perkiraan lama proses, dipakai untuk mengatur kecuraman kurva. */
-  expectedMs?: number;
-  /** Tanpa rangka kartu, untuk dipakai di dalam kartu lain (mis. dialog). */
-  plain?: boolean;
+  chars: number;
+  onCancel?: () => void;
 }
 
-export const GenerationProgress: React.FC<GenerationProgressProps> = ({
-  active,
-  label,
-  expectedMs = 30000,
-  plain = false,
-}) => {
-  const { t } = useT();
+const elapsedLabel = (ms: number): string => {
+  const totalSeconds = Math.floor(ms / 1000);
+  return `${Math.floor(totalSeconds / 60)}:${String(totalSeconds % 60).padStart(2, "0")}`;
+};
+
+export const GenerationProgress: React.FC<GenerationProgressProps> = ({ active, label, chars, onCancel }) => {
+  const { t, lang } = useT();
   const [elapsed, setElapsed] = useState(0);
   const startedAt = useRef(0);
 
@@ -28,40 +26,29 @@ export const GenerationProgress: React.FC<GenerationProgressProps> = ({
     }
     startedAt.current = Date.now();
     setElapsed(0);
-    const id = setInterval(() => setElapsed(Date.now() - startedAt.current), 200);
-    return () => clearInterval(id);
+    const timer = window.setInterval(() => setElapsed(Date.now() - startedAt.current), 200);
+    return () => window.clearInterval(timer);
   }, [active]);
 
   if (!active) return null;
 
-  // Endpoint LLM mengembalikan satu respons utuh dan tidak melaporkan kemajuan
-  // apa pun, jadi persentase yang sebenarnya tidak ada. Kurva ini murni fungsi
-  // waktu tempuh: cepat di awal lalu melandai, dan sengaja berhenti di 95%
-  // supaya tidak pernah menampilkan "100%" sementara jawabannya belum tiba.
-  const percent = Math.min(95, Math.round((1 - Math.exp(-elapsed / (expectedMs / 2.5))) * 100));
-  const seconds = Math.floor(elapsed / 1000);
-
   return (
-    <div className={plain ? "space-y-2.5" : "card p-4 space-y-2.5"} role="status" aria-live="polite">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="flex items-center gap-2 text-ink">
-          <RefreshCw className="w-4 h-4 animate-spin text-accent shrink-0" />
-          {label}
-        </span>
-        <span
-          className="text-xs text-faint tabular-nums shrink-0"
-          title={t("Estimated from elapsed time — the model does not report real progress.")}
-        >
-          {t("{percent}% · {seconds}s", { percent, seconds })}
-        </span>
-      </div>
-
-      <div className="h-1.5 rounded-full bg-subtle overflow-hidden">
-        <div
-          className="h-full bg-accent rounded-full transition-[width] duration-200 ease-out"
-          style={{ width: `${percent}%` }}
-        />
-      </div>
+    <div className="card flex flex-wrap items-center gap-3 px-3 py-2.5" role="status" aria-live="polite">
+      <RefreshCw className="h-4 w-4 shrink-0 animate-spin text-accent" aria-hidden />
+      <span className="min-w-0 flex-1 text-sm text-ink">{label}</span>
+      <span className="shrink-0 text-xs tabular-nums text-faint">
+        {t("{chars} chars · {time}", {
+          chars: new Intl.NumberFormat(lang === "id" ? "id-ID" : "en-US").format(Math.max(0, chars)),
+          time: elapsedLabel(elapsed),
+        })}
+      </span>
+      {onCancel && (
+        <button type="button" onClick={onCancel} className="btn-outline !px-2.5 !py-1 text-xs">
+          {t("Cancel")}
+        </button>
+      )}
     </div>
   );
 };
+
+export default GenerationProgress;

@@ -1,7 +1,7 @@
 import { parseJsonFromLlm } from "../llm/json.ts";
-import { callLlm } from "../llm/call.ts";
 import type { Connection } from "../llm/types.ts";
 import type { Lang } from "../messages.ts";
+import { generateLlmText, type PipelineOptions } from "./llm.ts";
 
 const outputLanguage = (lang: Lang): string =>
   lang === "id"
@@ -15,6 +15,7 @@ export async function generateTasks(
   conn: Connection,
   model: string,
   lang: Lang,
+  options?: PipelineOptions,
 ): Promise<any[]> {
   const systemInstruction = `Anda adalah Principal AI Engineer & Prompt Architect.
 ${outputLanguage(lang)}
@@ -51,13 +52,13 @@ Skema Database: ${JSON.stringify(prd?.databaseSchema || prd?.dataSchema || [])}
 Silakan buatkan pecahan Task AI Agent yang komprehensif (minimal 5-10 task atomik berurutan).
 Setiap task harus menyertakan promptInstructions lengkap yang siap di-copy/paste atau dibaca oleh AI Agent untuk coding tanpa ambigu.`;
 
-  const rawText = await callLlm({
+  const rawText = await generateLlmText({
     prompt,
     system: systemInstruction,
     conn,
     model,
     lang,
-    jsonMode: conn.jsonMode,
+    ...options,
   });
   const data = parseJsonFromLlm(rawText, lang);
 

@@ -1,7 +1,7 @@
 import { parseJsonFromLlm } from "../llm/json.ts";
-import { callLlm } from "../llm/call.ts";
 import type { Connection } from "../llm/types.ts";
 import type { Lang } from "../messages.ts";
+import { generateLlmText, type PipelineOptions } from "./llm.ts";
 
 const outputLanguage = (lang: Lang): string =>
   lang === "id"
@@ -14,6 +14,7 @@ export async function generatePrd(
   conn: Connection,
   model: string,
   lang: Lang,
+  options?: PipelineOptions,
 ): Promise<any> {
   const systemInstruction = `Anda adalah Technical Product Manager & Software Architect berpengalaman.
 ${outputLanguage(lang)}
@@ -105,13 +106,13 @@ Arsitektur: ${JSON.stringify(plan?.architectureDraft || {})}
 Susunkan dokumen PRD yang Wajib memuat 7 poin standar secara lengkap beserta diagram horizontal (graph LR) dalam format JSON yang diminta.
 Setelah menyusun 7 poin wajib, nilai apakah proyek ini memerlukan poin tambahan (8, 9, dst). Tambahkan lewat "additionalSections" hanya jika benar-benar perlu, dan pastikan ikut tertulis di "fullMarkdownText".`;
 
-  const rawText = await callLlm({
+  const rawText = await generateLlmText({
     prompt,
     system: systemInstruction,
     conn,
     model,
     lang,
-    jsonMode: conn.jsonMode,
+    ...options,
   });
   const data = parseJsonFromLlm(rawText, lang);
 

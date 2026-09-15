@@ -13,6 +13,7 @@ import { generateFollowups } from "./server/pipeline/followups.ts";
 import { generatePlan } from "./server/pipeline/plan.ts";
 import { generatePrd } from "./server/pipeline/prd.ts";
 import { generateTasks } from "./server/pipeline/tasks.ts";
+import { acceptsEventStream, streamGeneration } from "./server/streaming.ts";
 
 dotenv.config();
 
@@ -111,6 +112,14 @@ app.post("/api/test-llm", async (req, res) => {
 
 // Fitur 1: Follow-up Questions (Mengklarifikasi Ide & Spesifikasi Proyek)
 app.post("/api/followup-questions", async (req, res) => {
+  if (acceptsEventStream(req)) {
+    await streamGeneration(req, res, ({ signal, onProgress }) => {
+      const lang = langOf(req);
+      const { conn, model } = resolveFor("plan", req.body, lang);
+      return generateFollowups(req.body, conn, model, lang, { signal, onProgress });
+    });
+    return;
+  }
   try {
     const lang = langOf(req);
     const { conn, model } = resolveFor("plan", req.body, lang);
@@ -124,6 +133,14 @@ app.post("/api/followup-questions", async (req, res) => {
 
 // Fitur 1: Generate Plan (Arsitektur, Roadmap, Estimasi, Diagram Horizontal)
 app.post("/api/generate-plan", async (req, res) => {
+  if (acceptsEventStream(req)) {
+    await streamGeneration(req, res, ({ signal, onProgress }) => {
+      const lang = langOf(req);
+      const { conn, model } = resolveFor("plan", req.body, lang);
+      return generatePlan(req.body, conn, model, lang, req.body?.lockedFeatures, { signal, onProgress });
+    });
+    return;
+  }
   try {
     const lang = langOf(req);
     const { conn, model } = resolveFor("plan", req.body, lang);
@@ -137,6 +154,15 @@ app.post("/api/generate-plan", async (req, res) => {
 
 // Fitur 2: Generate PRD Sesuai Standar 7 Poin & Diagram Horizontal
 app.post("/api/generate-prd", async (req, res) => {
+  if (acceptsEventStream(req)) {
+    await streamGeneration(req, res, ({ signal, onProgress }) => {
+      const { title, plan } = req.body;
+      const lang = langOf(req);
+      const { conn, model } = resolveFor("prd", req.body, lang);
+      return generatePrd(title, plan, conn, model, lang, { signal, onProgress });
+    });
+    return;
+  }
   try {
     const { title, plan } = req.body;
     const lang = langOf(req);
@@ -150,6 +176,15 @@ app.post("/api/generate-prd", async (req, res) => {
 });
 
 app.post("/api/generate-tasks", async (req, res) => {
+  if (acceptsEventStream(req)) {
+    await streamGeneration(req, res, ({ signal, onProgress }) => {
+      const { title, plan, prd } = req.body;
+      const lang = langOf(req);
+      const { conn, model } = resolveFor("tasks", req.body, lang);
+      return generateTasks(title, plan, prd, conn, model, lang, { signal, onProgress });
+    });
+    return;
+  }
   try {
     const { title, plan, prd } = req.body;
     const lang = langOf(req);

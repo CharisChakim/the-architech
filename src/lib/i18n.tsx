@@ -410,7 +410,7 @@ const ID: Record<string, string> = {
   "{count} tasks ready to run": "{count} task siap dieksekusi",
   "{count}-point PRD": "PRD {count} poin",
   "{features} features · {subs} sub features": "{features} fitur · {subs} sub fitur",
-  "{percent}% · {seconds}s": "{percent}% · {seconds}d",
+  "{chars} chars · {time}": "{chars} karakter · {time}",
 };
 
 type Vars = Record<string, string | number>;

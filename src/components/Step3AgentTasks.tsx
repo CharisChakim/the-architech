@@ -1,7 +1,7 @@
 import React, { useRef, useState } from "react";
 import { ProjectSession, AgentTask } from "../types";
 import { generateTasks, isAbort } from "../lib/generate";
-import { GenerationDialog } from "./GenerationDialog";
+import { GenerationProgress } from "./GenerationProgress";
 import {
   Bot,
   Sparkles,
@@ -31,6 +31,7 @@ type TaskStatus = "todo" | "in_progress" | "done";
 export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpdateSession }) => {
   const { t, lang } = useT();
   const [loading, setLoading] = useState(false);
+  const [generationChars, setGenerationChars] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [copiedTaskId, setCopiedTaskId] = useState<string | null>(null);
   const [copiedAll, setCopiedAll] = useState(false);
@@ -50,11 +51,12 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
   const handleGenerateTasks = async () => {
     setLoading(true);
     setErrorMessage(null);
+    setGenerationChars(0);
     const controller = new AbortController();
     tasksAbort.current = controller;
 
     try {
-      const generatedTasks = await generateTasks(session, lang, controller.signal);
+      const generatedTasks = await generateTasks(session, lang, controller.signal, setGenerationChars);
       onUpdateSession({ tasks: generatedTasks });
 
       // Expand all by default
@@ -196,11 +198,10 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
         </div>
       )}
 
-      <GenerationDialog
-        open={loading}
-        title={t("Preparing the agent tasks")}
+      <GenerationProgress
+        active={loading}
         label={t("Building the task board...")}
-        expectedMs={45000}
+        chars={generationChars}
         onCancel={() => tasksAbort.current?.abort()}
       />
 

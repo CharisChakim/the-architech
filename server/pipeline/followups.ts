@@ -1,8 +1,8 @@
-import { callLlm as callLlmCore } from "../llm/call.ts";
 import { parseJsonFromLlm } from "../llm/json.ts";
 import type { Connection } from "../llm/types.ts";
 import type { Lang } from "../messages.ts";
 import { msg } from "../messages.ts";
+import { generateLlmText, type PipelineOptions } from "./llm.ts";
 
 export interface FollowupInput {
   title?: string;
@@ -23,6 +23,7 @@ export async function generateFollowups(
   conn: Connection,
   model: string,
   lang: Lang,
+  options?: PipelineOptions,
 ): Promise<any> {
   const {
     title,
@@ -103,13 +104,13 @@ ${
 Jawab dalam format JSON yang telah ditentukan. Sertakan bidang "options" dengan minimal 3 pilihan ringkas untuk setiap pertanyaan.`;
 
   if (!conn.baseUrl) throw new Error(msg(lang, "baseUrlRequired"));
-  const rawText = await callLlmCore({
+  const rawText = await generateLlmText({
     prompt,
     system: systemInstruction,
     conn,
     model,
     lang,
-    jsonMode: conn.jsonMode,
+    ...options,
   });
   const data = parseJsonFromLlm(rawText, lang);
 

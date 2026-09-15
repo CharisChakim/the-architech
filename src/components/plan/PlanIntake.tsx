@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type { ProjectSession, FollowUpQuestion } from "../../types";
 import { GenerationProgress } from "../GenerationProgress";
 import { SAMPLE_PROJECTS, SampleProject, sampleText } from "../../lib/sampleData";
@@ -14,6 +14,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useT } from "../../lib/i18n";
+import { generateFollowUpQuestions, generateProjectPlan, isAbort } from "../../lib/generate";
 import {
   createFollowUpState,
   getFollowUpOptions,
@@ -62,8 +63,10 @@ export const PlanIntake: React.FC<PlanIntakeProps> = ({
   );
   const [loadingQuestions, setLoadingQuestions] = useState(false);
   const [loadingPlan, setLoadingPlan] = useState(false);
+  const [generationChars, setGenerationChars] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [subView, setSubView] = useState<IntakeView>(initialView || (session.followUps.length > 0 ? "clarify" : "form"));
+  const generationAbort = useRef<AbortController | null>(null);
 
   const { questions, answers, customAnswerActive } = followUpState;
 
@@ -91,26 +94,22 @@ export const PlanIntake: React.FC<PlanIntakeProps> = ({
 
     setErrorMessage(null);
     setLoadingQuestions(true);
+    setGenerationChars(0);
+    const controller = new AbortController();
+    generationAbort.current = controller;
 
     try {
       const nextRound = isFirstRound ? 1 : (session.clarificationRound || 1) + 1;
-      const res = await fetch("/api/followup-questions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: title || provisionalTitle(description),
-          description,
-          targetAudience,
-          techStackPreference,
-          previousAnswers: isFirstRound ? {} : toTransportAnswers(questions, answers),
-          round: nextRound,
-          llmConfig: session.llmConfig,
-          language: lang,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || t("Failed to generate the follow-up questions."));
+      const data = await generateFollowUpQuestions({
+        title: title || provisionalTitle(description),
+        description,
+        targetAudience,
+        techStackPreference,
+        previousAnswers: isFirstRound ? {} : toTransportAnswers(questions, answers),
+        round: nextRound,
+        llmConfig: session.llmConfig,
+        language: lang,
+      }, lang, controller.signal, setGenerationChars);
 
       const newQuestions: FollowUpQuestion[] = data.questions || [];
       const nextState = isFirstRound
@@ -138,8 +137,9 @@ export const PlanIntake: React.FC<PlanIntakeProps> = ({
 
       if (isFirstRound) setSubView("clarify");
     } catch (err: any) {
-      setErrorMessage(err.message || t("Something went wrong talking to the LLM."));
+      if (!isAbort(err)) setErrorMessage(err.message || t("Something went wrong talking to the LLM."));
     } finally {
+      if (generationAbort.current === controller) generationAbort.current = null;
       setLoadingQuestions(false);
     }
   };
@@ -152,24 +152,20 @@ export const PlanIntake: React.FC<PlanIntakeProps> = ({
   const handleGeneratePlan = async () => {
     setErrorMessage(null);
     setLoadingPlan(true);
+    setGenerationChars(0);
+    const controller = new AbortController();
+    generationAbort.current = controller;
 
     try {
-      const res = await fetch("/api/generate-plan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: title || provisionalTitle(description),
-          description,
-          targetAudience,
-          techStackPreference,
-          answers: toTransportAnswers(questions, answers),
-          llmConfig: session.llmConfig,
-          language: lang,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || t("Failed to generate the project plan."));
+      const data = await generateProjectPlan({
+        title: title || provisionalTitle(description),
+        description,
+        targetAudience,
+        techStackPreference,
+        answers: toTransportAnswers(questions, answers),
+        llmConfig: session.llmConfig,
+        language: lang,
+      }, lang, controller.signal, setGenerationChars);
 
       const resolvedTitle = title.trim() || (data.suggestedTitle || "").trim() || provisionalTitle(description);
       onUpdateSession({
@@ -186,8 +182,9 @@ export const PlanIntake: React.FC<PlanIntakeProps> = ({
       });
       onPlanGenerated?.();
     } catch (err: any) {
-      setErrorMessage(err.message || t("Failed to generate the project plan."));
+      if (!isAbort(err)) setErrorMessage(err.message || t("Failed to generate the project plan."));
     } finally {
+      if (generationAbort.current === controller) generationAbort.current = null;
       setLoadingPlan(false);
     }
   };
@@ -290,7 +287,7 @@ export const PlanIntake: React.FC<PlanIntakeProps> = ({
           </form>
 
           <aside className="space-y-4">
-            <GenerationProgress active={loadingQuestions} label={t("Analysing your idea...")} expectedMs={15000} />
+            <GenerationProgress active={loadingQuestions} label={t("Analysing your idea...")} chars={generationChars} onCancel={() => generationAbort.current?.abort()} />
             <div className="card p-5 space-y-3">
               <h3 className={sectionTitle}><Layers className="w-4 h-4 text-faint" /> {t("Start from a template")}</h3>
               <p className="text-xs text-faint leading-relaxed">{t("Fills the form with a worked example you can edit.")}</p>
@@ -347,7 +344,7 @@ export const PlanIntake: React.FC<PlanIntakeProps> = ({
           </div>
 
           <aside className="space-y-4">
-            <GenerationProgress active={loadingQuestions || loadingPlan} label={loadingPlan ? t("Drafting the architecture & diagram...") : t("Reviewing your answers...")} expectedMs={loadingPlan ? 40000 : 18000} />
+            <GenerationProgress active={loadingQuestions || loadingPlan} label={loadingPlan ? t("Drafting the architecture & diagram...") : t("Reviewing your answers...")} chars={generationChars} onCancel={() => generationAbort.current?.abort()} />
             <div className="card p-5 space-y-3"><div className="flex items-start justify-between gap-2"><h3 className={sectionTitle}><Edit3 className="w-4 h-4 text-faint" /> {t("Your project")}</h3><button type="button" onClick={() => setSubView("form")} className="btn-ghost !py-1 !px-2 text-xs shrink-0">{t("Isi manual")}</button></div><div><p className="text-xs font-medium text-faint mb-0.5">{t("Project title")}</p><p className="text-xs text-ink">{title || t("Untitled project")}</p></div><div><p className="text-xs font-medium text-faint mb-0.5">{t("Detailed project description")}</p><p className="text-xs text-muted leading-relaxed max-h-40 overflow-y-auto">{description}</p></div>{targetAudience && <div><p className="text-xs font-medium text-faint mb-0.5">{t("Target users")}</p><p className="text-xs text-muted">{targetAudience}</p></div>}{techStackPreference && <div><p className="text-xs font-medium text-faint mb-0.5">{t("Preferred tech stack")}</p><p className="text-xs text-muted">{techStackPreference}</p></div>}</div>
             <div className="card p-5 space-y-2"><h3 className={sectionTitle}><HelpCircle className="w-4 h-4 text-faint" /> {t("What happens next")}</h3><p className="text-xs text-muted leading-relaxed">{t("Answer what you can, then generate the plan. If the AI still has gaps it will say so above, and one more round costs you nothing but a minute.")}</p></div>
           </aside>

@@ -132,6 +132,7 @@ export interface Estimation {
 }
 
 export interface ProjectPlan {
+  suggestedTitle?: string;
   summary: string;
   specs: {
     targetAudience: string;

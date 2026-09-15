@@ -1,10 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
-import type { FeatureSpec, ProjectPlan, ProjectSession } from "../../types";
+import type { FeatureSpec, ProjectSession } from "../../types";
 import { MermaidViewer, PlanCanvas } from "../lazy";
 import { FeatureEditor } from "../FeatureEditor";
 import { GenerationProgress } from "../GenerationProgress";
-import { GenerationDialog } from "../GenerationDialog";
-import { generatePrd, isAbort } from "../../lib/generate";
+import { generatePrd, generateProjectPlan, isAbort } from "../../lib/generate";
 import type { SampleProject } from "../../lib/sampleData";
 import { useT } from "../../lib/i18n";
 import { AlertTriangle, ArrowRight, Check, CheckCircle2, Clock, Compass, Cpu, Edit3, Layers, ListTodo, Network, RefreshCw, ShieldCheck, Undo2 } from "lucide-react";
@@ -45,8 +44,10 @@ export const PlanView: React.FC<PlanViewProps> = ({
   const [featuresBackup, setFeaturesBackup] = useState<{ features: FeatureSpec[]; wasEdited: boolean } | null>(null);
   const [resyncing, setResyncing] = useState(false);
   const [generatingPrd, setGeneratingPrd] = useState(false);
+  const [generationChars, setGenerationChars] = useState(0);
   const [editingInput, setEditingInput] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const resyncAbort = useRef<AbortController | null>(null);
   const prdAbort = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -97,30 +98,27 @@ export const PlanView: React.FC<PlanViewProps> = ({
 
     setErrorMessage(null);
     setResyncing(true);
+    setGenerationChars(0);
+    const controller = new AbortController();
+    resyncAbort.current = controller;
 
     try {
-      const res = await fetch("/api/generate-plan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: title || provisionalTitle(description),
-          description,
-          targetAudience,
-          techStackPreference,
-          answers: toTransportAnswers(session.followUps, answers),
-          lockedFeatures: plan.specs.coreFeatures,
-          llmConfig: session.llmConfig,
-          language: lang,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || t("Failed to re-sync the plan."));
-      onUpdateSession({ plan: data as ProjectPlan, planFeaturesEdited: false });
+      const data = await generateProjectPlan({
+        title: title || provisionalTitle(description),
+        description,
+        targetAudience,
+        techStackPreference,
+        answers: toTransportAnswers(session.followUps, answers),
+        lockedFeatures: plan.specs.coreFeatures,
+        llmConfig: session.llmConfig,
+        language: lang,
+      }, lang, controller.signal, setGenerationChars);
+      onUpdateSession({ plan: data, planFeaturesEdited: false });
       finishEditingFeatures();
     } catch (err: any) {
-      setErrorMessage(err.message || t("Failed to re-sync the plan."));
+      if (!isAbort(err)) setErrorMessage(err.message || t("Failed to re-sync the plan."));
     } finally {
+      if (resyncAbort.current === controller) resyncAbort.current = null;
       setResyncing(false);
     }
   };
@@ -133,11 +131,12 @@ export const PlanView: React.FC<PlanViewProps> = ({
 
     setErrorMessage(null);
     setGeneratingPrd(true);
+    setGenerationChars(0);
     const controller = new AbortController();
     prdAbort.current = controller;
 
     try {
-      const prd = await generatePrd(session, lang, controller.signal);
+      const prd = await generatePrd(session, lang, controller.signal, setGenerationChars);
       onUpdateSession({ prd });
       onGoToNextStep();
     } catch (err: any) {
@@ -178,6 +177,13 @@ export const PlanView: React.FC<PlanViewProps> = ({
 
       {errorMessage && <div className="max-w-3xl p-4 bg-danger-soft border border-danger/30 text-danger-ink rounded-xl text-sm">{errorMessage}</div>}
 
+      <GenerationProgress
+        active={generatingPrd}
+        label={t("Assembling the PRD & diagram...")}
+        chars={generationChars}
+        onCancel={() => prdAbort.current?.abort()}
+      />
+
       <div className="space-y-4 animate-in fade-in duration-300">
         <div className="card p-5 flex flex-wrap items-start justify-between gap-5">
           <div className="min-w-0">
@@ -196,7 +202,12 @@ export const PlanView: React.FC<PlanViewProps> = ({
           <button type="button" onClick={() => void handleResyncPlan()} disabled={resyncing} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-warn text-white text-sm font-medium hover:brightness-110 transition-all disabled:opacity-50 shrink-0"><RefreshCw className={`w-4 h-4 ${resyncing ? "animate-spin" : ""}`} />{resyncing ? t("Re-syncing...") : t("Re-sync")}</button>
         </div>}
 
-        <GenerationProgress active={resyncing} label={t("Re-syncing the plan...")} expectedMs={40000} />
+        <GenerationProgress
+          active={resyncing}
+          label={t("Re-syncing the plan...")}
+          chars={generationChars}
+          onCancel={() => resyncAbort.current?.abort()}
+        />
 
         <div className="space-y-2.5">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -219,7 +230,6 @@ export const PlanView: React.FC<PlanViewProps> = ({
         <div className="grid grid-cols-1 @4xl/pane:grid-cols-3 gap-4"><div className="@4xl/pane:col-span-2 card p-5 space-y-4"><h4 className={sectionTitle}><Compass className="w-4 h-4 text-faint" />{t("Delivery roadmap")}</h4><ol className="space-y-4">{plan.roadmap.map((phase, index) => <li key={index} className="flex gap-3"><span className="w-5 h-5 shrink-0 rounded-md bg-subtle text-muted text-[11px] font-semibold grid place-items-center">{index + 1}</span><div className="min-w-0"><div className="flex flex-wrap items-baseline gap-x-2.5"><span className="font-medium text-ink">{phase.title}</span><span className="text-xs text-faint">{phase.duration}</span></div><ul className="mt-1 space-y-1 text-muted">{phase.deliverables.map((deliverable, deliverableIndex) => <li key={deliverableIndex} className="flex gap-2"><span className="text-faint">&middot;</span>{deliverable}</li>)}</ul></div></li>)}</ol></div><div className="card p-5 space-y-4"><h4 className={sectionTitle}><Clock className="w-4 h-4 text-faint" />{t("Estimate & resources")}</h4><div className="grid grid-cols-2 gap-3"><div className="bg-subtle rounded-lg p-3"><p className="text-xs font-medium text-faint">{t("Total estimate")}</p><p className="text-base font-semibold text-ink mt-0.5">{plan.estimation.totalTimeWeeks}</p></div><div className="bg-subtle rounded-lg p-3"><p className="text-xs font-medium text-faint">{t("Complexity")}</p><p className="text-base font-semibold text-ink mt-0.5">{plan.estimation.complexityLevel}</p></div></div><div><p className="text-xs font-medium text-faint mb-1.5">{t("Resources needed")}</p><ul className="space-y-1 text-muted">{plan.estimation.requiredResources.map((resource, index) => <li key={index} className="flex gap-2"><span className="text-faint">&middot;</span>{resource}</li>)}</ul></div></div></div>
       </div>
 
-      <GenerationDialog open={generatingPrd} title={t("Preparing the PRD")} label={t("Assembling the PRD & diagram...")} expectedMs={45000} onCancel={() => prdAbort.current?.abort()} />
     </div>
   );
 };

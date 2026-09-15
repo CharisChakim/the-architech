@@ -1,8 +1,8 @@
-import { callLlm as callLlmCore } from "../llm/call.ts";
 import { parseJsonFromLlm } from "../llm/json.ts";
 import type { Connection } from "../llm/types.ts";
 import type { Lang } from "../messages.ts";
 import { msg } from "../messages.ts";
+import { generateLlmText, type PipelineOptions } from "./llm.ts";
 
 export interface PlanInput {
   title?: string;
@@ -35,6 +35,7 @@ export async function generatePlan(
   model: string,
   lang: Lang,
   lockedFeatures?: unknown[],
+  options?: PipelineOptions,
 ): Promise<any> {
   const { title, description, targetAudience, techStackPreference, answers } = input;
 
@@ -206,21 +207,21 @@ Jangan mengeluarkan bidang "coreFeatures". Jawab dalam format JSON sesuai skema.
 
   if (!conn.baseUrl) throw new Error(msg(lang, "baseUrlRequired"));
   const rawText = hasLock
-    ? await callLlmCore({
+    ? await generateLlmText({
         prompt: resyncPrompt,
         system: resyncSystemInstruction,
         conn,
         model,
         lang,
-        jsonMode: conn.jsonMode,
+        ...options,
       })
-    : await callLlmCore({
+    : await generateLlmText({
         prompt,
         system: systemInstruction,
         conn,
         model,
         lang,
-        jsonMode: conn.jsonMode,
+        ...options,
       });
   const data = parseJsonFromLlm(rawText, lang);
 

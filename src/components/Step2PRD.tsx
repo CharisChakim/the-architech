@@ -20,7 +20,6 @@ import {
 } from "lucide-react";
 import { useT, TFunction } from "../lib/i18n";
 import { generatePrd, generateTasks, isAbort } from "../lib/generate";
-import { GenerationDialog } from "./GenerationDialog";
 
 interface Step2PRDProps {
   session: ProjectSession;
@@ -171,6 +170,8 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
   const [editExtraSections, setEditExtraSections] = useState<PRDExtraSection[]>(prd?.additionalSections || []);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [generatingTasks, setGeneratingTasks] = useState(false);
+  const [generationChars, setGenerationChars] = useState(0);
+  const prdAbort = useRef<AbortController | null>(null);
   const tasksAbort = useRef<AbortController | null>(null);
 
   const updateExtraSection = (idx: number, patch: Partial<PRDExtraSection>) =>
@@ -198,12 +199,16 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
   const handleGeneratePRD = async () => {
     setLoading(true);
     setErrorMessage(null);
+    setGenerationChars(0);
+    const controller = new AbortController();
+    prdAbort.current = controller;
 
     try {
-      onUpdateSession({ prd: await generatePrd(session, lang) });
+      onUpdateSession({ prd: await generatePrd(session, lang, controller.signal, setGenerationChars) });
     } catch (err: any) {
-      setErrorMessage(err.message || t("Something went wrong while generating the PRD."));
+      if (!isAbort(err)) setErrorMessage(err.message || t("Something went wrong while generating the PRD."));
     } finally {
+      if (prdAbort.current === controller) prdAbort.current = null;
       setLoading(false);
     }
   };
@@ -218,11 +223,12 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
 
     setErrorMessage(null);
     setGeneratingTasks(true);
+    setGenerationChars(0);
     const controller = new AbortController();
     tasksAbort.current = controller;
 
     try {
-      const tasks = await generateTasks(session, lang, controller.signal);
+      const tasks = await generateTasks(session, lang, controller.signal, setGenerationChars);
       onUpdateSession({ tasks });
       onGoToNextStep();
     } catch (err: any) {
@@ -319,9 +325,10 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
       )}
 
       <GenerationProgress
-        active={loading}
-        label={t("Assembling the PRD & diagram...")}
-        expectedMs={45000}
+        active={loading || generatingTasks}
+        label={generatingTasks ? t("Building the task board...") : t("Assembling the PRD & diagram...")}
+        chars={generationChars}
+        onCancel={() => (loading ? prdAbort.current : tasksAbort.current)?.abort()}
       />
 
       {/* Generate Action Card if no PRD */}
@@ -658,14 +665,6 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
           )}
         </div>
       )}
-      <GenerationDialog
-        open={generatingTasks}
-        title={t("Preparing the agent tasks")}
-        label={t("Building the task board...")}
-        expectedMs={45000}
-        onCancel={() => tasksAbort.current?.abort()}
-      />
-
     </div>
   );
 };
