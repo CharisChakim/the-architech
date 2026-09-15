@@ -1,3 +1,5 @@
+import type { FollowUpQuestion } from "../types";
+
 export type ToolState = "running" | "ok" | "error" | "denied";
 
 export type Entry =
@@ -21,6 +23,15 @@ export type Entry =
       cwd?: string;
       decided: boolean;
       approved?: boolean;
+    }
+  | {
+      kind: "questions";
+      id: string;
+      elicitId: string;
+      conversationId: string;
+      questions: FollowUpQuestion[];
+      round: number;
+      answered: boolean;
     }
   | { kind: "turn_end"; id: string; toolCount: number; ms: number }
   | { kind: "error"; id: string; message: string; retryable: boolean };
@@ -53,6 +64,8 @@ export type AgentEvent = {
   elicitId?: string;
   approved?: boolean;
   command?: string;
+  questions?: FollowUpQuestion[];
+  round?: number;
   message?: string;
   retryable?: boolean;
   stop?: "stop" | "tool_calls" | "max_tokens" | "other";

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Entry } from "./agentEvents";
+import { toTransportAnswers } from "../components/plan/followups";
 import { useT } from "./i18n";
 
 interface AgentRunOptions {
@@ -15,6 +16,7 @@ interface AgentRunResult {
   send: (text: string) => Promise<void>;
   retry: () => Promise<void>;
   decideApproval: (elicitId: string, ok: boolean) => Promise<void>;
+  respondQuestions: (elicitId: string, answers: Record<string, string>) => Promise<void>;
   stop: () => void;
 }
 
@@ -39,6 +41,7 @@ export function useAgentRun({ sessionId, workspaceRoot, onToolApplied }: AgentRu
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const history = useRef<unknown[]>([]);
+  const conversationId = useRef<string | null>(null);
   const lastMessage = useRef<string | null>(null);
   const sequence = useRef(0);
   const controller = useRef<AbortController | null>(null);
@@ -50,6 +53,7 @@ export function useAgentRun({ sessionId, workspaceRoot, onToolApplied }: AgentRu
     controller.current?.abort();
     controller.current = null;
     history.current = [];
+    conversationId.current = null;
     lastMessage.current = null;
     setEntries([]);
     setBusy(false);
@@ -77,6 +81,43 @@ export function useAgentRun({ sessionId, workspaceRoot, onToolApplied }: AgentRu
       setError(t("That approval request is no longer valid."));
     }
   }, [t]);
+
+  const respondQuestions = useCallback(async (elicitId: string, answers: Record<string, string>): Promise<void> => {
+    const questionEntry = entries.find((entry): entry is Extract<Entry, { kind: "questions" }> =>
+      entry.kind === "questions" && entry.elicitId === elicitId,
+    );
+    const currentConversationId = questionEntry?.conversationId || conversationId.current;
+    if (!currentConversationId) {
+      setError(t("That question card is no longer valid."));
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/agent/respond", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          elicitId,
+          conversationId: currentConversationId,
+          // The UI keys answers by stable question id. The server deliberately
+          // stores question-text keys because its prompts use those keys.
+          response: questionEntry ? toTransportAnswers(questionEntry.questions, answers) : answers,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(body.error || t("That question card is no longer valid."));
+        return;
+      }
+      setEntries((prev) => prev.map((entry) =>
+        entry.kind === "questions" && entry.elicitId === elicitId
+          ? { ...entry, answered: true }
+          : entry,
+      ));
+    } catch {
+      setError(t("That question card is no longer valid."));
+    }
+  }, [entries, t]);
 
   const send = useCallback(async (text: string): Promise<void> => {
     const message = text.trim();
@@ -133,7 +174,11 @@ export function useAgentRun({ sessionId, workspaceRoot, onToolApplied }: AgentRu
           if (!line) continue;
           const event = JSON.parse(line.slice(6)) as Record<string, any>;
 
-          if (event.type === "text") {
+          if (event.type === "conversation") {
+            if (typeof event.conversationId === "string" && event.conversationId) {
+              conversationId.current = event.conversationId;
+            }
+          } else if (event.type === "text") {
             setEntries((prev) => {
               const last = prev[prev.length - 1];
               if (last?.kind === "assistant") {
@@ -203,6 +248,24 @@ export function useAgentRun({ sessionId, workspaceRoot, onToolApplied }: AgentRu
                 ? { ...entry, decided: true, approved: event.approved }
                 : entry
             ));
+          } else if (event.type === "questions") {
+            const currentConversationId =
+              typeof event.conversationId === "string" && event.conversationId
+                ? event.conversationId
+                : conversationId.current || "";
+            const questions = Array.isArray(event.questions) ? event.questions : [];
+            setEntries((prev) => [
+              ...prev,
+              {
+                kind: "questions",
+                id: nextEntryId(sequence),
+                elicitId: event.elicitId || event.approvalId || nextEntryId(sequence),
+                conversationId: currentConversationId,
+                questions,
+                round: Number(event.round) || 1,
+                answered: false,
+              },
+            ]);
           } else if (event.type === "history") {
             history.current = event.history;
           } else if (event.type === "error") {
@@ -256,5 +319,5 @@ export function useAgentRun({ sessionId, workspaceRoot, onToolApplied }: AgentRu
     controller.current?.abort();
   }, []);
 
-  return { entries, busy, error, send, retry, decideApproval, stop };
+  return { entries, busy, error, send, retry, decideApproval, respondQuestions, stop };
 }
