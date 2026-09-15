@@ -34,6 +34,118 @@ export interface Connection {
   lastCheck?: ConnectionCheck;
 }
 
+/** Public runtime discovery contract returned by `/api/runtimes`. */
+export const RUNTIME_IDS = ["codex", "claude", "antigravity"] as const;
+export type RuntimeId = (typeof RUNTIME_IDS)[number];
+
+export type RuntimeStatus =
+  | "ready"
+  | "needs_login"
+  | "not_installed"
+  | "unsupported_version"
+  | "error";
+
+export type RuntimeAuthStatus = "authenticated" | "unauthenticated" | "unknown";
+export type CatalogAvailability = "listed" | "verified" | "unavailable" | "unknown";
+export type CatalogSource =
+  | "codex-app-server:model/list"
+  | "claude-agent-sdk:supportedModels"
+  | "antigravity-cli:agy models"
+  | "manual"
+  | "unknown";
+export type DefaultSource =
+  | "catalog"
+  | "runtime-config"
+  | "user-override"
+  | "model-default"
+  | "unknown";
+export type CapabilitySupport = "supported" | "unsupported" | "unknown";
+
+export interface RuntimeCapabilities {
+  structuredOutput: CapabilitySupport;
+  toolUse: CapabilitySupport;
+  approval: CapabilitySupport;
+  resume: CapabilitySupport;
+  interrupt: CapabilitySupport;
+  usage: CapabilitySupport;
+  streaming: CapabilitySupport;
+}
+
+export interface RuntimeEffortOption {
+  value: string;
+  label: string;
+}
+
+export interface RuntimeModel {
+  connectionId: string;
+  modelId: string;
+  label: string;
+  source: CatalogSource;
+  discoveredAt: string;
+  runtimeVersion: string | null;
+  authScope: string | null;
+  availability: CatalogAvailability;
+  effortOptions: RuntimeEffortOption[];
+  defaultModel: string | null;
+  defaultEffort: string | null;
+  defaultSource: DefaultSource;
+  capabilities: RuntimeCapabilities;
+}
+
+export interface RuntimeCatalog {
+  connectionId: string;
+  runtime: RuntimeId;
+  source: CatalogSource;
+  discoveredAt: string;
+  expiresAt: string;
+  models: RuntimeModel[];
+  error: string | null;
+}
+
+/** `binaryPath` is intentionally replaced by the server's public `binaryFound` flag. */
+export interface RuntimeDetection {
+  runtime: RuntimeId;
+  status: RuntimeStatus;
+  authStatus: RuntimeAuthStatus;
+  binaryFound: boolean;
+  version: string | null;
+  checkedAt: string;
+  capabilities: RuntimeCapabilities;
+  catalog: RuntimeCatalog | null;
+  diagnostic: string | null;
+}
+
+export interface RuntimeDiscoveryReport {
+  checkedAt: string;
+  ttlMs: number;
+  runtimes: RuntimeDetection[];
+}
+
+export type RuntimePreferenceValue = "inherit" | string;
+export type RuntimePreferenceScope = "global" | "workspace" | "role";
+export type RuntimePreferenceSource = "inherit" | "user-override";
+
+export interface RuntimePreference {
+  runtime: RuntimeId;
+  connectionId: string;
+  scope: RuntimePreferenceScope;
+  scopeKey: string | null;
+  requestedModel: RuntimePreferenceValue;
+  requestedEffort: RuntimePreferenceValue;
+  modelSource: RuntimePreferenceSource;
+  effortSource: RuntimePreferenceSource;
+  updatedAt: string | null;
+}
+
+export interface RuntimePreferenceInput {
+  runtime: RuntimeId;
+  connectionId: string;
+  scope: "global";
+  scopeKey: null;
+  model: RuntimePreferenceValue;
+  effort: RuntimePreferenceValue;
+}
+
 export interface RoleBinding {
   connectionId: string;
   model: string;
@@ -160,6 +272,18 @@ export interface PRDExtraSection {
   content: string;
 }
 
+export type PRDArtifactVersionStatus = "active" | "superseded";
+
+/** Immutable PRD snapshots persisted inside the project session JSON. */
+export interface PRDArtifactVersion {
+  id: string;
+  number: number;
+  timestamp: string;
+  contentHash: string;
+  content: string;
+  status: PRDArtifactVersionStatus;
+}
+
 // Poin 2, 6, dan 7 bisa berupa data terstruktur dari LLM ATAU teks bebas setelah
 // pengguna mengeditnya di tab "Overview & Edit". Formatter di Step2PRD dan prompt
 // Step 3 sudah menerima kedua bentuk; tipe ini membuatnya eksplisit.
@@ -180,6 +304,9 @@ export interface PRDData {
   additionalSections?: PRDExtraSection[]; // Point 8+, opsional
 
   // Legacy / extra fields for compatibility
+  artifactVersionId?: string;
+  artifactVersionNumber?: number;
+  artifactContentHash?: string;
   executiveSummary?: string;
   userPersonas?: UserPersona[];
   functionalRequirements?: FunctionalRequirement[];
@@ -199,7 +326,20 @@ export interface AgentTask {
   dependencies: string[];
   promptInstructions: string;
   verificationSteps: string;
+  acceptanceCriteria?: string;
   status?: 'todo' | 'in_progress' | 'done';
+  handoffStatus?: 'handed_off';
+  handedOffAt?: string;
+  /** Snapshot of the PRD used to generate this task, when applicable. */
+  sourcePrdVersionId?: string;
+  sourcePrdVersionNumber?: number;
+  sourcePrdContentHash?: string;
+  /** Short aliases retained for consumers that use artifact fields directly. */
+  prdVersionId?: string;
+  prdVersionNumber?: number;
+  prdContentHash?: string;
+  syncStatus?: 'current' | 'needs_sync';
+  needsSync?: boolean;
 }
 
 export interface ProjectSession {
@@ -211,6 +351,8 @@ export interface ProjectSession {
   followUps: FollowUpQuestion[];
   plan?: ProjectPlan;
   prd?: PRDData;
+  /** Version history is optional so sessions saved before V2-4 still load. */
+  prdVersions?: PRDArtifactVersion[];
   tasks?: AgentTask[];
   currentStep: 1 | 2 | 3;
   // Hasil penilaian LLM pada ronde klarifikasi terakhir.

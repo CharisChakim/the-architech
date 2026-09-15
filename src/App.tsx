@@ -27,6 +27,7 @@ export default function App() {
   const [storeError, setStoreError] = useState<string | null>(null);
 
   const [isConnectionsModalOpen, setIsConnectionsModalOpen] = useState(false);
+  const [connectionsInitialTab, setConnectionsInitialTab] = useState<"connections" | "runtimes">("connections");
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(loadSidebarCollapsed);
@@ -170,11 +171,18 @@ export default function App() {
 
         const restored = activeId ? await fetchSession(activeId, llmConfig) : null;
         if (cancelled) return;
-        applySession(restored ?? createEmptySession(llmConfig), Boolean(restored));
+        // Keep an untitled draft's client identity across reloads. The server
+        // still receives no persisted session for standalone chat; this ID
+        // only lets its nullable conversation and local drafts be found again.
+        const empty = createEmptySession(llmConfig);
+        if (!restored && activeId) empty.id = activeId;
+        applySession(restored ?? empty, Boolean(restored));
       } catch (err: any) {
         if (cancelled) return;
         setStoreError(err.message || t("Could not reach project storage."));
-        applySession(createEmptySession(llmConfig), false);
+        const empty = createEmptySession(llmConfig);
+        if (activeId) empty.id = activeId;
+        applySession(empty, false);
       }
     };
 
@@ -288,7 +296,7 @@ export default function App() {
 
   return (
     <LanguageProvider value={{ lang, t }}>
-    <div className="min-h-screen bg-canvas text-sm text-ink font-sans antialiased flex selection:bg-accent selection:text-accent-fg">
+    <div className="flex h-screen overflow-hidden bg-canvas text-sm text-ink font-sans antialiased selection:bg-accent selection:text-accent-fg">
       <Sidebar
         session={session}
         historySessions={historySessions}
@@ -299,7 +307,8 @@ export default function App() {
         onSelectSample={handleSelectSample}
         onSelectHistorySession={handleSelectHistorySession}
         onDeleteHistory={handleDeleteHistory}
-        onOpenConnections={() => setIsConnectionsModalOpen(true)}
+        onOpenConnections={() => { setConnectionsInitialTab("connections"); setIsConnectionsModalOpen(true); }}
+        onOpenAgents={() => { setConnectionsInitialTab("runtimes"); setIsConnectionsModalOpen(true); }}
         theme={theme}
         onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
         onToggleLanguage={toggleLanguage}
@@ -319,7 +328,7 @@ export default function App() {
           layoutMode={effectiveLayoutMode}
           onLayoutModeChange={handleLayoutModeChange}
           isNarrow={isNarrow}
-          onOpenConnections={() => setIsConnectionsModalOpen(true)}
+          onOpenConnections={() => { setConnectionsInitialTab("connections"); setIsConnectionsModalOpen(true); }}
         />
 
         <Workbench
@@ -343,11 +352,13 @@ export default function App() {
           onLayoutModeChange={handleLayoutModeChange}
           onRatioChange={handleRatioChange}
           onRatioCommit={handleRatioCommit}
+          onOpenConnections={() => { setConnectionsInitialTab("connections"); setIsConnectionsModalOpen(true); }}
         />
       </div>
 
       <ConnectionsModal
         isOpen={isConnectionsModalOpen}
+        initialTab={connectionsInitialTab}
         onClose={() => setIsConnectionsModalOpen(false)}
       />
 

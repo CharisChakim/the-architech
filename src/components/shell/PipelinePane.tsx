@@ -20,6 +20,7 @@ export interface PipelinePaneProps {
   onGoToNextStep: () => void;
   onSelectSample: (sample: SampleProject) => void;
   onSelectStep: (step: Step) => void;
+  onSelectAgent?: () => void;
   onRunTask?: (task: AgentTask) => void;
   runningTaskId?: string | null;
 }
@@ -27,7 +28,7 @@ export interface PipelinePaneProps {
 const tabs: { step: Step; label: string; path: string }[] = [
   { step: 1, label: "Plan", path: STEP_PATHS[1] },
   { step: 2, label: "PRD", path: STEP_PATHS[2] },
-  { step: 3, label: "Tasks", path: STEP_PATHS[3] },
+  { step: 3, label: "Kanban", path: STEP_PATHS[3] },
 ];
 
 export const PaneSkeleton: React.FC = () => (
@@ -46,17 +47,26 @@ interface TabStripProps {
   step: Step;
   session: ProjectSession;
   onSelectStep: (step: Step) => void;
+  onSelectAgent?: () => void;
 }
 
-export const TabStrip: React.FC<TabStripProps> = ({ step, session, onSelectStep }) => {
+export const TabStrip: React.FC<TabStripProps> = ({ step, session, onSelectStep, onSelectAgent }) => {
   const { t } = useT();
 
   return (
     <nav
-      aria-label={t("Workflow")}
-      className="sticky top-0 z-20 flex shrink-0 gap-1 overflow-x-auto border-b border-line bg-canvas/95 px-4 backdrop-blur @3xl/pane:px-8"
+      aria-label={t("Project context")}
+      className="shell-pane-tabs sticky top-0 z-20 flex shrink-0 gap-1 overflow-x-auto border-b border-line bg-canvas/95 px-4 backdrop-blur @3xl/pane:px-8"
     >
-      {tabs.map((tab) => {
+      <button
+        type="button"
+        aria-label={t("Chat")}
+        onClick={onSelectAgent}
+        className="inline-flex min-w-max items-center gap-1.5 border-b-2 border-transparent px-3 py-3 text-sm font-medium text-muted transition-colors hover:border-line hover:text-ink"
+      >
+        {t("Chat")}
+      </button>
+      {tabs.filter((tab) => tab.step === 1 ? step === 1 : true).map((tab) => {
         const reachable = isStepReachable(tab.step, session);
         const active = step === tab.step;
         const label = t(tab.label);
@@ -99,12 +109,13 @@ export const PipelinePane: React.FC<PipelinePaneProps> = ({
   onGoToNextStep,
   onSelectSample,
   onSelectStep,
+  onSelectAgent,
   onRunTask,
   runningTaskId,
 }) => (
-  <div className="@container/pane flex min-h-0 flex-1 min-w-0 flex-col overflow-y-auto">
-    <TabStrip step={step} session={session} onSelectStep={onSelectStep} />
-    <div className="px-4 py-8 @3xl/pane:px-8">
+  <div className="shell-project-pane @container/pane flex min-h-0 flex-1 min-w-0 flex-col overflow-y-auto">
+    <TabStrip step={step} session={session} onSelectStep={onSelectStep} onSelectAgent={onSelectAgent} />
+    <div className="shell-project-content px-4 py-8 @3xl/pane:px-8">
       <Suspense fallback={<PaneSkeleton />}>
         {step === 1 && (
           <Step1Plan

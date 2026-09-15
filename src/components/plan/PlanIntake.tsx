@@ -14,6 +14,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useT } from "../../lib/i18n";
+import { useDraft } from "../../lib/draftStore";
 import { generateFollowUpQuestions, generateProjectPlan, isAbort } from "../../lib/generate";
 import {
   createFollowUpState,
@@ -54,11 +55,24 @@ export const PlanIntake: React.FC<PlanIntakeProps> = ({
   onCancel,
 }) => {
   const { t, lang } = useT();
-  const [title, setTitle] = useState(session.input.title || "");
-  const [description, setDescription] = useState(session.input.description || "");
-  const [targetAudience, setTargetAudience] = useState(session.input.targetAudience || "");
-  const [techStackPreference, setTechStackPreference] = useState(session.input.techStackPreference || "");
-  const [followUpState, setFollowUpState] = useState<FollowUpState>(() =>
+  const [title, setTitle, clearTitleDraft] = useDraft(
+    { sessionId: session.id, name: "plan-title" },
+    session.input.title || "",
+  );
+  const [description, setDescription, clearDescriptionDraft] = useDraft(
+    { sessionId: session.id, name: "plan-description" },
+    session.input.description || "",
+  );
+  const [targetAudience, setTargetAudience, clearTargetAudienceDraft] = useDraft(
+    { sessionId: session.id, name: "plan-target-audience" },
+    session.input.targetAudience || "",
+  );
+  const [techStackPreference, setTechStackPreference, clearTechStackDraft] = useDraft(
+    { sessionId: session.id, name: "plan-tech-stack" },
+    session.input.techStackPreference || "",
+  );
+  const [followUpState, setFollowUpState, clearFollowUpDraft] = useDraft<FollowUpState>(
+    { sessionId: session.id, name: "plan-follow-ups" },
     createFollowUpState(session.followUps, session.input.answersToFollowUp),
   );
   const [loadingQuestions, setLoadingQuestions] = useState(false);
@@ -71,16 +85,8 @@ export const PlanIntake: React.FC<PlanIntakeProps> = ({
   const { questions, answers, customAnswerActive } = followUpState;
 
   useEffect(() => {
-    setTitle(session.input.title || "");
-    setDescription(session.input.description || "");
-    setTargetAudience(session.input.targetAudience || "");
-    setTechStackPreference(session.input.techStackPreference || "");
     setErrorMessage(null);
   }, [session.id]);
-
-  useEffect(() => {
-    setFollowUpState(createFollowUpState(session.followUps, session.input.answersToFollowUp));
-  }, [session.id, session.followUps, session.input.answersToFollowUp]);
 
   useEffect(() => {
     if (session.followUps.length > 0 && !session.plan) setSubView("clarify");
@@ -180,6 +186,11 @@ export const PlanIntake: React.FC<PlanIntakeProps> = ({
         plan: data,
         planFeaturesEdited: false,
       });
+      clearTitleDraft();
+      clearDescriptionDraft();
+      clearTargetAudienceDraft();
+      clearTechStackDraft();
+      clearFollowUpDraft();
       onPlanGenerated?.();
     } catch (err: any) {
       if (!isAbort(err)) setErrorMessage(err.message || t("Failed to generate the project plan."));

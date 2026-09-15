@@ -6,6 +6,8 @@ import { isStepReachable, Step } from "../../lib/routing";
 import { LayoutMode } from "../../lib/layout";
 import { useT } from "../../lib/i18n";
 import { useAgentRun } from "../../lib/useAgentRun";
+import { useRuntimeDiscovery } from "../../lib/runtimes";
+import { loadRuntimeSelection, saveRuntimeSelection, type RuntimeChatSelection } from "../../lib/runtimeChat";
 import { AgentPane } from "../agent/AgentPane";
 import { PipelinePane } from "./PipelinePane";
 import { Splitter } from "./Splitter";
@@ -24,6 +26,7 @@ export interface WorkbenchProps {
   onLayoutModeChange: (mode: LayoutMode) => void;
   onRatioChange: (ratio: number) => void;
   onRatioCommit: (ratio: number) => void;
+  onOpenConnections?: () => void;
 }
 
 const stepLabel = (step: Step, t: ReturnType<typeof useT>["t"]): string => {
@@ -46,18 +49,34 @@ export const Workbench: React.FC<WorkbenchProps> = ({
   onLayoutModeChange,
   onRatioChange,
   onRatioCommit,
+  onOpenConnections,
 }) => {
   const { t } = useT();
   const taskCount = session.tasks?.length ?? 0;
   const completedTasks = (session.tasks ?? []).filter((task) => task.status === "done").length;
   const [runningTaskId, setRunningTaskId] = React.useState<string | null>(null);
+  const runtimeDiscovery = useRuntimeDiscovery(true);
+  const [runtimeState, setRuntimeState] = React.useState<{ sessionId: string; selection: RuntimeChatSelection }>(() => ({
+    sessionId: session.id,
+    selection: loadRuntimeSelection(session.id),
+  }));
+  React.useEffect(() => {
+    setRuntimeState({ sessionId: session.id, selection: loadRuntimeSelection(session.id) });
+  }, [session.id]);
+  const runtimeSelection = runtimeState.sessionId === session.id ? runtimeState.selection : loadRuntimeSelection(session.id);
+  const handleRuntimeSelectionChange = React.useCallback((selection: RuntimeChatSelection) => {
+    setRuntimeState({ sessionId: session.id, selection });
+    saveRuntimeSelection(session.id, selection);
+  }, [session.id]);
   const handleToolApplied = React.useCallback(() => {
     void onToolApplied?.();
   }, [onToolApplied]);
   const agentRun = useAgentRun({
     sessionId: session.id,
     workspaceRoot: session.workspaceRoot || "",
+    allowShell: Boolean(session.allowShell),
     onToolApplied: handleToolApplied,
+    runtimeSelection,
   });
 
   const handleRunTask = React.useCallback((task: AgentTask): void => {
@@ -72,10 +91,10 @@ export const Workbench: React.FC<WorkbenchProps> = ({
       `Dependencies: ${(task.dependencies || []).join(", ") || "None"}`,
       `Instructions:\n${task.promptInstructions}`,
       `Verification steps:\n${task.verificationSteps}`,
-      `Before coding, call set_task_status with taskId "${task.id}" and status "in_progress". After verification passes, call it again with status "done".`,
+      "Report the implementation and verification evidence. The task remains in Review until the user accepts it as Done.",
     ].join("\n\n");
 
-    void agentRun.send(prompt).finally(() => setRunningTaskId(null));
+    void agentRun.send(prompt, { taskId: task.id }).finally(() => setRunningTaskId(null));
   }, [agentRun.busy, agentRun.send, onLayoutModeChange]);
 
   const openPipeline = (step: Step) => {
@@ -85,37 +104,23 @@ export const Workbench: React.FC<WorkbenchProps> = ({
   };
 
   const pipelineStrip = (
-    <div className="shrink-0 overflow-x-auto border-t border-line bg-surface px-3 py-2">
-      <div className="flex min-w-max items-center justify-center gap-1.5">
-        {([1, 2, 3] as Step[]).map((step) => {
-          const reachable = isStepReachable(step, session);
-          const completed = step === 1 ? Boolean(session.plan) : step === 2 ? Boolean(session.prd) : taskCount > 0;
-          const label = step === 3
-            ? `${stepLabel(step, t)} ${taskCount ? `${completedTasks}/${taskCount}` : ""}`.trim()
-            : stepLabel(step, t);
-          return (
-            <button
-              key={step}
-              type="button"
-              disabled={!reachable}
-              onClick={() => openPipeline(step)}
-              title={!reachable ? (step === 2 ? t("Finish step 1 (Plan) first") : t("Finish step 2 (PRD) first")) : undefined}
-              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium ${
-                reachable ? "border-line text-muted hover:border-accent hover:text-accent-ink" : "cursor-not-allowed border-line text-faint"
-              }`}
-            >
-              {completed ? <Check className="h-3 w-3 text-ok" /> : <span className="h-1.5 w-1.5 rounded-full bg-faint" />}
-              {label}
-            </button>
-          );
-        })}
+    <div className="shell-context-bar shrink-0 overflow-x-auto border-t border-line bg-surface px-4 py-2.5">
+      <div className="flex min-w-max items-center gap-3">
+        <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-faint">{t("Project context")}</span>
+        <div className="flex items-center gap-1 rounded-lg bg-subtle p-0.5">
+          <button type="button" aria-current="page" onClick={() => onLayoutModeChange("agent")} className="rounded-md bg-surface px-2.5 py-1.5 text-[11px] font-medium text-accent-ink shadow-xs">{t("Chat")}</button>
+          <button type="button" disabled={!isStepReachable(2, session)} onClick={() => openPipeline(2)} title={!isStepReachable(2, session) ? t("Finish step 1 (Plan) first") : undefined} className="rounded-md px-2.5 py-1.5 text-[11px] font-medium text-muted hover:text-ink disabled:cursor-not-allowed disabled:text-faint">{t("PRD")}</button>
+          <button type="button" disabled={!isStepReachable(3, session)} onClick={() => openPipeline(3)} title={!isStepReachable(3, session) ? t("Finish step 2 (PRD) first") : undefined} className="rounded-md px-2.5 py-1.5 text-[11px] font-medium text-muted hover:text-ink disabled:cursor-not-allowed disabled:text-faint">{t("Kanban")} {taskCount > 0 && <span className="text-faint">{completedTasks}/{taskCount}</span>}</button>
+        </div>
+        <button type="button" onClick={() => openPipeline(1)} className="ml-auto inline-flex items-center gap-1.5 text-[11px] text-muted hover:text-accent-ink">{session.plan ? <Check className="h-3 w-3 text-ok" /> : <span className="h-1.5 w-1.5 rounded-full bg-faint" />}{t("Plan")}</button>
       </div>
     </div>
   );
 
   const agentPane = (
-    <div className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-surface [&>aside]:!static [&>aside]:!inset-auto [&>aside]:!h-full [&>aside]:!w-full [&>aside]:!max-w-none [&>aside]:!shadow-none">
+    <div className="shell-chat-pane flex min-h-0 min-w-0 flex-col overflow-hidden bg-surface [&>aside]:!static [&>aside]:!inset-auto [&>aside]:!h-full [&>aside]:!w-full [&>aside]:!max-w-none [&>aside]:!shadow-none">
       <AgentPane
+        sessionId={session.id}
         workspaceRoot={session.workspaceRoot || ""}
         allowShell={Boolean(session.allowShell)}
         onChangeWorkspace={onUpdateSession}
@@ -131,12 +136,18 @@ export const Workbench: React.FC<WorkbenchProps> = ({
         hasPlan={Boolean(session.plan)}
         onSelectSample={onSelectSample}
         onPreparePlan={onPrepareAgentPlan}
+        runtimeSelection={runtimeSelection}
+        runtimeReport={runtimeDiscovery.report}
+        runtimePreferences={runtimeDiscovery.preferences}
+        runtimeLoading={runtimeDiscovery.loading}
+        onRuntimeSelectionChange={handleRuntimeSelectionChange}
+        onOpenConnections={onOpenConnections}
       />
     </div>
   );
 
   return (
-    <main className="flex min-h-0 flex-1 flex-col overflow-hidden bg-canvas">
+    <main className="shell-workbench flex min-h-0 flex-1 flex-col overflow-hidden bg-canvas">
       {storeError && (
         <div className="mx-4 mt-4 flex shrink-0 items-start gap-3 rounded-xl border border-warn/30 bg-warn-soft p-4 text-warn-ink lg:mx-8">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -172,14 +183,15 @@ export const Workbench: React.FC<WorkbenchProps> = ({
                 onGoToNextStep={() => onSelectStep(session.currentStep === 3 ? 3 : (session.currentStep + 1) as Step)}
                 onSelectSample={onSelectSample}
                 onSelectStep={openPipeline}
+                onSelectAgent={() => onLayoutModeChange("agent")}
                 onRunTask={handleRunTask}
-                runningTaskId={runningTaskId}
+                runningTaskId={agentRun.busy ? runningTaskId ?? "__agent_busy__" : runningTaskId}
               />
             </div>
           )}
         </div>
 
-        {layoutMode === "agent" && pipelineStrip}
+        {layoutMode === "agent" && (session.plan || session.prd || taskCount > 0) && pipelineStrip}
 
         {layoutMode === "board" && (
           <button

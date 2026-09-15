@@ -1,11 +1,19 @@
 import { randomUUID } from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
 import express, { type Request, type Response } from "express";
 
 import { getSession } from "../../db.ts";
 import { resolveRole, getConnection } from "../connections/store.ts";
 import { LLM_TIMEOUT_MS } from "../llm/call.ts";
 import type { Connection } from "../llm/types.ts";
-import { ensureConversation, importLegacyHistory, loadMessages } from "../agent/conversations.ts";
+import {
+  ensureConversationFor,
+  getConversation,
+  importLegacyHistory,
+  linkConversationToProject,
+  loadMessages,
+} from "../agent/conversations.ts";
 import { runAgent } from "../agent/loop.ts";
 
 const router = express.Router();
@@ -26,6 +34,10 @@ type ElicitEntry = {
 // Nonce ini tidak dimaksudkan sebagai batas keamanan pada aplikasi localhost
 // single-user; ia hanya mencegah tab lama menjawab prompt percakapan lain.
 const pendingElicitations = new Map<string, ElicitEntry>();
+// A native folder dialog is an explicit local authorization. Keep that
+// authorization process-local so a browser cannot manufacture it by posting a
+// path; typed paths continue to use the configured trusted roots below.
+const approvedWorkspaceRoots = new Set<string>();
 
 class RequestError extends Error {
   constructor(message: string, readonly statusCode = 400) {
@@ -189,33 +201,127 @@ function makeElicit(
   };
 }
 
-function conversationIdFor(body: Record<string, any>): string {
-  if (body.conversationId === undefined || body.conversationId === null || body.conversationId === "") {
-    return `conv_${body.sessionId}_default`;
+function optionalString(value: unknown, field: string): string | null {
+  if (value === undefined || value === null || value === "") return null;
+  return requiredString(value, field);
+}
+
+function isInsideRoot(candidate: string, root: string): boolean {
+  const relative = path.relative(root, candidate);
+  return relative === ""
+    || (!relative.startsWith(`..${path.sep}`) && relative !== ".." && !path.isAbsolute(relative));
+}
+
+function realpathOrNearestExistingParent(candidate: string): string {
+  let current = candidate;
+  while (true) {
+    try {
+      return fs.realpathSync(current);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException)?.code !== "ENOENT") throw error;
+      const parent = path.dirname(current);
+      if (parent === current) throw error;
+      current = parent;
+    }
   }
-  return requiredString(body.conversationId, "conversationId");
+}
+
+function trustedWorkspaceRoots(): string[] {
+  const configured = process.env.ARCHITECH_WORKSPACE_ROOTS
+    ?.split(path.delimiter)
+    .map((root) => root.trim())
+    .filter(Boolean) ?? [];
+  const roots = [process.cwd(), ...configured];
+  return roots.flatMap((root) => {
+    try {
+      return [fs.realpathSync(path.resolve(root))];
+    } catch {
+      // A configured root that does not exist cannot authorize a client path.
+      return [];
+    }
+  });
+}
+
+export function registerApprovedWorkspaceRoot(value: string): string {
+  const selected = path.resolve(value.trim());
+  const canonical = fs.realpathSync(selected);
+  if (!fs.statSync(canonical).isDirectory()) throw new RequestError("Selected path is not a folder.");
+  approvedWorkspaceRoots.add(canonical);
+  return canonical;
+}
+
+export function validateTransientWorkspaceRoot(value: string): string {
+  const selected = path.resolve(value.trim());
+  let canonicalSelected: string;
+  try {
+    canonicalSelected = realpathOrNearestExistingParent(selected);
+  } catch {
+    throw new RequestError("workspaceRoot must be inside a trusted workspace root.");
+  }
+
+  const roots = [...trustedWorkspaceRoots(), ...approvedWorkspaceRoots];
+  if (!roots.some((root) => isInsideRoot(canonicalSelected, root))) {
+    throw new RequestError("workspaceRoot must be inside a trusted workspace root.");
+  }
+  return value.trim();
+}
+
+function transientContext(body: Record<string, any>): { workspaceRoot?: string; allowShell: boolean } {
+  const workspaceRoot = typeof body.workspaceRoot === "string" ? body.workspaceRoot.trim() : "";
+  const validatedWorkspaceRoot = workspaceRoot ? validateTransientWorkspaceRoot(workspaceRoot) : "";
+  return {
+    ...(validatedWorkspaceRoot ? { workspaceRoot: validatedWorkspaceRoot } : {}),
+    // Shell permission is request-scoped for standalone chat. It never gets
+    // persisted as a project setting by this route.
+    allowShell: Boolean(workspaceRoot && body.allowShell === true),
+  };
 }
 
 async function chat(req: Request, res: Response): Promise<void> {
   const body = isRecord(req.body) ? req.body : {};
-  let sessionId: string;
+  let sessionId: string | null;
+  let projectSession: any | null;
+  let requestedConversationId: string | null;
   let message: string;
   let resolved: { conn: Connection; model: string };
   let convId: string;
+  let transient: { workspaceRoot?: string; allowShell: boolean } | undefined;
 
   try {
-    sessionId = requiredString(body.sessionId, "sessionId");
     message = requiredString(body.message, "message");
-    if (!getSession(sessionId)) throw new RequestError(`Session not found: ${sessionId}.`, 404);
+    const requestedSessionId = optionalString(body.sessionId, "sessionId");
+    requestedConversationId = optionalString(body.conversationId, "conversationId");
     resolved = resolveAgentConnection(body);
-    convId = conversationIdFor(body);
+
+    // Existing project chat keeps its persisted session. A missing session is
+    // a standalone draft from the client and receives a nullable conversation
+    // row instead of forcing the client to create a fake project session.
+    projectSession = requestedSessionId ? getSession(requestedSessionId) : null;
+    sessionId = projectSession ? requestedSessionId : null;
+
+    const existing = requestedConversationId ? getConversation(requestedConversationId) : null;
+    if (!projectSession && existing?.projectId) {
+      // A linked standalone conversation resumes its project context even when
+      // the browser still sends the old transient client session id.
+      const linkedSession = getSession(existing.projectId);
+      if (linkedSession) {
+        projectSession = linkedSession;
+        sessionId = existing.projectId;
+      }
+    }
+
+    convId = ensureConversationFor({
+      sessionId,
+      projectId: projectSession ? projectSession.id : null,
+      conversationId: requestedConversationId,
+    });
 
     // Setelah percakapan memiliki pesan, SQLite menjadi sumber kebenaran agar
     // klien lama tidak dapat menimpa transcript hanya karena reload.
-    ensureConversation(sessionId, convId);
     if (loadMessages(convId).length === 0 && Array.isArray(body.history) && body.history.length > 0) {
       importLegacyHistory(convId, body.history);
     }
+    if (!projectSession) transient = transientContext(body);
   } catch (error) {
     sendJsonError(res, error);
     return;
@@ -255,11 +361,12 @@ async function chat(req: Request, res: Response): Promise<void> {
   try {
     await runAgent({
       sessionId,
+      ...(sessionId ? {} : transient),
       conversationId: convId,
       userMessage: message,
       conn: resolved.conn,
       model: resolved.model,
-      limits: (getSession(sessionId)?.agentLimits || {}) as any,
+      limits: (projectSession?.agentLimits || {}) as any,
       onEvent: (event: unknown) => send(event),
       elicit: makeElicit(convId, ac, send, ownedIds),
       signal: providerSignal,
@@ -279,6 +386,42 @@ async function chat(req: Request, res: Response): Promise<void> {
 }
 
 router.post("/api/agent/chat", chat);
+
+router.post("/api/agent/conversations/:conversationId/link", (req, res) => {
+  const body = isRecord(req.body) ? req.body : {};
+  let projectId: string;
+  try {
+    projectId = requiredString(body.projectId, "projectId");
+  } catch (error) {
+    sendJsonError(res, error);
+    return;
+  }
+  if (!getSession(projectId)) {
+    res.status(404).json({ error: `Session not found: ${projectId}.` });
+    return;
+  }
+  try {
+    res.json({ conversation: linkConversationToProject(req.params.conversationId, projectId) });
+  } catch (error) {
+    sendJsonError(res, error, 404);
+  }
+});
+
+router.get("/api/agent/conversations/:conversationId/messages", (req, res) => {
+  const conversationId = String(req.params.conversationId || "").trim();
+  if (!conversationId) {
+    res.status(400).json({ error: "conversationId is required." });
+    return;
+  }
+  const conversation = getConversation(conversationId);
+  if (!conversation) {
+    res.status(404).json({ error: `Conversation not found: ${conversationId}.` });
+    return;
+  }
+  // Message metadata (model, connection id) stays server-side. Content blocks
+  // contain only the transcript needed to repaint the local chat pane.
+  res.json({ conversation, messages: loadMessages(conversationId) });
+});
 
 router.post("/api/agent/respond", (req, res) => {
   const body = isRecord(req.body) ? req.body : {};

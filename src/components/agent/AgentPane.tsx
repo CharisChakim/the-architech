@@ -1,25 +1,29 @@
 import React, { useEffect, useRef, useState } from "react";
 import { AlertTriangle, Bot, Check, ChevronDown, Circle, Clock3, Folder, PlugZap } from "lucide-react";
-import type { ProjectSession } from "../../types";
+import type { ProjectSession, RuntimeDiscoveryReport, RuntimePreference } from "../../types";
+import type { RuntimeChatSelection } from "../../lib/runtimeChat";
 import { SAMPLE_PROJECTS, sampleText, type SampleProject } from "../../lib/sampleData";
 import type { Entry } from "../../lib/agentEvents";
+import { useDraft } from "../../lib/draftStore";
 import { useT } from "../../lib/i18n";
 import { Markdown } from "../lazy";
 import { ApprovalCard } from "./ApprovalCard";
 import { Composer } from "./Composer";
 import { QuestionsCard } from "./QuestionsCard";
 import { ToolCallCard } from "./ToolCallCard";
+import { RuntimeControls } from "./RuntimeControls";
 
 export type PipelineStep = 1 | 2 | 3;
 
 export interface AgentPaneProps {
+  sessionId: string;
   workspaceRoot: string;
   allowShell: boolean;
   onChangeWorkspace: (patch: Pick<ProjectSession, "workspaceRoot" | "allowShell">) => void;
   entries: Entry[];
   busy: boolean;
   error: string | null;
-  onSend: (text: string) => void | Promise<void>;
+  onSend: (text: string) => void | Promise<void | boolean>;
   onRetry: () => void | Promise<void>;
   onDecideApproval: (elicitId: string, ok: boolean) => void | Promise<void>;
   onRespondQuestions: (elicitId: string, answers: Record<string, string>) => void | Promise<void>;
@@ -28,6 +32,12 @@ export interface AgentPaneProps {
   hasPlan: boolean;
   onSelectSample: (sample: SampleProject) => void;
   onPreparePlan?: (idea: string) => void | Promise<void>;
+  runtimeSelection: RuntimeChatSelection;
+  runtimeReport: RuntimeDiscoveryReport | null;
+  runtimePreferences: RuntimePreference[];
+  runtimeLoading?: boolean;
+  onRuntimeSelectionChange: (selection: RuntimeChatSelection) => void;
+  onOpenConnections?: () => void;
 }
 
 const formatDuration = (ms: number): string => (ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`);
@@ -38,6 +48,7 @@ const folderName = (root: string, emptyLabel: string): string => {
 };
 
 export const AgentPane: React.FC<AgentPaneProps> = ({
+  sessionId,
   workspaceRoot,
   allowShell,
   onChangeWorkspace,
@@ -53,33 +64,113 @@ export const AgentPane: React.FC<AgentPaneProps> = ({
   hasPlan,
   onSelectSample,
   onPreparePlan,
+  runtimeSelection,
+  runtimeReport,
+  runtimePreferences,
+  runtimeLoading,
+  onRuntimeSelectionChange,
+  onOpenConnections,
 }) => {
   const { t, lang } = useT();
   const [folderOpen, setFolderOpen] = useState(false);
-  const [intakeDraft, setIntakeDraft] = useState("");
+  const [folderPickerBusy, setFolderPickerBusy] = useState(false);
+  const [folderPickerUnavailable, setFolderPickerUnavailable] = useState(false);
+  const [folderPickerError, setFolderPickerError] = useState<string | null>(null);
+  const [templateOpen, setTemplateOpen] = useState(false);
+  const [intakeDraft, setIntakeDraft, clearIntakeDraft] = useDraft(
+    { sessionId, name: "agent-intake" },
+    "",
+  );
   const [preparingIntake, setPreparingIntake] = useState(false);
   const [intakeError, setIntakeError] = useState<string | null>(null);
   const transcript = useRef<HTMLDivElement>(null);
   const folderPopover = useRef<HTMLDivElement>(null);
+  const folderButton = useRef<HTMLButtonElement>(null);
+  const workspaceInput = useRef<HTMLInputElement>(null);
+  const templateButton = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     transcript.current?.scrollTo({ top: transcript.current.scrollHeight });
   }, [entries, busy]);
 
   useEffect(() => {
-    if (!folderOpen) return;
+    if (!folderOpen && !templateOpen) return;
     const onPointerDown = (event: PointerEvent) => {
-      if (!folderPopover.current?.contains(event.target as Node)) setFolderOpen(false);
+      if (folderOpen && !folderPopover.current?.contains(event.target as Node)) setFolderOpen(false);
+      const target = event.target as Element | null;
+      if (templateOpen && !templateButton.current?.contains(target) && !target?.closest("#sample-project-menu")) setTemplateOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (templateOpen) {
+        event.preventDefault();
+        setTemplateOpen(false);
+        templateButton.current?.focus();
+      } else if (folderOpen) {
+        event.preventDefault();
+        setFolderOpen(false);
+        folderButton.current?.focus();
+      }
     };
     document.addEventListener("pointerdown", onPointerDown);
-    return () => document.removeEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [folderOpen, templateOpen]);
+
+  useEffect(() => {
+    if (folderOpen) workspaceInput.current?.focus();
   }, [folderOpen]);
+
+  const chooseFolder = async (): Promise<void> => {
+    if (folderPickerBusy) return;
+    setFolderPickerBusy(true);
+    setFolderPickerError(null);
+    try {
+      const response = await fetch("/api/agent/folder-picker", {
+        method: "POST",
+        headers: { Accept: "application/json" },
+      });
+      const payload = await response.json().catch(() => null) as { path?: unknown; error?: unknown } | null;
+      if (response.status === 204) return;
+      if (response.status === 501 || response.status === 404) {
+        setFolderPickerUnavailable(true);
+        setFolderOpen(true);
+        return;
+      }
+      if (!response.ok) {
+        setFolderPickerError(typeof payload?.error === "string" ? payload.error : t("Could not choose a folder."));
+        setFolderOpen(true);
+        return;
+      }
+      const selectedPath = typeof payload?.path === "string" ? payload.path.trim() : "";
+      if (!selectedPath) throw new Error(t("Could not choose a folder."));
+      setFolderPickerUnavailable(false);
+      onChangeWorkspace({ workspaceRoot: selectedPath });
+      setFolderOpen(false);
+    } catch (error) {
+      setFolderPickerUnavailable(true);
+      setFolderPickerError(error instanceof Error ? error.message : t("Could not choose a folder."));
+      setFolderOpen(true);
+    } finally {
+      setFolderPickerBusy(false);
+    }
+  };
+
+  const toggleFolderControl = (): void => {
+    if (!folderOpen && !workspaceRoot.trim()) {
+      void chooseFolder();
+      return;
+    }
+    setFolderOpen((open) => !open);
+  };
 
   const submitIntake = async (planFirst: boolean): Promise<void> => {
     const idea = intakeDraft.trim();
     if (!idea || busy || preparingIntake) return;
 
-    setIntakeDraft("");
     setIntakeError(null);
     setPreparingIntake(true);
     try {
@@ -87,7 +178,8 @@ export const AgentPane: React.FC<AgentPaneProps> = ({
       const prompt = planFirst
         ? `${t("Plan this project first. Call ask_followups before generating the plan.")}\n\n${idea}`
         : idea;
-      await onSend(prompt);
+      const result = await onSend(prompt);
+      if (result !== false) clearIntakeDraft("");
     } catch {
       setIntakeError(t("Could not save the project idea."));
     } finally {
@@ -143,7 +235,7 @@ export const AgentPane: React.FC<AgentPaneProps> = ({
 
   return (
     <aside className="flex h-full min-h-0 min-w-0 flex-col bg-surface" aria-label={t("Agent")}>
-      <div ref={transcript} className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+      <div ref={transcript} role="log" aria-live="polite" aria-relevant="additions text" className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
         {entries.length === 0 && !hasPlan && (
           <div className="mx-auto flex h-full min-h-64 max-w-xl flex-col justify-center px-2 py-8">
             <Bot className="mb-3 h-8 w-8 text-accent" />
@@ -175,25 +267,36 @@ export const AgentPane: React.FC<AgentPaneProps> = ({
               >
                 {t("Code directly")}
               </button>
-              <div className="relative group">
-                <button type="button" disabled={busy || preparingIntake} className="btn-outline">
+              <div className="relative">
+                <button
+                  ref={templateButton}
+                  type="button"
+                  disabled={busy || preparingIntake}
+                  aria-haspopup="menu"
+                  aria-expanded={templateOpen}
+                  aria-controls="sample-project-menu"
+                  onClick={() => setTemplateOpen((open) => !open)}
+                  className="btn-outline"
+                >
                   {t("Open a template")}
                 </button>
-                <div className="pointer-events-none absolute bottom-full left-0 z-10 mb-2 hidden w-64 rounded-xl border border-line bg-surface p-2 shadow-lg group-focus-within:pointer-events-auto group-focus-within:block group-hover:pointer-events-auto group-hover:block">
+                {templateOpen && <div id="sample-project-menu" role="menu" aria-label={t("Sample project templates")} className="absolute bottom-full left-0 z-10 mb-2 w-[min(16rem,calc(100vw-2rem))] rounded-xl border border-line bg-surface p-2 shadow-lg">
                   {SAMPLE_PROJECTS.map((sample) => (
                     <button
                       key={sample.id}
                       type="button"
+                      role="menuitem"
                       onClick={() => {
-                        setIntakeDraft("");
+                        clearIntakeDraft("");
+                        setTemplateOpen(false);
                         onSelectSample(sample);
                       }}
-                      className="pointer-events-auto block w-full rounded-lg px-3 py-2 text-left text-xs text-ink hover:bg-subtle"
+                      className="block w-full rounded-lg px-3 py-2 text-left text-xs text-ink hover:bg-subtle"
                     >
                       {sampleText(sample, lang).name}
                     </button>
                   ))}
-                </div>
+                </div>}
               </div>
             </div>
           </div>
@@ -216,22 +319,42 @@ export const AgentPane: React.FC<AgentPaneProps> = ({
 
       <div className="relative shrink-0" ref={folderPopover}>
         {folderOpen && (
-          <div className="absolute bottom-full left-3 right-3 z-20 mb-2 rounded-xl border border-line bg-surface p-3 shadow-lg">
-            <label className="field-label" htmlFor="agent-workspace-root">{t("Working folder")}</label>
-            <input id="agent-workspace-root" type="text" value={workspaceRoot} onChange={(event) => onChangeWorkspace({ workspaceRoot: event.target.value })} placeholder={t("Empty — no file access")} spellCheck={false} className="field font-mono text-xs" />
+          <div id="agent-workspace-popover" role="dialog" aria-label={t("Working folder")} className="absolute bottom-full left-3 right-3 z-20 mb-2 rounded-xl border border-line bg-surface p-3 shadow-lg">
+            <button type="button" onClick={() => void chooseFolder()} disabled={folderPickerBusy} className="btn-outline flex w-full items-center justify-center gap-1.5 text-xs">
+              <Folder className={`h-3.5 w-3.5 ${folderPickerBusy ? "animate-pulse" : ""}`} aria-hidden />
+              {folderPickerBusy ? t("Opening folder picker...") : t("Choose folder")}
+            </button>
+            {folderPickerUnavailable && (
+              <>
+                <label className="field-label mt-3" htmlFor="agent-workspace-root">{t("Working folder")}</label>
+                <input ref={workspaceInput} id="agent-workspace-root" type="text" value={workspaceRoot} onChange={(event) => { setFolderPickerError(null); onChangeWorkspace({ workspaceRoot: event.target.value }); }} placeholder={t("Empty — no file access")} spellCheck={false} className="field font-mono text-xs" />
+                <p className="mt-2 text-[11px] leading-relaxed text-faint">{t("Native folder picker unavailable. Enter an absolute path manually. Browser folder handles do not expose a server-usable path.")}</p>
+              </>
+            )}
+            {folderPickerError && <p className="mt-2 text-xs text-danger-ink" role="alert">{folderPickerError}</p>}
             <label className={`mt-3 flex items-start gap-2 text-xs ${workspaceRoot.trim() ? "text-muted" : "text-faint"}`}>
               <input type="checkbox" checked={allowShell} disabled={!workspaceRoot.trim()} onChange={(event) => onChangeWorkspace({ allowShell: event.target.checked })} className="mt-0.5 shrink-0" />
               <span>{t("Allow shell commands")}{allowShell && <span className="mt-0.5 block text-warn-ink">{t("The model can run any command in that folder.")}</span>}</span>
             </label>
           </div>
         )}
-        <div className="border-t border-line px-3 pt-3">
-          <button type="button" aria-expanded={folderOpen} onClick={() => setFolderOpen((open) => !open)} className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full border border-line bg-canvas px-2.5 py-1 text-[11px] text-muted hover:border-accent hover:text-ink">
-            <Folder className="h-3.5 w-3.5 shrink-0 text-accent" /><span className="truncate font-mono">{folderName(workspaceRoot, t("Choose folder"))}</span>{allowShell && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-ok" title={t("Shell enabled")} />}<ChevronDown className="h-3 w-3 shrink-0" />
+        <div className="workspace-runtime-row flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-line px-3 py-2">
+          <button ref={folderButton} type="button" aria-haspopup="dialog" aria-expanded={folderOpen} aria-controls="agent-workspace-popover" onClick={toggleFolderControl} disabled={folderPickerBusy} className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full border border-line bg-canvas px-2.5 py-1 text-[11px] text-muted hover:border-accent hover:text-ink disabled:cursor-wait disabled:opacity-70">
+            <Folder className="h-3.5 w-3.5 shrink-0 text-accent" aria-hidden /><span className="truncate font-mono">{folderName(workspaceRoot, t("Choose folder"))}</span>{allowShell && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-ok" title={t("Shell enabled")} aria-label={t("Shell enabled")} />}<ChevronDown className="h-3 w-3 shrink-0" aria-hidden />
           </button>
+          <RuntimeControls
+            sessionId={sessionId}
+            selection={runtimeSelection}
+            report={runtimeReport}
+            preferences={runtimePreferences}
+            loading={runtimeLoading}
+            onChange={onRuntimeSelectionChange}
+            onOpenConnections={onOpenConnections}
+            disabled={busy}
+          />
         </div>
         {(entries.length > 0 || hasPlan) && (
-          <Composer send={onSend} busy={busy} stop={onStop} retry={error ? onRetry : undefined} />
+          <Composer sessionId={sessionId} send={onSend} busy={busy} stop={onStop} retry={error ? onRetry : undefined} />
         )}
       </div>
     </aside>

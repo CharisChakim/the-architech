@@ -5,6 +5,12 @@ import { useT } from "../lib/i18n";
 import { agentsMarkdownFilename, buildAgentsMarkdown } from "../lib/agentsMd";
 import { downloadFile } from "../lib/download";
 import { stripLocalOnlyFields } from "../lib/sessionStore";
+import {
+  buildHandoffJson,
+  buildHandoffMarkdown,
+  handoffJsonFilename,
+  handoffMarkdownFilename,
+} from "../lib/handoff";
 
 interface ExportModalProps {
   isOpen: boolean;
@@ -14,6 +20,7 @@ interface ExportModalProps {
 
 export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, session }) => {
   const { t } = useT();
+  const [showHandoffPreview, setShowHandoffPreview] = React.useState(false);
   if (!isOpen) return null;
 
   const projectTitle = session.input.title || session.title || "Project";
@@ -62,6 +69,16 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, sessi
     downloadFile(`PROJECT_BUNDLE_${slug}.json`, jsonStr, "application/json");
   };
 
+  const handleDownloadHandoffJson = () => {
+    downloadFile(handoffJsonFilename(session), buildHandoffJson(session), "application/json");
+  };
+
+  const handleDownloadHandoffMarkdown = () => {
+    downloadFile(handoffMarkdownFilename(session), buildHandoffMarkdown(session), "text/markdown");
+  };
+
+  const handoffPreview = buildHandoffJson(session);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto">
       <div className="card shadow-lg w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -83,6 +100,36 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, sessi
           <p className="text-muted leading-relaxed">
             {t("Download the planning artifacts. Pick a single document, or export the whole session as JSON.")}
           </p>
+
+          <div className="rounded-xl border border-accent/30 bg-accent-soft p-4 space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h4 className="text-sm font-semibold text-ink">{t("Handoff package")}</h4>
+                <p className="mt-1 text-xs leading-relaxed text-muted">
+                  {t("Share the current PRD, task scope, dependencies and verification steps with another tool.")}
+                </p>
+              </div>
+              <span className="shrink-0 rounded-full bg-surface px-2 py-1 text-[10px] font-semibold text-accent-ink">
+                {t("Ready to export")}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => setShowHandoffPreview((value) => !value)} className="btn-outline text-xs">
+                {showHandoffPreview ? t("Hide preview") : t("Preview package")}
+              </button>
+              <button type="button" onClick={handleDownloadHandoffJson} className="btn-primary text-xs">
+                <Download className="w-3.5 h-3.5" /> {t("Download handoff (.json)")}
+              </button>
+              <button type="button" onClick={handleDownloadHandoffMarkdown} className="btn-ghost text-xs">
+                <FileText className="w-3.5 h-3.5" /> {t("Download handoff (.md)")}
+              </button>
+            </div>
+            {showHandoffPreview && (
+              <pre className="max-h-56 overflow-auto rounded-lg bg-code p-3 text-[10px] leading-relaxed text-code-ink whitespace-pre-wrap">
+                {handoffPreview}
+              </pre>
+            )}
+          </div>
 
           <div className="space-y-2">
             {[

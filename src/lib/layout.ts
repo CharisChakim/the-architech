@@ -26,9 +26,9 @@ function clampRatio(value: unknown): number {
 }
 
 function defaultMode(): LayoutMode {
-  return typeof window !== "undefined" && window.innerWidth > SPLIT_BREAKPOINT
-    ? "split"
-    : "agent";
+  // Chat is the primary surface. Users can still opt into Split or Board;
+  // new sessions should open in the focused conversation view on every size.
+  return "agent";
 }
 
 export function loadLayout(): { mode: LayoutMode; ratio: number } {

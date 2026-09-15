@@ -40,8 +40,8 @@ export type ElicitRequest =
 export type Elicit = (req: ElicitRequest) => Promise<unknown>;
 
 export interface ToolContext {
-  sessionId: string;
-  session: any;
+  sessionId: string | null;
+  session: any | null;
   root?: string;
   limits: AgentLimits;
   elicit: Elicit;
@@ -55,12 +55,31 @@ export interface ToolSpec {
 }
 
 const BUILTIN_TOOLS: ToolSpec[] = [...projectTools, ...fsTools, ...shellTools, ...pipelineTools];
+const PROJECT_SCOPED_TOOLS = new Set<ToolSpec>([...projectTools, ...pipelineTools]);
+
+function hasProjectSession(session: any): boolean {
+  // A transient standalone context deliberately has no id. Persisted project
+  // sessions loaded from SQLite always carry their id in the payload.
+  return typeof session?.id === "string" && session.id.trim().length > 0;
+}
+
+function availableForContext(spec: ToolSpec, session: any | null): boolean {
+  if (!session || (PROJECT_SCOPED_TOOLS.has(spec) && !hasProjectSession(session))) return false;
+  try {
+    return spec.available(session);
+  } catch {
+    return false;
+  }
+}
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
 function unavailableResult(name: string, session: any): { error: string } {
+  if (PROJECT_SCOPED_TOOLS_BY_NAME.has(name) && !hasProjectSession(session)) {
+    return { error: "Tool proyek belum tersedia. Tautkan percakapan ke proyek terlebih dahulu." };
+  }
   if (["list_files", "read_file", "write_file", "run_command"].includes(name)) {
     if (!session?.workspaceRoot?.trim()) {
       return { error: "Folder kerja belum ditentukan, jadi tool berkas dan perintah tidak tersedia." };
@@ -72,14 +91,13 @@ function unavailableResult(name: string, session: any): { error: string } {
   return { error: `Tool ${name} tidak tersedia untuk sesi ini.` };
 }
 
+const PROJECT_SCOPED_TOOLS_BY_NAME = new Set(
+  [...projectTools, ...pipelineTools].map((spec) => spec.def.name),
+);
+
 export function toolsFor(session: any, extra: ToolSpec[] = []): ToolSpec[] {
   return [...BUILTIN_TOOLS, ...extra].filter((spec) => {
-    try {
-      return spec.available(session);
-    } catch {
-      // Tool yang gagal menentukan izinnya tidak boleh diam-diam ditawarkan ke model.
-      return false;
-    }
+    return availableForContext(spec, session);
   });
 }
 
@@ -108,9 +126,11 @@ export async function dispatch(
   try {
     // Daftar tool dibuat di awal giliran, tetapi izin sesi dapat berubah sebelum
     // tool berikutnya dipanggil; karena itu sesi dan gating dibaca ulang di sini.
-    const session = getSession(ctx.sessionId);
-    if (!session) return { error: `Sesi ${ctx.sessionId} tidak ditemukan.` };
-    if (!spec.available(session)) return unavailableResult(name, session);
+    const session = ctx.sessionId ? getSession(ctx.sessionId) : ctx.session;
+    if (!session) {
+      return { error: ctx.sessionId ? `Sesi ${ctx.sessionId} tidak ditemukan.` : "Konteks percakapan tidak tersedia." };
+    }
+    if (!availableForContext(spec, session)) return unavailableResult(name, session);
 
     let root: string | undefined;
     const configuredRoot = session.workspaceRoot?.trim();

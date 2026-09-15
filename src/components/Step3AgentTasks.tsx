@@ -3,6 +3,8 @@ import type { ProjectSession, AgentTask } from "../types";
 import { generateTasks, isAbort } from "../lib/generate";
 import { agentsMarkdownFilename, buildAgentsMarkdown } from "../lib/agentsMd";
 import { downloadFile } from "../lib/download";
+import { buildHandoffJson, handoffJsonFilename } from "../lib/handoff";
+import { fetchTaskRunReview, type TaskRunReview } from "../lib/runs";
 import { GenerationProgress } from "./GenerationProgress";
 import {
   Bot,
@@ -20,8 +22,17 @@ import {
   ArrowRight,
   ArrowLeft,
   X,
+  AlertTriangle,
 } from "lucide-react";
 import { useT } from "../lib/i18n";
+import {
+  attachPrdVersionToPrd,
+  attachPrdVersionToTasks,
+  currentPrdVersion,
+  mergeGeneratedTasks,
+  recordPrdVersion,
+  taskNeedsPrdSync,
+} from "../lib/artifactVersions";
 
 interface Step3AgentTasksProps {
   session: ProjectSession;
@@ -31,6 +42,12 @@ interface Step3AgentTasksProps {
 }
 
 type TaskStatus = "todo" | "in_progress" | "done";
+
+function runDate(value: string | null | undefined): string {
+  if (!value) return "";
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? new Date(parsed).toLocaleString() : value;
+}
 
 export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpdateSession, onRunTask, runningTaskId }) => {
   const { t, lang } = useT();
@@ -42,6 +59,13 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
   const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>({});
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
   const [selectedTask, setSelectedTask] = useState<AgentTask | null>(null);
+  const [reviewRefresh, setReviewRefresh] = useState(0);
+  const [runReview, setRunReview] = useState<{
+    taskId: string | null;
+    loading: boolean;
+    data: TaskRunReview | null;
+    error: string | null;
+  }>({ taskId: null, loading: false, data: null, error: null });
 
   // Kartu dipindah dengan drag-and-drop HTML5 asli — tidak perlu pustaka untuk
   // tiga kolom. Tombol kecil di kaki kartu tetap ada: drag HTML5 tidak bekerja
@@ -49,8 +73,11 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<TaskStatus | null>(null);
   const tasksAbort = useRef<AbortController | null>(null);
+  const reviewAbort = useRef<AbortController | null>(null);
 
   const tasks = session.tasks || [];
+  const currentVersion = currentPrdVersion(session.prdVersions);
+  const tasksNeedingSync = tasks.filter((task) => taskNeedsPrdSync(task, currentVersion)).length;
 
   useEffect(() => {
     if (!selectedTask) return;
@@ -58,6 +85,36 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
     if (current) setSelectedTask(current);
     else setSelectedTask(null);
   }, [session.tasks]);
+
+  useEffect(() => {
+    reviewAbort.current?.abort();
+    if (!selectedTask) {
+      setRunReview({ taskId: null, loading: false, data: null, error: null });
+      return;
+    }
+
+    const controller = new AbortController();
+    reviewAbort.current = controller;
+    const taskId = selectedTask.id;
+    setRunReview({ taskId, loading: true, data: null, error: null });
+
+    fetchTaskRunReview(taskId, controller.signal)
+      .then((data) => {
+        if (!controller.signal.aborted) setRunReview({ taskId, loading: false, data, error: null });
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) {
+          setRunReview({
+            taskId,
+            loading: false,
+            data: null,
+            error: error instanceof Error ? error.message : t("Could not load run history for this task."),
+          });
+        }
+      });
+
+    return () => controller.abort();
+  }, [selectedTask?.id, reviewRefresh, t]);
 
   const handleGenerateTasks = async () => {
     setLoading(true);
@@ -67,8 +124,19 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
     tasksAbort.current = controller;
 
     try {
-      const generatedTasks = await generateTasks(session, lang, controller.signal, setGenerationChars);
-      onUpdateSession({ tasks: generatedTasks });
+      const recorded = session.prd ? recordPrdVersion(session.prd, session.prdVersions) : null;
+      const versionedPrd = recorded && session.prd
+        ? attachPrdVersionToPrd(session.prd, recorded.version)
+        : session.prd;
+      const taskSession = recorded && versionedPrd
+        ? { ...session, prd: versionedPrd, prdVersions: recorded.versions }
+        : session;
+      const generated = await generateTasks(taskSession, lang, controller.signal, setGenerationChars);
+      const generatedTasks = attachPrdVersionToTasks(generated, recorded?.version);
+      onUpdateSession({
+        ...(recorded && versionedPrd ? { prd: versionedPrd, prdVersions: recorded.versions } : {}),
+        tasks: mergeGeneratedTasks(tasks, generatedTasks),
+      });
 
       // Expand all by default
       const initialExpanded: Record<string, boolean> = {};
@@ -103,6 +171,7 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
 
   const runTask = (task: AgentTask, event?: React.MouseEvent): void => {
     event?.stopPropagation();
+    if (task.status !== "in_progress") handleTaskStatusChange(task.id, "in_progress");
     onRunTask?.(task);
   };
 
@@ -129,6 +198,16 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
       buildAgentsMarkdown(session),
       "text/markdown",
     );
+  };
+
+  const handleDownloadTaskHandoff = (task: AgentTask) => {
+    const handedOffTask: AgentTask = {
+      ...task,
+      handoffStatus: "handed_off",
+      handedOffAt: new Date().toISOString(),
+    };
+    onUpdateSession({ tasks: tasks.map((item) => item.id === task.id ? handedOffTask : item) });
+    downloadFile(handoffJsonFilename(session, handedOffTask), buildHandoffJson(session, handedOffTask), "application/json");
   };
 
   const handleCopyAllMd = () => {
@@ -163,6 +242,8 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
       emptyHint: t("Tasks the AI agent has verified show up here."),
     },
   ];
+
+  const selectedTaskHandoffJson = selectedTask ? buildHandoffJson(session, selectedTask) : null;
 
   return (
     <div className="relative space-y-6 pb-12">
@@ -223,6 +304,7 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 text-ok text-xs font-medium mb-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5" /> {t("{count} tasks ready to run", { count: tasks.length })}
+                {currentVersion && <span className="text-faint">· PRD v{currentVersion.number}</span>}
               </div>
               <h3 className="text-base font-semibold text-ink">{t("Task board")}</h3>
               <p className="text-muted mt-1 max-w-xl leading-relaxed">
@@ -242,6 +324,22 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
               </button>
             </div>
           </div>
+
+          {tasksNeedingSync > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-warn/30 bg-warn-soft p-4 text-warn-ink">
+              <div className="flex items-start gap-2 text-sm">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>
+                  <strong className="font-semibold">{tasksNeedingSync} task{tasksNeedingSync === 1 ? "" : "s"} need sync.</strong>{" "}
+                  The PRD changed. Sync generated tasks when you are ready; manual tasks remain available.
+                </span>
+              </div>
+              <button type="button" onClick={handleGenerateTasks} disabled={loading} className="btn-primary shrink-0 text-xs">
+                <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+                {loading ? t("Building the task board...") : t("Sync tasks")}
+              </button>
+            </div>
+          )}
 
           {/* View Switcher Bar */}
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -267,7 +365,7 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
 
             <button onClick={handleGenerateTasks} disabled={loading} className="btn-outline text-xs">
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-              {t("Regenerate tasks")}
+              {tasksNeedingSync > 0 ? t("Sync tasks") : t("Regenerate tasks")}
             </button>
           </div>
 
@@ -340,6 +438,16 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
                             <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded ${task.priority === "High" ? "bg-danger-soft text-danger-ink" : "bg-warn-soft text-warn-ink"}`}>
                               {task.priority}
                             </span>
+                            {taskNeedsPrdSync(task, currentVersion) && (
+                              <span className="text-[10px] font-semibold rounded bg-warn-soft px-1.5 py-0.5 text-warn-ink">
+                                {t("Needs sync")}
+                              </span>
+                            )}
+                            {task.handoffStatus === "handed_off" && (
+                              <span className="text-[10px] font-semibold rounded bg-accent-soft px-1.5 py-0.5 text-accent-ink">
+                                {t("Handed off")}
+                              </span>
+                            )}
                           </div>
                         </div>
 
@@ -389,7 +497,7 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
                                 }}
                                 className="font-medium text-ok hover:brightness-110 flex items-center gap-1"
                               >
-                                {t("Mark done")} <Check className="w-3 h-3" />
+                                {t("Accept as done")} <Check className="w-3 h-3" />
                               </button>
                             </>
                           )}
@@ -397,7 +505,7 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
                           {column.status === "done" && (
                             <>
                               <span className="text-ok flex items-center gap-1">
-                                <Check className="w-3 h-3" /> {t("Verified")}
+                                <Check className="w-3 h-3" /> {t("Accepted")}
                               </span>
                               <button
                                 onClick={(e) => {
@@ -461,6 +569,12 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
                             <span className={task.priority === "High" ? "text-danger font-medium" : ""}>
                               {t("Priority {level}", { level: task.priority })}
                             </span>
+                            {taskNeedsPrdSync(task, currentVersion) && (
+                              <span className="font-semibold text-warn-ink">· {t("Needs sync")}</span>
+                            )}
+                            {task.handoffStatus === "handed_off" && (
+                              <span className="font-semibold text-accent-ink">· {t("Handed off")}</span>
+                            )}
                           </div>
                           <h5 className="font-medium text-ink mt-0.5 truncate">{task.title}</h5>
                         </div>
@@ -631,6 +745,102 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
               <strong className="text-xs font-medium block mb-1">{t("Verification steps")}</strong>
               <p className="text-xs opacity-90">{selectedTask.verificationSteps}</p>
             </div>
+
+            {selectedTaskHandoffJson && (
+              <div className="rounded-lg border border-accent/30 bg-accent-soft p-4 text-accent-ink">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <strong className="text-xs font-semibold block">{t("Handoff package")}</strong>
+                    <p className="mt-1 text-[11px] leading-relaxed opacity-80">
+                      {selectedTask.handoffStatus === "handed_off" ? t("Handed off") : t("Ready to hand off; status is saved after download")}. {t("External results remain in Review until evidence is available.")}
+                    </p>
+                  </div>
+                  <Download className="w-4 h-4 shrink-0" />
+                </div>
+                <details className="mt-3">
+                  <summary className="cursor-pointer text-xs font-medium">{t("Preview package")}</summary>
+                  <pre className="mt-2 max-h-48 overflow-auto rounded-lg bg-code p-3 text-[10px] leading-relaxed text-code-ink whitespace-pre-wrap">
+                    {selectedTaskHandoffJson}
+                  </pre>
+                </details>
+                <button type="button" onClick={() => handleDownloadTaskHandoff(selectedTask)} className="btn-primary mt-3 !px-2.5 !py-1.5 text-xs">
+                  <Download className="w-3.5 h-3.5" /> {t("Download handoff (.json)")}
+                </button>
+              </div>
+            )}
+
+            <section className="rounded-lg border border-line bg-subtle p-4" aria-label={t("Review and evidence")}>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <span className="field-label">{t("Review and evidence")}</span>
+                  <p className="mt-1 text-[11px] text-faint">{t("Run status and attached verification evidence")}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReviewRefresh((value) => value + 1)}
+                  disabled={runReview.loading}
+                  className="btn-ghost !px-2 !py-1 text-[11px] disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${runReview.loading ? "animate-spin" : ""}`} />
+                  {t("Refresh")}
+                </button>
+              </div>
+
+              {runReview.loading && <p className="mt-3 text-xs text-faint">{t("Loading run history...")}</p>}
+              {!runReview.loading && runReview.error && (
+                <div className="mt-3 rounded-lg border border-danger/30 bg-danger-soft p-3 text-xs text-danger-ink">
+                  {runReview.error}
+                </div>
+              )}
+              {!runReview.loading && !runReview.error && runReview.data?.runs.length === 0 && (
+                <p className="mt-3 rounded-lg border border-dashed border-line p-3 text-xs leading-relaxed text-faint">
+                  {t("No runs recorded for this task yet. Run it or hand it off to an external tool; completion claims alone do not create evidence.")}
+                </p>
+              )}
+
+              {!runReview.loading && !runReview.error && runReview.data && runReview.data.runs.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {runReview.data.runs.map((run) => {
+                    const evidence = runReview.data?.evidenceByRunId[run.id] || [];
+                    const evidenceError = runReview.data?.evidenceErrors[run.id];
+                    return (
+                      <div key={run.id} className="rounded-lg border border-line bg-surface p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-mono text-[10px] text-faint">{run.id}</span>
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                            run.status === "completed" ? "bg-warn-soft text-warn-ink" :
+                            run.status === "failed" || run.status === "cancelled" || run.status === "interrupted" ? "bg-danger-soft text-danger-ink" :
+                            "bg-subtle text-muted"
+                          }`}>
+                            {run.status === "completed" ? `${run.status} · ${t("Review")}` : run.status}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-[10px] text-faint">{runDate(run.updatedAt || run.createdAt)}</p>
+                        {run.error && <p className="mt-2 text-xs text-danger-ink">{run.error}</p>}
+                        <div className="mt-2 border-t border-line pt-2 text-xs">
+                          {evidenceError ? (
+                            <p className="text-danger-ink">{evidenceError}</p>
+                          ) : evidence.length ? (
+                            <div className="space-y-1.5">
+                              <p className="font-medium text-ink">{t("Evidence ({count})", { count: evidence.length })}</p>
+                              {evidence.map((item) => (
+                                <div key={item.id} className="rounded bg-subtle px-2 py-1.5 text-muted">
+                                  <span className="font-medium text-ink">{item.kind}</span>
+                                  {item.summary && <span>: {item.summary}</span>}
+                                  {item.exitCode !== null && <span className="text-faint"> · exit {item.exitCode}</span>}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-faint">{t("No evidence attached to this run yet.")}</p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-3 border-t border-line px-6 py-4">

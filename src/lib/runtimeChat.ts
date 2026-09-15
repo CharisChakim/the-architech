@@ -1,0 +1,168 @@
+import type { RuntimeId } from "../types";
+
+export type RuntimeChatSelection =
+  | { runtime: "legacy"; model: "inherit"; effort: "inherit" }
+  | { runtime: RuntimeId; connectionId: string; model: string; effort: string };
+
+const SELECTION_PREFIX = "ai_plan_architect_runtime_selection_v1";
+const EXTERNAL_SESSION_PREFIX = "ai_plan_architect_runtime_session_v1";
+
+const isRuntimeId = (value: unknown): value is RuntimeId =>
+  value === "codex" || value === "claude" || value === "antigravity";
+
+const text = (value: unknown): string | null =>
+  typeof value === "string" && value.trim() ? value.trim() : null;
+
+const storageKey = (prefix: string, ...parts: string[]) =>
+  `${prefix}:${parts.map((part) => encodeURIComponent(part)).join(":")}`;
+
+export const legacyRuntimeSelection = (): RuntimeChatSelection => ({
+  runtime: "legacy",
+  model: "inherit",
+  effort: "inherit",
+});
+
+export function loadRuntimeSelection(sessionId: string): RuntimeChatSelection {
+  try {
+    const raw = window.localStorage.getItem(storageKey(SELECTION_PREFIX, sessionId));
+    if (!raw) return legacyRuntimeSelection();
+    const value = JSON.parse(raw) as Record<string, unknown>;
+    if (value.runtime === "legacy") return legacyRuntimeSelection();
+    if (!isRuntimeId(value.runtime) || !text(value.connectionId)) return legacyRuntimeSelection();
+    return {
+      runtime: value.runtime,
+      connectionId: value.connectionId as string,
+      model: text(value.model) ?? "inherit",
+      effort: text(value.effort) ?? "inherit",
+    };
+  } catch {
+    return legacyRuntimeSelection();
+  }
+}
+
+export function saveRuntimeSelection(sessionId: string, selection: RuntimeChatSelection): void {
+  try {
+    window.localStorage.setItem(storageKey(SELECTION_PREFIX, sessionId), JSON.stringify(selection));
+  } catch {
+    // Runtime selection is a convenience; a storage failure must not block chat.
+  }
+}
+
+export function loadExternalRuntimeSession(
+  sessionId: string,
+  runtime: RuntimeId,
+  conversationId: string,
+): string | null {
+  try {
+    return text(window.localStorage.getItem(storageKey(EXTERNAL_SESSION_PREFIX, sessionId, runtime, conversationId)));
+  } catch {
+    return null;
+  }
+}
+
+export function saveExternalRuntimeSession(
+  sessionId: string,
+  runtime: RuntimeId,
+  conversationId: string,
+  externalSessionId: string,
+): void {
+  try {
+    window.localStorage.setItem(
+      storageKey(EXTERNAL_SESSION_PREFIX, sessionId, runtime, conversationId),
+      externalSessionId,
+    );
+  } catch {
+    // Provider session resume is best effort; the server can create a new one.
+  }
+}
+
+export interface RuntimeChatEvent {
+  type: string;
+  [key: string]: unknown;
+}
+
+function record(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+/** Normalize runtime adapter events to the event names already rendered by the chat UI. */
+export function normalizeRuntimeChatEvent(value: unknown): RuntimeChatEvent | null {
+  const source = record(value);
+  if (!source) return null;
+  const nested = record(source.payload) ?? record(source.event);
+  const event = nested && !text(source.type) ? nested : source;
+  const kind = text(event.type) ?? text(event.event) ?? text(event.name);
+  if (!kind) return null;
+
+  if (kind === "session_started" || kind === "session_start" || kind === "thread_started" || kind === "runtime_session") {
+    const externalSessionId = text(event.externalSessionId)
+      ?? text(event.sessionId)
+      ?? text(event.threadId)
+      ?? text(event.conversationId);
+    return externalSessionId ? { type: "runtime_session", externalSessionId } : null;
+  }
+  if (kind === "assistant") {
+    const assistantText = text(event.text) ?? text(event.delta);
+    return assistantText ? { type: "text", text: assistantText } : null;
+  }
+  if (kind === "tool") {
+    const phase = text(event.phase) ?? text(event.status);
+    if (phase === "start" || phase === "started" || phase === "running") {
+      return {
+        type: "tool_start",
+        id: text(event.id) ?? text(event.toolUseId) ?? undefined,
+        tool: text(event.tool) ?? text(event.toolName) ?? "tool",
+        input: event.input ?? event.data,
+      };
+    }
+    return {
+      type: "tool_done",
+      id: text(event.id) ?? text(event.toolUseId) ?? undefined,
+      tool: text(event.tool) ?? text(event.toolName) ?? "tool",
+      result: event.result ?? event.data,
+      isError: event.isError === true || phase === "error" || phase === "failed",
+    };
+  }
+  if (kind === "approval") {
+    return {
+      type: "approval_request",
+      elicitId: text(event.elicitId) ?? text(event.requestId) ?? undefined,
+      approvalId: text(event.approvalId) ?? undefined,
+      command: text(event.command) ?? "",
+      cwd: text(event.cwd) ?? undefined,
+    };
+  }
+  if (kind === "error") {
+    const error = record(event.error);
+    return {
+      type: "error",
+      message: text(event.message) ?? text(error?.message) ?? "The runtime is unreachable.",
+      retryable: event.retryable !== false && event.fatal !== true,
+    };
+  }
+  if (kind === "result") {
+    const error = record(event.error);
+    if (error || event.status === "error" || event.status === "failed") {
+      return {
+        type: "error",
+        message: text(error?.message) ?? text(event.response) ?? "The runtime failed.",
+        retryable: false,
+      };
+    }
+    return { type: "done" };
+  }
+  if (kind === "done" || kind === "completed" || kind === "turn_completed") {
+    const error = record(event.error);
+    if (event.status === "failed" || event.status === "error" || error) {
+      return {
+        type: "error",
+        message: text(error?.message) ?? "The runtime failed.",
+        retryable: false,
+      };
+    }
+    return { type: "done" };
+  }
+  return { ...event, type: kind };
+}

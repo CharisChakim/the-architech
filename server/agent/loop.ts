@@ -51,7 +51,11 @@ export interface AgentEvent {
 }
 
 export interface AgentRunOptions {
-  sessionId: string;
+  /** Persisted project session id, or null for a standalone conversation. */
+  sessionId: string | null;
+  /** Request-scoped context used only when sessionId is null. */
+  workspaceRoot?: string;
+  allowShell?: boolean;
   conversationId: string;
   userMessage: string;
   conn: Connection;
@@ -119,13 +123,27 @@ async function workspaceRoot(session: any): Promise<string | undefined> {
   }
 }
 
+function transientSession(opts: AgentRunOptions): any {
+  const root = typeof opts.workspaceRoot === "string" ? opts.workspaceRoot.trim() : "";
+  return {
+    // No id is intentional: registry uses it to keep project and pipeline
+    // tools out of standalone conversations.
+    ...(root ? { workspaceRoot: root } : {}),
+    allowShell: Boolean(root && opts.allowShell === true),
+  };
+}
+
+function sessionFor(opts: AgentRunOptions): any | null {
+  return opts.sessionId ? getSession(opts.sessionId) : transientSession(opts);
+}
+
 function emitAbort(onEvent: (event: AgentEvent) => void): void {
   onEvent({ type: "abort" });
 }
 
 export async function runAgent(opts: AgentRunOptions): Promise<void> {
   try {
-    const initialSession = getSession(opts.sessionId);
+    const initialSession = sessionFor(opts);
     if (!initialSession) {
       opts.onEvent({ type: "error", message: `Sesi ${opts.sessionId} tidak ditemukan.` });
       return;
@@ -151,7 +169,7 @@ export async function runAgent(opts: AgentRunOptions): Promise<void> {
 
       // Sesi dibaca ulang tiap giliran agar gating dan prompt mencerminkan
       // perubahan yang dibuat tool pada sesi selama giliran sebelumnya.
-      const session = getSession(opts.sessionId);
+      const session = sessionFor(opts);
       if (!session) {
         opts.onEvent({ type: "error", message: `Sesi ${opts.sessionId} tidak ditemukan.` });
         return;

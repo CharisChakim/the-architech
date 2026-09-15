@@ -1,23 +1,35 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Entry } from "./agentEvents";
+import {
+  loadExternalRuntimeSession,
+  normalizeRuntimeChatEvent,
+  type RuntimeChatSelection,
+  saveExternalRuntimeSession,
+} from "./runtimeChat";
 import { toTransportAnswers } from "../components/plan/followups";
 import { useT } from "./i18n";
 
 interface AgentRunOptions {
   sessionId: string;
   workspaceRoot: string;
+  allowShell: boolean;
   onToolApplied: () => void;
+  runtimeSelection?: RuntimeChatSelection;
 }
 
 interface AgentRunResult {
   entries: Entry[];
   busy: boolean;
   error: string | null;
-  send: (text: string) => Promise<void>;
+  send: (text: string, options?: AgentSendOptions) => Promise<boolean>;
   retry: () => Promise<void>;
   decideApproval: (elicitId: string, ok: boolean) => Promise<void>;
   respondQuestions: (elicitId: string, answers: Record<string, string>) => Promise<void>;
   stop: () => void;
+}
+
+interface AgentSendOptions {
+  taskId?: string | null;
 }
 
 function nextEntryId(sequence: { current: number }): string {
@@ -31,33 +43,132 @@ function errorText(value: unknown, fallback: string): string {
   return fallback;
 }
 
+const CONVERSATION_STORAGE_PREFIX = "ai_plan_architect_agent_conversation_v1";
+
+function conversationStorageKey(sessionId: string): string {
+  return `${CONVERSATION_STORAGE_PREFIX}:${encodeURIComponent(sessionId)}`;
+}
+
+function loadConversationId(sessionId: string): string | null {
+  try {
+    return window.localStorage.getItem(conversationStorageKey(sessionId));
+  } catch {
+    return null;
+  }
+}
+
+function saveConversationId(sessionId: string, conversationId: string): void {
+  try {
+    window.localStorage.setItem(conversationStorageKey(sessionId), conversationId);
+  } catch {
+    // Conversation persistence is best effort; the server remains authoritative.
+  }
+}
+
+function parseStoredResult(content: unknown): unknown {
+  if (typeof content !== "string") return content;
+  try {
+    return JSON.parse(content);
+  } catch {
+    return content;
+  }
+}
+
+function entriesFromStoredMessages(messages: unknown[], sequence: { current: number }): Entry[] {
+  const restored: Entry[] = [];
+  const tools = new Map<string, number>();
+
+  for (const message of messages) {
+    if (!message || typeof message !== "object") continue;
+    const role = (message as any).role;
+    const content = (message as any).content;
+    if ((role !== "user" && role !== "assistant") || !Array.isArray(content)) continue;
+
+    for (const block of content) {
+      if (!block || typeof block !== "object") continue;
+      if (block.type === "text" && typeof block.text === "string" && block.text) {
+        restored.push({
+          kind: role,
+          id: nextEntryId(sequence),
+          text: block.text,
+          ...(role === "assistant" ? { streaming: false } : {}),
+        } as Entry);
+      } else if (role === "assistant" && block.type === "tool_call" && typeof block.id === "string") {
+        tools.set(block.id, restored.length);
+        restored.push({
+          kind: "tool",
+          id: block.id,
+          name: typeof block.name === "string" ? block.name : "tool",
+          input: block.input,
+          state: "ok",
+          startedAt: 0,
+          endedAt: 0,
+        });
+      } else if (role === "user" && block.type === "tool_result" && typeof block.toolCallId === "string") {
+        const index = tools.get(block.toolCallId);
+        if (index === undefined) continue;
+        const entry = restored[index];
+        if (entry.kind !== "tool") continue;
+        restored[index] = {
+          ...entry,
+          result: parseStoredResult(block.content),
+          state: block.isError ? "error" : "ok",
+        };
+      }
+    }
+  }
+
+  return restored;
+}
+
 // Satu baris di layar. Bukan bentuk yang dikirim ke model — riwayat untuk model
 // disimpan terpisah apa adanya dari server, karena blok tool_use dan tool_result
 // harus tetap berpasangan persis atau permintaan berikutnya ditolak.
 
-export function useAgentRun({ sessionId, workspaceRoot, onToolApplied }: AgentRunOptions): AgentRunResult {
+export function useAgentRun({ sessionId, workspaceRoot, allowShell, onToolApplied, runtimeSelection = { runtime: "legacy", model: "inherit", effort: "inherit" } }: AgentRunOptions): AgentRunResult {
   const { t } = useT();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const history = useRef<unknown[]>([]);
-  const conversationId = useRef<string | null>(null);
-  const lastMessage = useRef<string | null>(null);
+  const conversationId = useRef<string | null>(loadConversationId(sessionId));
+  const lastSend = useRef<{ message: string; options?: AgentSendOptions } | null>(null);
   const sequence = useRef(0);
   const controller = useRef<AbortController | null>(null);
+  const approvalRunIds = useRef(new Map<string, string>());
+  const liveSendStarted = useRef(false);
   const onToolAppliedRef = useRef(onToolApplied);
 
   onToolAppliedRef.current = onToolApplied;
 
   useEffect(() => {
+    let cancelled = false;
     controller.current?.abort();
     controller.current = null;
     history.current = [];
-    conversationId.current = null;
-    lastMessage.current = null;
+    approvalRunIds.current.clear();
+    conversationId.current = loadConversationId(sessionId);
+    liveSendStarted.current = false;
+    lastSend.current = null;
     setEntries([]);
     setBusy(false);
     setError(null);
+
+    const savedConversationId = conversationId.current;
+    if (!savedConversationId) return () => { cancelled = true; };
+
+    fetch(`/api/agent/conversations/${encodeURIComponent(savedConversationId)}/messages`)
+      .then(async (res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled || liveSendStarted.current || !Array.isArray(data?.messages)) return;
+        setEntries(entriesFromStoredMessages(data.messages, sequence));
+      })
+      .catch(() => {
+        // A missing or temporarily unavailable transcript should not block a
+        // new message; the server still has the authoritative history.
+      });
+
+    return () => { cancelled = true; };
   }, [sessionId]);
 
   useEffect(() => () => controller.current?.abort(), []);
@@ -68,11 +179,20 @@ export function useAgentRun({ sessionId, workspaceRoot, onToolApplied }: AgentRu
 
   const decideApproval = useCallback(async (elicitId: string, ok: boolean): Promise<void> => {
     try {
-      const res = await fetch("/api/agent/approve", {
+      const res = await fetch(
+        runtimeSelection.runtime === "legacy" ? "/api/agent/approve" : "/api/runtime-agent/approve",
+        {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ approvalId: elicitId, approved: ok }),
-      });
+        body: JSON.stringify({
+          approvalId: elicitId,
+          approved: ok,
+          ...(runtimeSelection.runtime !== "legacy" && approvalRunIds.current.get(elicitId)
+            ? { runId: approvalRunIds.current.get(elicitId) }
+            : {}),
+        }),
+        },
+      );
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         setError(body.error || t("That approval request is no longer valid."));
@@ -80,7 +200,7 @@ export function useAgentRun({ sessionId, workspaceRoot, onToolApplied }: AgentRu
     } catch {
       setError(t("That approval request is no longer valid."));
     }
-  }, [t]);
+  }, [runtimeSelection.runtime, t]);
 
   const respondQuestions = useCallback(async (elicitId: string, answers: Record<string, string>): Promise<void> => {
     const questionEntry = entries.find((entry): entry is Extract<Entry, { kind: "questions" }> =>
@@ -119,11 +239,12 @@ export function useAgentRun({ sessionId, workspaceRoot, onToolApplied }: AgentRu
     }
   }, [entries, t]);
 
-  const send = useCallback(async (text: string): Promise<void> => {
+  const send = useCallback(async (text: string, options?: AgentSendOptions): Promise<boolean> => {
     const message = text.trim();
-    if (!message || controller.current) return;
+    if (!message || controller.current) return false;
 
-    lastMessage.current = message;
+    lastSend.current = { message, options };
+    liveSendStarted.current = true;
     setError(null);
     setBusy(true);
     setEntries((prev) => [...prev, { kind: "user", id: `user-${Date.now()}`, text: message }]);
@@ -133,6 +254,12 @@ export function useAgentRun({ sessionId, workspaceRoot, onToolApplied }: AgentRu
     let toolTouchedSession = false;
     let turnStartedAt = Date.now();
     let turnToolCount = 0;
+    let streamFailed = false;
+    const nativeRuntime = runtimeSelection.runtime !== "legacy";
+    const runtimeConversationKey = conversationId.current || sessionId;
+    const externalSessionId = nativeRuntime
+      ? loadExternalRuntimeSession(sessionId, runtimeSelection.runtime, runtimeConversationKey)
+      : null;
 
     const pushStreamError = (message: string, retryable: boolean): void => {
       setError(message);
@@ -140,14 +267,28 @@ export function useAgentRun({ sessionId, workspaceRoot, onToolApplied }: AgentRu
     };
 
     try {
-      const res = await fetch("/api/agent/chat", {
+      const res = await fetch(nativeRuntime ? "/api/runtime-agent/chat" : "/api/agent/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         // Chat memakai endpoint yang sama dengan pengaturan LLM, tapi lewat
         // format Anthropic — router lokal melayani keduanya di base URL itu.
-        body: JSON.stringify({
+        body: JSON.stringify(nativeRuntime ? {
           sessionId,
+          ...(conversationId.current ? { conversationId: conversationId.current } : {}),
+          ...(externalSessionId ? { externalSessionId } : {}),
+          ...(options?.taskId ? { taskId: options.taskId } : {}),
+          runtime: runtimeSelection.runtime,
+          connectionId: runtimeSelection.connectionId,
           workspaceRoot,
+          allowShell,
+          model: runtimeSelection.model,
+          effort: runtimeSelection.effort,
+          message,
+        } : {
+          sessionId,
+          ...(conversationId.current ? { conversationId: conversationId.current } : {}),
+          workspaceRoot,
+          allowShell,
           history: history.current,
           message,
         }),
@@ -172,11 +313,21 @@ export function useAgentRun({ sessionId, workspaceRoot, onToolApplied }: AgentRu
         for (const chunk of chunks) {
           const line = chunk.split("\n").find((l) => l.startsWith("data: "));
           if (!line) continue;
-          const event = JSON.parse(line.slice(6)) as Record<string, any>;
+          const rawEvent = JSON.parse(line.slice(6)) as Record<string, any>;
+          const event = nativeRuntime ? normalizeRuntimeChatEvent(rawEvent) : rawEvent;
+          if (!event) continue;
 
-          if (event.type === "conversation") {
+          if (nativeRuntime && typeof event.externalSessionId === "string" && event.externalSessionId) {
+            const currentKey = conversationId.current || runtimeConversationKey;
+            saveExternalRuntimeSession(sessionId, runtimeSelection.runtime, currentKey, event.externalSessionId);
+          }
+
+          if (event.type === "runtime_session") {
+            continue;
+          } else if (event.type === "conversation") {
             if (typeof event.conversationId === "string" && event.conversationId) {
               conversationId.current = event.conversationId;
+              saveConversationId(sessionId, event.conversationId);
             }
           } else if (event.type === "text") {
             setEntries((prev) => {
@@ -230,6 +381,9 @@ export function useAgentRun({ sessionId, workspaceRoot, onToolApplied }: AgentRu
             });
           } else if (event.type === "approval_request") {
             const elicitId = event.elicitId || event.approvalId || nextEntryId(sequence);
+            if (nativeRuntime && typeof event.runId === "string" && event.runId) {
+              approvalRunIds.current.set(elicitId, event.runId);
+            }
             setEntries((prev) => [
               ...prev,
               {
@@ -243,6 +397,7 @@ export function useAgentRun({ sessionId, workspaceRoot, onToolApplied }: AgentRu
             ]);
           } else if (event.type === "approval_resolved") {
             const elicitId = event.elicitId || event.approvalId;
+            if (typeof elicitId === "string") approvalRunIds.current.delete(elicitId);
             setEntries((prev) => prev.map((entry) =>
               entry.kind === "approval" && entry.elicitId === elicitId
                 ? { ...entry, decided: true, approved: event.approved }
@@ -281,6 +436,7 @@ export function useAgentRun({ sessionId, workspaceRoot, onToolApplied }: AgentRu
           } else if (event.type === "history") {
             history.current = event.history;
           } else if (event.type === "error") {
+            streamFailed = true;
             pushStreamError(
               event.message || t("The agent is unreachable."),
               event.retryable !== false,
@@ -312,6 +468,7 @@ export function useAgentRun({ sessionId, workspaceRoot, onToolApplied }: AgentRu
       }
     } catch (err) {
       if (!ac.signal.aborted) {
+        streamFailed = true;
         pushStreamError(errorText(err, t("The agent is unreachable.")), true);
       }
     } finally {
@@ -321,10 +478,11 @@ export function useAgentRun({ sessionId, workspaceRoot, onToolApplied }: AgentRu
       }
       if (toolTouchedSession) onToolAppliedRef.current();
     }
-  }, [appendError, sessionId, t, workspaceRoot]);
+    return !streamFailed && !ac.signal.aborted;
+  }, [allowShell, appendError, runtimeSelection, sessionId, t, workspaceRoot]);
 
   const retry = useCallback(async (): Promise<void> => {
-    if (lastMessage.current) await send(lastMessage.current);
+    if (lastSend.current) await send(lastSend.current.message, lastSend.current.options);
   }, [send]);
 
   const stop = useCallback((): void => {

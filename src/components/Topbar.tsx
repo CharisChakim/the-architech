@@ -1,6 +1,6 @@
 import React from "react";
 import { ProjectSession } from "../types";
-import { Menu, Download, MessageSquare } from "lucide-react";
+import { Menu, Download, MessageCircle, FolderKanban, MessageSquare } from "lucide-react";
 import { useT } from "../lib/i18n";
 import { useConnections } from "../lib/connections";
 import { ModelSwitcher } from "./connection/ModelSwitcher";
@@ -39,17 +39,12 @@ export const Topbar: React.FC<TopbarProps> = ({
 }) => {
   const { t } = useT();
   const { connections, roles, bindRole } = useConnections();
-  const stepNames: Record<number, string> = {
-    1: t("Plan"),
-    2: t("PRD"),
-    3: t("Send to Agent"),
-  };
   const activeTitle = session.input.title || session.title;
   const hasArtifacts = Boolean(session.plan || session.prd || session.tasks);
   const layoutModes: { id: LayoutMode; label: string }[] = [
-    { id: "agent", label: t("Agent") },
+    { id: "agent", label: t("Chat") },
     ...(!isNarrow ? [{ id: "split" as const, label: t("Split") }] : []),
-    { id: "board", label: t("Board") },
+    { id: "board", label: t("Project") },
   ];
   const hasConnectionStatus = Boolean(connectionLabel || modelLabel);
   const statusDotClass =
@@ -82,31 +77,32 @@ export const Topbar: React.FC<TopbarProps> = ({
   ) : null;
 
   return (
-    <header className="sticky top-0 z-30 h-14 shrink-0 bg-canvas/85 backdrop-blur border-b border-line">
-      <div className="h-full px-4 lg:px-8 flex items-center gap-3">
+    <header className="shell-topbar sticky top-0 z-30 shrink-0 border-b border-line bg-canvas/90 backdrop-blur">
+      <div className="flex min-h-16 items-center gap-3 px-4 md:px-6 lg:px-7">
         <button
           onClick={onOpenMenu}
-          className="lg:hidden p-2 -ml-2 rounded-lg text-muted hover:text-ink hover:bg-subtle transition-colors"
+          className="-ml-2 rounded-lg p-2 text-muted hover:bg-subtle hover:text-ink md:hidden"
           aria-label={t("Open menu")}
         >
           <Menu className="w-4 h-4" />
         </button>
 
-        <div className="min-w-0 flex items-baseline gap-2">
-          <h1 className="text-sm font-medium text-ink truncate">
-            {activeTitle || t("Untitled project")}
-          </h1>
-          <span className="text-faint shrink-0" aria-hidden>
-            /
-          </span>
-          <span className="text-sm text-muted shrink-0">{stepNames[session.currentStep]}</span>
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-2">
+            {layoutMode === "agent" ? <MessageCircle className="h-4 w-4 shrink-0 text-accent" aria-hidden /> : <FolderKanban className="h-4 w-4 shrink-0 text-accent" aria-hidden />}
+            <h1 className="truncate text-[13px] font-medium tracking-[-0.01em] text-ink">
+              {activeTitle || t("New chat")}
+            </h1>
+            {!activeTitle && <span className="shell-topbar-badge">{t("Conversation")}</span>}
+          </div>
+          <p className="mt-0.5 hidden text-[10px] text-faint sm:block">{layoutMode === "agent" ? t("Chat is ready for your next idea") : t("Project context")}</p>
         </div>
 
         {onLayoutModeChange && (
           <div
             role="group"
             aria-label="Layout mode"
-            className="hidden sm:flex items-center gap-0.5 rounded-lg border border-line bg-surface p-0.5 text-xs font-medium"
+            className="shell-layout-switcher hidden items-center gap-0.5 rounded-lg border border-line bg-surface p-0.5 text-[11px] font-medium sm:flex"
           >
             {layoutModes.map((mode) => (
               <button
@@ -114,9 +110,9 @@ export const Topbar: React.FC<TopbarProps> = ({
                 type="button"
                 onClick={() => onLayoutModeChange(mode.id)}
                 aria-pressed={layoutMode === mode.id}
-                className={`rounded-md px-2.5 py-1 transition-colors ${
-                  layoutMode === mode.id ? "bg-accent-soft text-accent-ink" : "text-muted hover:text-ink"
-                }`}
+                  className={`rounded-md px-2.5 py-1.5 transition-colors ${
+                    layoutMode === mode.id ? "bg-accent-soft text-accent-ink" : "text-muted hover:text-ink"
+                  }`}
               >
                 {mode.label}
               </button>
@@ -133,8 +129,8 @@ export const Topbar: React.FC<TopbarProps> = ({
           />
 
           {hasArtifacts && (
-            <button onClick={onOpenExport} className="btn-outline" title={t("Export document & task bundle")}>
-              <Download className="w-4 h-4 text-faint" />
+            <button onClick={onOpenExport} className="shell-icon-button" title={t("Export document & task bundle")}>
+              <Download className="h-4 w-4 text-faint" aria-hidden />
               <span className="hidden sm:inline">{t("Export")}</span>
             </button>
           )}
@@ -142,11 +138,11 @@ export const Topbar: React.FC<TopbarProps> = ({
           {onToggleChat && (
             <button
               onClick={onToggleChat}
-              className="btn-outline"
+              className="shell-icon-button"
               aria-pressed={Boolean(chatOpen)}
               title={t("Ask the agent to change this project")}
             >
-              <MessageSquare className="w-4 h-4 text-faint" />
+              <MessageSquare className="h-4 w-4 text-faint" aria-hidden />
               <span className="hidden sm:inline">{t("Agent")}</span>
             </button>
           )}

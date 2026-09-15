@@ -1,4 +1,4 @@
-import { ProjectSession, SessionSummary, LLMConfig } from "../types";
+import { ProjectSession, SessionSummary, LLMConfig, type ProjectPlan } from "../types";
 import { loadLanguage, makeT } from "./i18n";
 
 // Riwayat proyek disimpan server-side di SQLite. llmConfig tidak ikut disimpan:
@@ -15,6 +15,45 @@ const lang = () => loadLanguage();
 
 // Server memilih bahasa pesan errornya dari parameter ini.
 const withLang = (url: string) => `${url}${url.includes("?") ? "&" : "?"}lang=${lang()}`;
+
+function normalizeStoredPlan(value: unknown): ProjectPlan | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const plan = value as Partial<ProjectPlan>;
+  const specs = plan.specs && typeof plan.specs === "object" ? plan.specs : {} as ProjectPlan["specs"];
+  const architecture = plan.architectureDraft && typeof plan.architectureDraft === "object"
+    ? plan.architectureDraft
+    : {} as ProjectPlan["architectureDraft"];
+  const estimation = plan.estimation && typeof plan.estimation === "object"
+    ? plan.estimation
+    : {} as ProjectPlan["estimation"];
+
+  return {
+    ...plan,
+    summary: typeof plan.summary === "string" ? plan.summary : "",
+    specs: {
+      ...specs,
+      targetAudience: typeof specs.targetAudience === "string" ? specs.targetAudience : "",
+      keyValueProposition: typeof specs.keyValueProposition === "string" ? specs.keyValueProposition : "",
+      coreFeatures: Array.isArray(specs.coreFeatures) ? specs.coreFeatures : [],
+      techStack: Array.isArray(specs.techStack) ? specs.techStack : [],
+    },
+    architectureDraft: {
+      ...architecture,
+      overview: typeof architecture.overview === "string" ? architecture.overview : "",
+      components: Array.isArray(architecture.components) ? architecture.components : [],
+      dataFlow: typeof architecture.dataFlow === "string" ? architecture.dataFlow : "",
+      securityAndAuth: typeof architecture.securityAndAuth === "string" ? architecture.securityAndAuth : "",
+    },
+    roadmap: Array.isArray(plan.roadmap) ? plan.roadmap : [],
+    estimation: {
+      ...estimation,
+      totalTimeWeeks: typeof estimation.totalTimeWeeks === "string" ? estimation.totalTimeWeeks : "",
+      complexityLevel: estimation.complexityLevel ?? "Rendah",
+      requiredResources: Array.isArray(estimation.requiredResources) ? estimation.requiredResources : [],
+      potentialRisks: Array.isArray(estimation.potentialRisks) ? estimation.potentialRisks : [],
+    },
+  };
+}
 
 async function readError(res: Response, fallbackKey: string): Promise<string> {
   const fallback = makeT(lang())(fallbackKey);
@@ -38,7 +77,15 @@ export async function fetchSession(id: string, llmConfig: LLMConfig): Promise<Pr
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(await readError(res, "Failed to open the project session."));
   const stored = await res.json();
-  return { ...stored, llmConfig } as ProjectSession;
+  return {
+    ...stored,
+    // Sessions created before follow-up questions were persisted have no
+    // field at all. Normalize at the storage boundary so every view gets the
+    // current ProjectSession shape.
+    followUps: Array.isArray(stored.followUps) ? stored.followUps : [],
+    plan: normalizeStoredPlan(stored.plan),
+    llmConfig,
+  } as ProjectSession;
 }
 
 export async function persistSession(session: ProjectSession): Promise<void> {

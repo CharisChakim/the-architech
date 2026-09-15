@@ -6,6 +6,7 @@ export type ProviderPresetId =
   | "openrouter"
   | "anthropic"
   | "gemini"
+  | "openai-compatible"
   | "custom";
 export type ApiKeyRequirement = "required" | "optional" | "none";
 
@@ -15,6 +16,8 @@ export interface ProviderPreset {
   format?: ProviderConnectionFormat;
   baseUrl: string;
   apiKeyRequirement: ApiKeyRequirement;
+  /** Safe, non-secret default for the environment variable field. */
+  defaultApiKeyEnv?: string;
   defaultModel?: string;
 }
 
@@ -66,6 +69,15 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
     apiKeyRequirement: "required",
   },
   {
+    id: "openai-compatible",
+    name: "OpenAI-compatible endpoint",
+    format: "openai",
+    baseUrl: "https://api.openai.com/v1",
+    apiKeyRequirement: "required",
+    defaultApiKeyEnv: "OPENAI_API_KEY",
+    defaultModel: "gpt-4o-mini",
+  },
+  {
     id: "custom",
     name: "Kustom",
     baseUrl: "",
@@ -81,6 +93,7 @@ export interface ProviderConnectionDraft {
   name: string;
   format?: ProviderConnectionFormat;
   baseUrl: string;
+  apiKeyEnv?: string;
   headers: Record<string, string>;
   models: string[];
   jsonMode: boolean;
@@ -92,6 +105,7 @@ export function createProviderDraft(preset: ProviderPreset): ProviderConnectionD
     name: preset.name,
     ...(preset.format ? { format: preset.format } : {}),
     baseUrl: preset.baseUrl,
+    ...(preset.defaultApiKeyEnv ? { apiKeyEnv: preset.defaultApiKeyEnv } : {}),
     headers: {},
     models: preset.defaultModel ? [preset.defaultModel] : [],
     jsonMode: true,

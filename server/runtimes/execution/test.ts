@@ -1,0 +1,102 @@
+import { strict as assert } from "node:assert";
+import { EventEmitter } from "node:events";
+import { PassThrough } from "node:stream";
+import { JsonlParser, parseJsonRpcLine } from "./protocol.ts";
+import {
+  CodexAppServerTransport,
+  RuntimeTransportError,
+  type AppServerChild,
+  type AppServerSpawn,
+} from "./transport.ts";
+import {
+  INITIALIZE_RESPONSE_FIXTURE,
+  THREAD_START_RESPONSE_FIXTURE,
+  TURN_START_RESPONSE_FIXTURE,
+} from "./fixtures.ts";
+
+class FixtureChild extends EventEmitter implements AppServerChild {
+  readonly stdin = new PassThrough();
+  readonly stdout = new PassThrough();
+  readonly stderr = new PassThrough();
+  killed = false;
+
+  kill(): boolean {
+    if (this.killed) return false;
+    this.killed = true;
+    this.emit("close", null, "SIGTERM");
+    return true;
+  }
+}
+
+function fixtureSpawn(onRequest: (message: Record<string, unknown>, child: FixtureChild) => void): {
+  spawn: AppServerSpawn;
+  child: FixtureChild;
+  options: { shell: boolean | null };
+} {
+  const child = new FixtureChild();
+  const options = { shell: null as boolean | null };
+  child.stdin.on("data", (chunk: Buffer) => {
+    for (const line of chunk.toString("utf8").split("\n")) {
+      if (!line.trim()) continue;
+      onRequest(JSON.parse(line) as Record<string, unknown>, child);
+    }
+  });
+  return {
+    child,
+    options,
+    spawn: ((_, __, spawnOptions) => {
+      options.shell = spawnOptions.shell;
+      return child;
+    }) as AppServerSpawn,
+  };
+}
+
+function emitLine(child: FixtureChild, line: string): void {
+  child.stdout.write(`${line}\n`);
+}
+
+export async function runExecutionFixtures(): Promise<void> {
+  const parser = new JsonlParser(64);
+  const parsed = parser.push(`${JSON.stringify({ id: 7, result: { ok: true }})}\nnot-json\n`);
+  assert.equal(parsed[0]?.type, "message");
+  assert.equal(parsed[1]?.type, "malformed");
+  const split = new JsonlParser();
+  assert.equal(split.push(Buffer.from("{\"id\":8,"))[0], undefined);
+  const splitResult = split.push(Buffer.from("\"result\":{}}\n"))[0];
+  assert.deepEqual(splitResult, { type: "message", message: { id: 8, result: {} } });
+  assert.equal(parseJsonRpcLine("[]").type, "malformed");
+
+  const fixture = fixtureSpawn((message, child) => {
+    const id = message.id;
+    if (message.method === "initialize") emitLine(child, INITIALIZE_RESPONSE_FIXTURE);
+    if (message.method === "thread/start") {
+      emitLine(child, "malformed fixture line");
+      emitLine(child, THREAD_START_RESPONSE_FIXTURE);
+    }
+    if (message.method === "turn/start") emitLine(child, TURN_START_RESPONSE_FIXTURE);
+  });
+  const malformed: string[] = [];
+  const transport = new CodexAppServerTransport({
+    executable: "codex",
+    spawn: fixture.spawn,
+    rpcTimeoutMs: 100,
+  });
+  transport.onMalformed((error) => malformed.push(error.code));
+  await transport.connect();
+  assert.equal(fixture.options?.shell, false);
+  const thread = await transport.request("thread/start", { cwd: "/workspace/fixture" });
+  assert.deepEqual((thread as { thread: { id: string }}).thread.id, "thread_fixture");
+  assert.deepEqual(malformed, ["MALFORMED_JSON"]);
+  const turn = await transport.request("turn/start", { threadId: "thread_fixture", input: [] });
+  assert.deepEqual((turn as { turn: { id: string }}).turn.id, "turn_fixture");
+  await transport.close();
+
+  const timeoutFixture = fixtureSpawn(() => undefined);
+  const timeoutTransport = new CodexAppServerTransport({
+    executable: "codex",
+    spawn: timeoutFixture.spawn,
+    initializeTimeoutMs: 10,
+  });
+  await assert.rejects(timeoutTransport.connect(), (error: unknown) =>
+    error instanceof RuntimeTransportError && error.code === "RPC_TIMEOUT");
+}

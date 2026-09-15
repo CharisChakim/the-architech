@@ -17,9 +17,18 @@ import {
   FileCode,
   Plus,
   Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import { useT, TFunction } from "../lib/i18n";
 import { generatePrd, generateTasks, isAbort } from "../lib/generate";
+import {
+  attachPrdVersionToPrd,
+  attachPrdVersionToTasks,
+  currentPrdVersion,
+  markTasksNeedsSync,
+  recordPrdVersion,
+  taskNeedsPrdSync,
+} from "../lib/artifactVersions";
 
 interface Step2PRDProps {
   session: ProjectSession;
@@ -159,6 +168,8 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
 
   const prd = session.prd;
   const extraSections = prd?.additionalSections || [];
+  const currentVersion = currentPrdVersion(session.prdVersions);
+  const tasksNeedingSync = (session.tasks || []).filter((task) => taskNeedsPrdSync(task, currentVersion)).length;
 
   // Editable state for PRD Overview phase
   const [editOverview, setEditOverview] = useState(prd?.overview || "");
@@ -197,6 +208,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
   }, [prd]);
 
   const handleGeneratePRD = async () => {
+    if (loading || generatingTasks) return;
     setLoading(true);
     setErrorMessage(null);
     setGenerationChars(0);
@@ -204,7 +216,14 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
     prdAbort.current = controller;
 
     try {
-      onUpdateSession({ prd: await generatePrd(session, lang, controller.signal, setGenerationChars) });
+      const generatedPrd = await generatePrd(session, lang, controller.signal, setGenerationChars);
+      const recorded = recordPrdVersion(generatedPrd, session.prdVersions);
+      const versionedPrd = attachPrdVersionToPrd(generatedPrd, recorded.version);
+      onUpdateSession({
+        prd: versionedPrd,
+        prdVersions: recorded.versions,
+        tasks: markTasksNeedsSync(session.tasks, recorded.version),
+      });
     } catch (err: any) {
       if (!isAbort(err)) setErrorMessage(err.message || t("Something went wrong while generating the PRD."));
     } finally {
@@ -216,7 +235,20 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
   // Sama seperti transisi Step 1 -> Step 2: task disusun dulu sambil menunggu
   // di halaman ini, baru pindah. Task yang sudah ada tidak dibuat ulang.
   const handleContinueToTasks = async () => {
+    if (loading || generatingTasks) return;
+    // Backfill a version for sessions created before PRD versioning existed.
+    // This also gives first-generation tasks a source snapshot.
+    const recorded = prd ? recordPrdVersion(prd, session.prdVersions) : null;
+    const versionedPrd = recorded && prd ? attachPrdVersionToPrd(prd, recorded.version) : prd;
+
     if (session.tasks && session.tasks.length > 0) {
+      if (recorded && versionedPrd) {
+        onUpdateSession({
+          prd: versionedPrd,
+          prdVersions: recorded.versions,
+          tasks: markTasksNeedsSync(session.tasks, recorded.version),
+        });
+      }
       onGoToNextStep();
       return;
     }
@@ -228,8 +260,14 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
     tasksAbort.current = controller;
 
     try {
-      const tasks = await generateTasks(session, lang, controller.signal, setGenerationChars);
-      onUpdateSession({ tasks });
+      const taskSession = versionedPrd && recorded
+        ? { ...session, prd: versionedPrd, prdVersions: recorded.versions }
+        : session;
+      const generatedTasks = await generateTasks(taskSession, lang, controller.signal, setGenerationChars);
+      onUpdateSession({
+        ...(recorded && versionedPrd ? { prd: versionedPrd, prdVersions: recorded.versions } : {}),
+        tasks: attachPrdVersionToTasks(generatedTasks, recorded?.version),
+      });
       onGoToNextStep();
     } catch (err: any) {
       if (!isAbort(err)) {
@@ -242,7 +280,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
   };
 
   const handleSavePrdOverviewEdits = () => {
-    if (!prd) return;
+    if (!prd || loading || generatingTasks) return;
 
     // Bidang terstruktur hanya diganti kalau teksnya benar-benar berubah. Kalau
     // tidak disentuh, data asli dari LLM dibiarkan utuh — sebelumnya struktur itu
@@ -280,7 +318,13 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
     // akan mengekspor versi sebelum diedit.
     updatedPrd.fullMarkdownText = buildPrdMarkdown(updatedPrd);
 
-    onUpdateSession({ prd: updatedPrd });
+    const recorded = recordPrdVersion(updatedPrd, session.prdVersions);
+    const versionedPrd = attachPrdVersionToPrd(updatedPrd, recorded.version);
+    onUpdateSession({
+      prd: versionedPrd,
+      prdVersions: recorded.versions,
+      tasks: markTasksNeedsSync(session.tasks, recorded.version),
+    });
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 2500);
   };
@@ -345,7 +389,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
                 : t("Build the PRD straight from the project description you entered.")}
             </p>
           </div>
-          <button onClick={handleGeneratePRD} disabled={loading} className="btn-primary mx-auto">
+          <button onClick={handleGeneratePRD} disabled={loading || generatingTasks} className="btn-primary mx-auto">
             {loading ? (
               <>
                 <RefreshCw className="w-4 h-4 animate-spin" />
@@ -366,6 +410,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 text-ok text-xs font-medium mb-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5" /> {t("PRD ready")}
+                {currentVersion && <span className="text-faint">· v{currentVersion.number}</span>}
               </div>
               <h3 className="text-base font-semibold text-ink">{prd.projectTitle || session.title}</h3>
               <p className="text-muted mt-1 max-w-xl line-clamp-2 leading-relaxed">
@@ -384,12 +429,28 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
                 {t("Download .md")}
               </button>
 
-              <button onClick={handleContinueToTasks} disabled={generatingTasks} className="btn-primary">
+              <button onClick={handleContinueToTasks} disabled={loading || generatingTasks} className="btn-primary">
                 {t("Continue to tasks")}
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
           </div>
+
+          {tasksNeedingSync > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-warn/30 bg-warn-soft p-4 text-warn-ink">
+              <div className="flex items-start gap-2 text-sm">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>
+                  <strong className="font-semibold">{tasksNeedingSync} task{tasksNeedingSync === 1 ? "" : "s"} need sync.</strong>{" "}
+                  Review the task board and explicitly sync generated tasks to PRD v{currentVersion?.number || "latest"}.
+                </span>
+              </div>
+              <button type="button" onClick={onGoToNextStep} disabled={loading || generatingTasks} className="btn-outline shrink-0 text-xs">
+                {t("Review task sync")}
+                <ArrowRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
 
           {/* View Mode Tabs */}
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -418,7 +479,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
               ))}
             </div>
 
-            <button onClick={handleGeneratePRD} disabled={loading} className="btn-outline text-xs">
+            <button onClick={handleGeneratePRD} disabled={loading || generatingTasks} className="btn-outline text-xs">
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
               {t("Regenerate PRD")}
             </button>
@@ -644,12 +705,12 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
               </div>
 
               <div className="flex flex-wrap items-center justify-between gap-3 -mx-6 -mb-6 px-6 py-4 border-t border-line">
-                <button onClick={handleSavePrdOverviewEdits} className="btn-outline">
+                <button onClick={handleSavePrdOverviewEdits} disabled={loading || generatingTasks} className="btn-outline">
                   <Check className="w-4 h-4" />
                   {t("Save changes")}
                 </button>
 
-                <button onClick={handleContinueToTasks} disabled={generatingTasks} className="btn-primary">
+                <button onClick={handleContinueToTasks} disabled={loading || generatingTasks} className="btn-primary">
                   {t("Approve & continue to tasks")}
                   <ArrowRight className="w-4 h-4" />
                 </button>

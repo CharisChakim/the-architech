@@ -1,19 +1,31 @@
 import { db } from "../../db.ts";
+import { randomUUID } from "node:crypto";
+import fs from "node:fs";
 import type { ContentBlock, Message } from "../llm/types.ts";
+
+const CONVERSATION_SCHEMA_VERSION = 2;
+const CONVERSATION_MIGRATION_NAME = "conversations";
 
 // Tabel dibuat saat modul dimuat supaya endpoint agent tidak bergantung pada
 // urutan bootstrap atau migrasi terpisah; tabel sessions sengaja tidak disentuh.
-db.exec(`
+// session_id dipertahankan nullable untuk kompatibilitas data lama, sedangkan
+// project_id menjadi hubungan opsional yang dapat dipasang setelah chat dibuat.
+const CREATE_CONVERSATIONS_SQL = `
   CREATE TABLE IF NOT EXISTS conversations (
     id         TEXT PRIMARY KEY,
-    session_id TEXT NOT NULL,
+    session_id TEXT,
+    project_id TEXT,
     title      TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_conversations_session
     ON conversations (session_id, updated_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_conversations_project
+    ON conversations (project_id, updated_at DESC);
+`;
 
+const CREATE_MESSAGES_SQL = `
   CREATE TABLE IF NOT EXISTS messages (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     conv_id    TEXT NOT NULL,
@@ -23,11 +35,153 @@ db.exec(`
     created_at TEXT NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages (conv_id, id);
+`;
+
+interface TableColumn {
+  name: string;
+  notnull: number;
+}
+
+function tableExists(name: string): boolean {
+  return Boolean(db.prepare(
+    `SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?`
+  ).get(name));
+}
+
+function tableColumns(name: string): TableColumn[] {
+  return db.prepare(`PRAGMA table_info(${name})`).all() as unknown as TableColumn[];
+}
+
+function backupBeforeMigration(): void {
+  const location = db.location();
+  if (!location || location === ":memory:" || !fs.existsSync(location)) return;
+
+  const backupPath = `${location}.pre-conversations-v${CONVERSATION_SCHEMA_VERSION}-${Date.now()}.bak`;
+  try {
+    fs.copyFileSync(location, backupPath);
+  } catch (error) {
+    throw new Error(`Gagal membuat backup database sebelum migrasi percakapan: ${String(error)}`);
+  }
+}
+
+function recordMigration(): void {
+  db.prepare(`
+    INSERT INTO conversation_schema_migrations (name, version, applied_at)
+    VALUES (?, ?, ?)
+    ON CONFLICT(name) DO UPDATE SET
+      version = CASE WHEN version > excluded.version THEN version ELSE excluded.version END,
+      applied_at = excluded.applied_at
+  `).run(CONVERSATION_MIGRATION_NAME, CONVERSATION_SCHEMA_VERSION, new Date().toISOString());
+}
+
+function migrateConversationSchema(): void {
+  if (!tableExists("conversations")) {
+    db.exec("BEGIN IMMEDIATE");
+    try {
+      db.exec(CREATE_CONVERSATIONS_SQL);
+      recordMigration();
+      db.exec("COMMIT");
+    } catch (error) {
+      try {
+        db.exec("ROLLBACK");
+      } catch {
+        // Error asli lebih berguna daripada error rollback sekunder.
+      }
+      throw error;
+    }
+    return;
+  }
+
+  const columns = tableColumns("conversations");
+  const sessionColumn = columns.find((column) => column.name === "session_id");
+  const projectColumn = columns.find((column) => column.name === "project_id");
+  const hasProjectColumn = Boolean(projectColumn);
+  const migrationRow = db.prepare(
+    "SELECT version FROM conversation_schema_migrations WHERE name = ?"
+  ).get(CONVERSATION_MIGRATION_NAME) as { version?: number } | undefined;
+  const migrationVersion = Number(migrationRow?.version ?? 0);
+  const isCurrentSchema = hasProjectColumn
+    && sessionColumn?.notnull === 0
+    && projectColumn?.notnull === 0;
+
+  if (isCurrentSchema) {
+    // Index dibuat ulang secara idempoten agar database yang dibuat oleh
+    // eksperimen v2 awal tetap mendapat index project.
+    db.exec(CREATE_CONVERSATIONS_SQL);
+    if (migrationVersion < CONVERSATION_SCHEMA_VERSION) recordMigration();
+    return;
+  }
+
+  backupBeforeMigration();
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    // Nama index lama harus dilepas sebelum tabel diganti; SQLite ikut
+    // mempertahankan nama index saat ALTER TABLE ... RENAME TO.
+    db.exec("DROP INDEX IF EXISTS idx_conversations_session");
+    db.exec("DROP INDEX IF EXISTS idx_conversations_project");
+    db.exec("ALTER TABLE conversations RENAME TO conversations_v1");
+    db.exec(CREATE_CONVERSATIONS_SQL);
+
+    // Data lama tidak kehilangan ID. Untuk baris v1, session adalah project
+    // yang sama karena ProjectSession masih disimpan di tabel sessions.
+    const projectExpression = hasProjectColumn ? "project_id" : "session_id";
+    db.exec(`
+      INSERT INTO conversations (id, session_id, project_id, title, created_at, updated_at)
+      SELECT id, session_id, ${projectExpression}, title, created_at, updated_at
+      FROM conversations_v1
+    `);
+    db.exec("DROP TABLE conversations_v1");
+    db.exec(CREATE_MESSAGES_SQL);
+    recordMigration();
+    db.exec("COMMIT");
+  } catch (error) {
+    try {
+      db.exec("ROLLBACK");
+    } catch {
+      // Error asli lebih berguna daripada error rollback sekunder.
+    }
+    throw error;
+  }
+}
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS conversation_schema_migrations (
+    name       TEXT PRIMARY KEY,
+    version    INTEGER NOT NULL,
+    applied_at TEXT NOT NULL
+  )
 `);
+migrateConversationSchema();
+db.exec(CREATE_MESSAGES_SQL);
 
 interface ConversationRow {
   id: string;
-  session_id: string;
+  session_id: string | null;
+  project_id: string | null;
+  title: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Conversation {
+  id: string;
+  sessionId: string | null;
+  projectId: string | null;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ConversationOptions {
+  conversationId?: string | null;
+  sessionId?: string | null;
+  projectId?: string | null;
+  title?: string;
+}
+
+export interface ConversationListFilter {
+  sessionId?: string | null;
+  projectId?: string | null;
 }
 
 interface MessageRow {
@@ -36,11 +190,15 @@ interface MessageRow {
 }
 
 const getConversationStmt = db.prepare(
-  `SELECT id, session_id FROM conversations WHERE id = ?`
+  `SELECT id, session_id, project_id, title, created_at, updated_at
+   FROM conversations WHERE id = ?`
 );
 const insertConversationStmt = db.prepare(
-  `INSERT INTO conversations (id, session_id, title, created_at, updated_at)
-   VALUES (?, ?, '', ?, ?)`
+  `INSERT INTO conversations (id, session_id, project_id, title, created_at, updated_at)
+   VALUES (?, ?, ?, ?, ?, ?)`
+);
+const updateConversationProjectStmt = db.prepare(
+  `UPDATE conversations SET project_id = ?, updated_at = ? WHERE id = ?`
 );
 const listMessagesStmt = db.prepare(
   `SELECT role, content FROM messages WHERE conv_id = ? ORDER BY id ASC`
@@ -58,8 +216,14 @@ function requiredId(value: unknown, field: string): string {
   return value.trim();
 }
 
-function conversationIdFor(sessionId: string, conversationId?: string): string {
-  if (conversationId === undefined || conversationId.trim() === "") {
+function optionalId(value: unknown, field: string): string | null {
+  if (value === undefined || value === null || value === "") return null;
+  return requiredId(value, field);
+}
+
+function conversationIdFor(sessionId: string | null, conversationId?: string | null): string {
+  if (conversationId === undefined || conversationId === null || conversationId.trim() === "") {
+    if (!sessionId) return `conv_${randomUUID()}`;
     return `conv_${sessionId}_default`;
   }
   return requiredId(conversationId, "conversationId");
@@ -70,6 +234,50 @@ function requireConversation(convId: string): ConversationRow {
   const row = getConversationStmt.get(id) as unknown as ConversationRow | undefined;
   if (!row) throw new Error(`Conversation ${id} not found`);
   return row;
+}
+
+function toConversation(row: ConversationRow): Conversation {
+  return {
+    id: row.id,
+    sessionId: row.session_id ?? null,
+    projectId: row.project_id ?? null,
+    title: row.title,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function assertLinkMatches(row: ConversationRow, options: ConversationOptions): void {
+  const sessionId = optionalId(options.sessionId, "sessionId");
+  const projectId = optionalId(options.projectId, "projectId");
+  const requestedIds = [sessionId, projectId].filter((value): value is string => Boolean(value));
+  const storedIds = [row.session_id, row.project_id].filter((value): value is string => Boolean(value));
+
+  if (requestedIds.length === 0 && storedIds.length > 0) {
+    throw new Error(`Conversation ${row.id} does not belong to a standalone conversation`);
+  }
+  if (requestedIds.length > 0 && storedIds.length === 0) {
+    throw new Error(`Conversation ${row.id} does not belong to the requested project`);
+  }
+  if (sessionId && projectId && sessionId !== projectId) {
+    throw new Error(`Conversation ${row.id} does not belong to the requested project`);
+  }
+
+  if (sessionId && row.session_id && row.session_id !== sessionId) {
+    throw new Error(`Conversation ${row.id} does not belong to session ${sessionId}`);
+  }
+  if (projectId && row.project_id && row.project_id !== projectId) {
+    throw new Error(`Conversation ${row.id} does not belong to project ${projectId}`);
+  }
+  if (sessionId && row.project_id && row.project_id !== sessionId) {
+    throw new Error(`Conversation ${row.id} does not belong to session ${sessionId}`);
+  }
+  if (projectId && row.session_id && row.session_id !== projectId) {
+    throw new Error(`Conversation ${row.id} does not belong to project ${projectId}`);
+  }
+  if (storedIds.some((id) => !requestedIds.includes(id))) {
+    throw new Error(`Conversation ${row.id} does not belong to the requested project`);
+  }
 }
 
 function isRole(value: unknown): value is Message["role"] {
@@ -142,23 +350,101 @@ function legacyMessage(entry: any): Message | null {
   return { role: entry.role, content };
 }
 
-export function ensureConversation(sessionId: string, conversationId?: string): string {
-  const owner = requiredId(sessionId, "sessionId");
-  const id = conversationIdFor(owner, conversationId);
+export function createConversation(options: ConversationOptions = {}): Conversation {
+  const sessionId = optionalId(options.sessionId, "sessionId");
+  const projectId = optionalId(options.projectId, "projectId");
+  const id = conversationIdFor(sessionId, options.conversationId);
+  const existing = getConversationStmt.get(id) as unknown as ConversationRow | undefined;
+  if (existing) throw new Error(`Conversation ${id} already exists`);
+
+  const title = options.title === undefined
+    ? ""
+    : typeof options.title === "string"
+      ? options.title.trim()
+      : requiredId(options.title, "title");
+  const now = new Date().toISOString();
+  insertConversationStmt.run(id, sessionId, projectId, title, now, now);
+  return toConversation(requireConversation(id));
+}
+
+export function ensureConversationFor(options: ConversationOptions = {}): string {
+  const sessionId = optionalId(options.sessionId, "sessionId");
+  const projectId = optionalId(options.projectId, "projectId");
+  const id = conversationIdFor(sessionId, options.conversationId);
   const existing = getConversationStmt.get(id) as unknown as ConversationRow | undefined;
 
   if (existing) {
     // ID percakapan boleh dikirim ulang oleh tab, tetapi tidak boleh dipakai
-    // untuk membaca sesi lain; ini mencegah tab basi mencampur transcript.
-    if (existing.session_id !== owner) {
-      throw new Error(`Conversation ${id} does not belong to session ${owner}`);
-    }
+    // untuk membaca project/sesi lain; ini mencegah transcript tercampur.
+    assertLinkMatches(existing, { sessionId, projectId });
     return id;
   }
 
+  const title = options.title === undefined
+    ? ""
+    : typeof options.title === "string"
+      ? options.title.trim()
+      : requiredId(options.title, "title");
   const now = new Date().toISOString();
-  insertConversationStmt.run(id, owner, now, now);
+  insertConversationStmt.run(id, sessionId, projectId, title, now, now);
   return id;
+}
+
+// Signature lama dipertahankan untuk route agent v1. Pemanggil baru dapat
+// mengirim null tanpa membuat session palsu atau mengubah ID percakapan lama.
+export function ensureConversation(
+  sessionId: string | null | undefined,
+  conversationId?: string | null,
+  projectId?: string | null,
+): string {
+  if (sessionId !== null && sessionId !== undefined) requiredId(sessionId, "sessionId");
+  return ensureConversationFor({ sessionId, conversationId, projectId });
+}
+
+export function getConversation(convId: string): Conversation | null {
+  const id = requiredId(convId, "conversationId");
+  const row = getConversationStmt.get(id) as unknown as ConversationRow | undefined;
+  return row ? toConversation(row) : null;
+}
+
+export function listConversations(filter: ConversationListFilter = {}): Conversation[] {
+  const where: string[] = [];
+  const values: (string | null)[] = [];
+
+  for (const [column, value] of [["session_id", filter.sessionId], ["project_id", filter.projectId]] as const) {
+    if (value === undefined) continue;
+    if (value === null) {
+      where.push(`${column} IS NULL`);
+    } else {
+      where.push(`${column} = ?`);
+      values.push(requiredId(value, column === "session_id" ? "sessionId" : "projectId"));
+    }
+  }
+
+  const query = `
+    SELECT id, session_id, project_id, title, created_at, updated_at
+    FROM conversations
+    ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
+    ORDER BY updated_at DESC
+  `;
+  const rows = db.prepare(query).all(...values) as unknown as ConversationRow[];
+  return rows.map(toConversation);
+}
+
+export function linkConversationToProject(convId: string, projectId: string): Conversation {
+  const conversation = requireConversation(convId);
+  const project = requiredId(projectId, "projectId");
+
+  if (conversation.project_id && conversation.project_id !== project) {
+    throw new Error(`Conversation ${conversation.id} already belongs to project ${conversation.project_id}`);
+  }
+  if (conversation.project_id === project) return toConversation(conversation);
+
+  const now = new Date().toISOString();
+  updateConversationProjectStmt.run(project, now, conversation.id);
+  // Hanya metadata hubungan yang berubah. Messages tetap memakai conv_id yang
+  // sama, sehingga linking tidak menggandakan atau mengurutkan ulang transcript.
+  return toConversation(requireConversation(conversation.id));
 }
 
 export function loadMessages(convId: string): Message[] {
