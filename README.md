@@ -1,74 +1,174 @@
 # The Architech
 
-Turns a rough idea into a plan, a PRD, and a task board an AI coding agent can run. It also includes an agent panel that can update the project and, when given a folder, work with its files.
+**Turn a rough idea into a buildable project.**
 
-## What it does
+The Architech is a local-first AI workbench for moving from product intuition to an executable delivery plan:
 
-1. **Plan** — describe an idea; the model asks clarifying questions, then drafts architecture, a Mermaid diagram, a roadmap, and an estimate.
-2. **PRD** — turn the plan into a seven-point requirements document, with extra sections when needed.
-3. **Send to Agent** — split the PRD into atomic tasks with target files, dependencies, prompts, verification steps, and task states. Download `AGENTS.md` for another coding agent.
+```text
+Idea → Plan → PRD → Agent-ready tasks → Implementation
+```
 
-The **Agent** panel runs a tool loop: it requests tools, the app executes them, returns results, and continues until the turn is complete.
+Describe what you want to build, clarify the missing pieces, shape the architecture, and hand a coding agent a task board with concrete files, dependencies, prompts, and verification steps.
 
-## Requirements
+<p>
+  <strong>Bring your own model.</strong> Connect a hosted provider, a local model, or any compatible endpoint.<br />
+  <strong>Keep control.</strong> Sessions live in SQLite, workspaces are explicitly selected, and shell access is opt-in.<br />
+  <strong>Stay in the flow.</strong> Plan, specify, export, and run tasks from one workbench.
+</p>
 
-- **Node.js 22.14 or newer. Node 24 is recommended.** The app uses built-in `node:sqlite`, `fs.promises.glob`, and `AbortSignal.any`.
-- A reachable model endpoint. No model is bundled.
+## What you can do
 
-## Setup
+| Capability | Outcome |
+| --- | --- |
+| Conversational intake | Start with an idea and let the Agent ask focused follow-up questions. |
+| Project planning | Generate an editable summary, audience, value proposition, features, tech stack, architecture, Mermaid diagrams, roadmap, and estimate. |
+| PRD generation | Turn the plan into a structured seven-point PRD, with optional extra sections and a Markdown view. |
+| Task planning | Break the PRD into atomic coding tasks with target files, dependencies, instructions, and verification steps. |
+| Task execution | Run a task in the Agent panel, update its status, and watch the Kanban board move from To do to Done. |
+| Export | Download the plan, PRD, `AGENTS.md`, or a complete project bundle. |
+| Model routing | Bind separate models to `agent`, `plan`, `prd`, and `tasks` roles. |
+| MCP tools | Add external tools through stdio or Streamable HTTP without changing application code. |
+
+## The workflow
+
+```mermaid
+flowchart LR
+    A[Describe an idea] --> B[Clarify and build Plan]
+    B --> C[Generate and edit PRD]
+    C --> D[Generate task board]
+    D --> E[Run tasks with Agent]
+    E --> F[Verify and ship]
+```
+
+### 1. Plan
+
+Use the Agent for a conversation-first intake, or fill the form manually. The planning step produces:
+
+- project summary, target audience, and value proposition;
+- core features and suggested tech stack;
+- architecture and data-flow views, including Mermaid diagrams;
+- phased roadmap, effort estimate, resources, and risks.
+
+The generated feature list is editable. If the feature scope changes, the plan can be synchronized again before moving on.
+
+### 2. PRD
+
+Generate a requirements document from the approved plan. The PRD covers overview, requirements, core features by phase, user flow, architecture, database schema, and tech stack. Review it in the structured view, edit the source fields, or inspect the generated Markdown.
+
+### 3. Send to Agent
+
+Generate a ready-to-run task board. Each task includes a stable ID, priority, target files, dependencies, instructions, and verification steps. Use Kanban or detailed list view, drag tasks between states, run an individual task, copy prompts, or download `AGENTS.md` for another coding agent.
+
+## Connect a model
+
+Open **Connections** in the sidebar and add a provider preset or a custom connection. The connection editor supports:
+
+- `Anthropic Messages` and `OpenAI compatible` wire formats;
+- base URL, model list, optional API key, and custom headers;
+- enabled/disabled and JSON-mode settings;
+- role bindings for `Agent`, `Plan`, `PRD`, and `Tasks`.
+
+Included presets cover local routers, Ollama, LM Studio, OpenRouter, Anthropic, Gemini (OpenAI-compatible), and custom endpoints. No provider or model is bundled with the app.
+
+### API keys
+
+Keys saved through the UI are stored server-side in `data/architech.db`; protect that file and its backups. To keep a key out of the database, put the variable name in **API key environment variable** and define the value in `.env`.
+
+```bash
+cp .env.example .env
+```
+
+The example file includes:
+
+| Variable | Typical use |
+| --- | --- |
+| `OPENAI_API_KEY` | OpenAI-compatible endpoints |
+| `OPENROUTER_API_KEY` | OpenRouter |
+| `ANTHROPIC_API_KEY` | Anthropic-format endpoints |
+| `GEMINI_API_KEY` | Gemini compatibility or legacy fallback |
+| `ANTHROPIC_AUTH_TOKEN` | Legacy compatibility only |
+
+The app does not automatically choose one provider or one API-key variable. Select the variable explicitly on each connection.
+
+## Give the Agent a workspace
+
+The Agent can work with project files only after **Working folder** is set. Paths are resolved inside that folder, with symlink checks.
+
+- File tools: `list_files`, `read_file`, `read_files`, `glob`, `grep`, `write_file`, and `edit_file`.
+- Shell tool: `run_command`, available only after **Allow shell commands** is enabled.
+- File writes and shell commands require approval.
+- Shell access is disabled when no workspace is selected, and is off by default.
+
+If you enable shell access, the model can run commands in the selected folder. Review approvals carefully, especially for destructive commands or commands that access the network.
+
+## Add MCP servers
+
+Open **Connections → MCP** to register external tools. The built-in client currently supports the MCP tool subset needed by the Agent:
+
+| Transport | Configure with | Behavior |
+| --- | --- | --- |
+| `stdio` | command, one argument per line, environment JSON | Spawns the server on demand and speaks newline-delimited JSON-RPC. |
+| Streamable HTTP | server URL and headers JSON | Uses JSON responses or Server-Sent Events and keeps the MCP session ID. |
+
+MCP tools are discovered lazily, namespaced as `mcp__<server>__<tool>`, and isolated from built-in tools. A slow or unavailable server does not prevent the Agent turn from continuing; the UI receives an MCP status notice instead.
+
+The current scope is `initialize`, `tools/list`, and `tools/call`. MCP `sampling`, `roots`, `elicitation`, `prompts`, and `resources` are intentionally outside the current UI and client scope.
+
+## Quick start
+
+### Requirements
+
+- Node.js **22.14+**. Node 24 is recommended.
+- A reachable model endpoint. The app does not ship with an AI model.
+
+### Install and run
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open http://localhost:3000. Projects are stored in `data/architech.db`, created on first run, and not committed.
+Open [http://localhost:3000](http://localhost:3000), configure a model connection, and start a project. Sessions are created automatically once a project has a title.
 
-## Connections and roles
+### Production build
 
-Open **Connections** and add a connection by preset or manually. Each connection has a name, wire format (`Anthropic Messages` or `OpenAI compatible`), base URL, model list, optional API key, optional API-key environment variable, and enabled/JSON-mode flags.
+```bash
+npm run build
+npm start
+```
 
-Bind a connection and model to each workflow role:
+The development command runs the Vite client and API server together. The production command runs the bundled server from `dist/`.
 
-| Role | Used for |
-|---|---|
-| `agent` | Agent chat and tool execution |
-| `plan` | Follow-up questions and project-plan generation |
-| `prd` | PRD generation |
-| `tasks` | Task-board generation |
+## Useful commands
 
-Role bindings let each workflow use a different model. Agent chat resolves the `agent` role; generation routes resolve their matching role. Legacy `llmConfig` requests remain accepted for compatibility.
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start the Vite client and API server on port 3000 with server watching. |
+| `npm run build` | Build the client and bundle the server into `dist/server.cjs`. |
+| `npm start` | Run the production server. |
+| `npm run lint` | Type-check the project with `tsc --noEmit`. |
+| `npm run clean` | Remove generated build output. |
 
-Saved API keys are held server-side in `data/architech.db`; protect that file and its backups. To keep a key out of the database, set an environment variable and enter its exact name in **API key environment variable**. The server uses that environment value for the connection.
+## Data and security notes
 
-## Agent tools
+- Project sessions, saved connections, role bindings, and MCP server definitions are stored in `data/architech.db`.
+- `data/` is runtime state and should not be committed.
+- API keys returned by the connections API are represented only by `hasKey`; the secret value is not sent back to the browser.
+- Choose a workspace deliberately. The Agent has no file access until you provide one.
+- Treat shell approval as code execution authority, not as a convenience toggle.
 
-Always available:
+## Built with
 
-- Project: `get_project`, `update_features`, `set_task_status`
-- Planning: `get_plan`, `get_prd`, `get_tasks`, `ask_followups`, `generate_plan`, `generate_prd`, `generate_tasks`
+React 19 · TypeScript · Vite · Express · Node `node:sqlite` · Tailwind CSS · Mermaid · Lucide
 
-After **Working folder** is set, file tools become available: `list_files`, `read_file`, `read_files`, `glob`, `grep`, `write_file`, and `edit_file`. Enable **Allow shell commands** to add `run_command`.
+## Project layout
 
-File paths are resolved inside the configured folder, including symlink checks. File writes and shell commands require approval. There is no shell-command denylist; an approved command runs with the configured folder as its working directory.
+```text
+src/                    React UI, workflow steps, state, exports, and i18n
+server/                 API routes, LLM adapters, agent loop, and MCP client
+db.ts                   SQLite bootstrap and session persistence
+docs/harness/            Phase-by-phase implementation notes
+data/                   Local runtime database (created on first run)
+```
 
-## Scripts
-
-| Command | What it does |
-|---|---|
-| `npm run dev` | Vite plus the API on port 3000, restarting on server changes |
-| `npm run build` | Bundles the client and server into `dist/` |
-| `npm start` | Runs the built server |
-| `npm run lint` | Runs `tsc --noEmit` |
-
-## Environment variables
-
-The normal saved-connection flow does not require one fixed provider environment variable. Use the connection editor's **API key environment variable** field to select the variable the server should read.
-
-| Variable | Use |
-|---|---|
-| `OPENAI_API_KEY` | Common example for an OpenAI-compatible connection, when selected in that connection |
-| `OPENROUTER_API_KEY` | Common example for an OpenRouter connection, when selected in that connection |
-| `ANTHROPIC_API_KEY` | Common example for an Anthropic-format connection, when selected in that connection |
-| `GEMINI_API_KEY` | Legacy Gemini configuration fallback, or a saved connection when selected in the connection editor |
-| `ANTHROPIC_AUTH_TOKEN` | Legacy compatibility fallback only; not the primary connection path |
+The UI is available in English and Bahasa Indonesia, with light and dark themes.
