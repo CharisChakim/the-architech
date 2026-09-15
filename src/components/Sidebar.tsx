@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ProjectSession, SessionSummary, LLMConfig } from "../types";
+import { ProjectSession, SessionSummary } from "../types";
 import {
   DraftingCompass,
   Check,
@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { SAMPLE_PROJECTS, SampleProject, sampleText } from "../lib/sampleData";
 import { Theme } from "../lib/theme";
-import { useT, TFunction } from "../lib/i18n";
+import { useT } from "../lib/i18n";
 
 interface SidebarProps {
   session: ProjectSession;
@@ -30,7 +30,7 @@ interface SidebarProps {
   onSelectSample: (sample: SampleProject) => void;
   onSelectHistorySession: (id: string) => void;
   onDeleteHistory: (id: string) => void;
-  onOpenLLMConfig: () => void;
+  onOpenConnections: () => void;
   theme: Theme;
   onToggleTheme: () => void;
   onToggleLanguage: () => void;
@@ -44,12 +44,6 @@ interface SidebarProps {
 
 const sectionLabel = "px-2.5 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-faint";
 
-const engineLabel = (config: LLMConfig, t: TFunction) => {
-  const provider =
-    config.provider === "ollama" ? "Ollama" : config.provider === "custom" ? "Custom" : "Gemini";
-  return `${provider} · ${config.modelName || t("default model")}`;
-};
-
 export const Sidebar: React.FC<SidebarProps> = ({
   session,
   historySessions,
@@ -58,7 +52,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectSample,
   onSelectHistorySession,
   onDeleteHistory,
-  onOpenLLMConfig,
+  onOpenConnections,
   theme,
   onToggleTheme,
   onToggleLanguage,
@@ -381,12 +375,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Pengaturan */}
         <div className="shrink-0 border-t border-line p-2 space-y-0.5">
           <button
-            onClick={onOpenLLMConfig}
-            title={`${t("LLM settings")} — ${engineLabel(session.llmConfig, t)}`}
+            onClick={onOpenConnections}
+            title={t("Manage connections")}
             className={`btn-ghost ${railed}`}
           >
             <Cpu className="w-4 h-4 shrink-0 text-faint" />
-            {!isRail && <span className="truncate text-xs">{engineLabel(session.llmConfig, t)}</span>}
+            {!isRail && <span className="truncate text-xs">{t("Connections")}</span>}
           </button>
 
           <button onClick={onToggleLanguage} title={otherLanguageName} className={`btn-ghost ${railed}`}>

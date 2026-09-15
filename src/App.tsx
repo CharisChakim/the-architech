@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { ProjectSession, SessionSummary, LLMConfig } from "./types";
+import { ProjectSession, SessionSummary } from "./types";
 import {
   createEmptySession,
   loadSavedLLMConfig,
-  saveLLMConfig,
   loadActiveSessionId,
   saveActiveSessionId,
   loadSidebarCollapsed,
@@ -18,7 +17,7 @@ import { SampleProject, sampleText } from "./lib/sampleData";
 import { Sidebar } from "./components/Sidebar";
 import { Topbar } from "./components/Topbar";
 import { Workbench } from "./components/shell/Workbench";
-import { LLMConfigModal } from "./components/LLMConfigModal";
+import { ConnectionsModal } from "./components/connections/ConnectionsModal";
 import { ExportModal } from "./components/ExportModal";
 import { RefreshCw } from "lucide-react";
 
@@ -27,7 +26,7 @@ export default function App() {
   const [historySessions, setHistorySessions] = useState<SessionSummary[]>([]);
   const [storeError, setStoreError] = useState<string | null>(null);
 
-  const [isLLMModalOpen, setIsLLMModalOpen] = useState(false);
+  const [isConnectionsModalOpen, setIsConnectionsModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(loadSidebarCollapsed);
@@ -261,11 +260,6 @@ export default function App() {
     }
   };
 
-  const handleSaveLLMConfig = (newConfig: LLMConfig) => {
-    saveLLMConfig(newConfig);
-    handleUpdateSession({ llmConfig: newConfig });
-  };
-
   if (!session) {
     return (
       <div className="min-h-screen bg-canvas flex items-center justify-center">
@@ -290,7 +284,7 @@ export default function App() {
         onSelectSample={handleSelectSample}
         onSelectHistorySession={handleSelectHistorySession}
         onDeleteHistory={handleDeleteHistory}
-        onOpenLLMConfig={() => setIsLLMModalOpen(true)}
+        onOpenConnections={() => setIsConnectionsModalOpen(true)}
         theme={theme}
         onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
         onToggleLanguage={toggleLanguage}
@@ -310,9 +304,7 @@ export default function App() {
           layoutMode={effectiveLayoutMode}
           onLayoutModeChange={handleLayoutModeChange}
           isNarrow={isNarrow}
-          connectionLabel={session.llmConfig.provider}
-          modelLabel={session.llmConfig.modelName || t("default model")}
-          connectionStatus="connected"
+          onOpenConnections={() => setIsConnectionsModalOpen(true)}
         />
 
         <Workbench
@@ -338,11 +330,9 @@ export default function App() {
         />
       </div>
 
-      <LLMConfigModal
-        isOpen={isLLMModalOpen}
-        onClose={() => setIsLLMModalOpen(false)}
-        config={session.llmConfig}
-        onSave={handleSaveLLMConfig}
+      <ConnectionsModal
+        isOpen={isConnectionsModalOpen}
+        onClose={() => setIsConnectionsModalOpen(false)}
       />
 
       <ExportModal

@@ -323,13 +323,13 @@ export function resolveFor(role: Role, body: any, lang: Lang): { conn: Connectio
     return { conn: connection, model: requestedModel };
   }
 
-  // llmConfig lama sengaja diperiksa sebelum binding supaya klien lama tidak berubah perilaku pada fase ini.
+  const roleResolution = resolveRole(role);
+  if (roleResolution) return roleResolution;
+
+  // Binding role harus menang agar klien lama otomatis memakai koneksi tersimpan.
   if (request.llmConfig !== undefined && request.llmConfig !== null) {
     return legacyToConnection(request.llmConfig);
   }
-
-  const roleResolution = resolveRole(role);
-  if (roleResolution) return roleResolution;
 
   const enabledConnections = listConnections().filter((connection) => connection.enabled);
   if (enabledConnections.length === 1) {

@@ -10,6 +10,47 @@ export interface LLMConfig {
   saveApiKey?: boolean;
 }
 
+export type WireFormat = "anthropic" | "openai";
+export type AgentRole = "agent" | "plan" | "prd" | "tasks";
+
+export interface ConnectionCheck {
+  ok: boolean;
+  toolsSupported: boolean;
+  at: string;
+  message?: string;
+}
+
+export interface Connection {
+  id: string;
+  name: string;
+  format: WireFormat;
+  baseUrl: string;
+  hasKey: boolean;
+  apiKeyEnv?: string;
+  headers?: Record<string, string>;
+  models: string[];
+  jsonMode: boolean;
+  enabled: boolean;
+  lastCheck?: ConnectionCheck;
+}
+
+export interface RoleBinding {
+  connectionId: string;
+  model: string;
+}
+
+export interface McpServerConfig {
+  id: string;
+  name: string;
+  enabled: boolean;
+  transport: "stdio" | "http";
+  command?: string;
+  args?: string[];
+  url?: string;
+  headers?: Record<string, string>;
+  status?: { ok: boolean; tools: number; message?: string };
+}
+
 export interface ProjectInput {
   title: string;
   description: string;

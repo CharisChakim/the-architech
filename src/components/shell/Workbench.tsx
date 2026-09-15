@@ -54,7 +54,6 @@ export const Workbench: React.FC<WorkbenchProps> = ({
   const agentRun = useAgentRun({
     sessionId: session.id,
     workspaceRoot: session.workspaceRoot || "",
-    llmConfig: session.llmConfig,
     onToolApplied: handleToolApplied,
   });
 

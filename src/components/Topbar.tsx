@@ -2,6 +2,8 @@ import React from "react";
 import { ProjectSession } from "../types";
 import { Menu, Download, MessageSquare } from "lucide-react";
 import { useT } from "../lib/i18n";
+import { useConnections } from "../lib/connections";
+import { ModelSwitcher } from "./connection/ModelSwitcher";
 
 export type LayoutMode = "agent" | "split" | "board";
 export type ConnectionStatus = "connected" | "checking" | "error" | "unknown";
@@ -36,6 +38,7 @@ export const Topbar: React.FC<TopbarProps> = ({
   onOpenConnections,
 }) => {
   const { t } = useT();
+  const { connections, roles, bindRole } = useConnections();
   const stepNames: Record<number, string> = {
     1: t("Plan"),
     2: t("PRD"),
@@ -122,24 +125,12 @@ export const Topbar: React.FC<TopbarProps> = ({
         )}
 
         <div className="ml-auto flex min-w-0 items-center gap-2">
-          {hasConnectionStatus &&
-            (onOpenConnections ? (
-              <button
-                type="button"
-                onClick={onOpenConnections}
-                title={connectionStatusLabel}
-                className="hidden max-w-56 items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-muted hover:bg-subtle hover:text-ink sm:flex"
-              >
-                {connectionContent}
-              </button>
-            ) : (
-              <span
-                title={connectionStatusLabel}
-                className="hidden max-w-56 items-center gap-1.5 px-2 py-1 text-xs text-muted sm:flex"
-              >
-                {connectionContent}
-              </span>
-            ))}
+          <ModelSwitcher
+            connections={connections}
+            roleBindings={roles}
+            onSelectModel={(role, connectionId, model) => bindRole(role, connectionId, model)}
+            onOpenConnections={onOpenConnections}
+          />
 
           {hasArtifacts && (
             <button onClick={onOpenExport} className="btn-outline" title={t("Export document & task bundle")}>

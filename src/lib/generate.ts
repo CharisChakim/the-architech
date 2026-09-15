@@ -32,7 +32,6 @@ export async function generatePrd(
     {
       title: session.input.title || session.title || "AI application",
       plan: session.plan,
-      llmConfig: session.llmConfig,
       language: lang,
     },
     lang,
@@ -52,7 +51,6 @@ export async function generateTasks(
       title: session.input.title || session.title || "AI application",
       plan: session.plan,
       prd: session.prd,
-      llmConfig: session.llmConfig,
       language: lang,
     },
     lang,

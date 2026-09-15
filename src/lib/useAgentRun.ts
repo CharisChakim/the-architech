@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Entry } from "./agentEvents";
 import { useT } from "./i18n";
-import type { LLMConfig } from "../types";
 
 interface AgentRunOptions {
   sessionId: string;
   workspaceRoot: string;
-  llmConfig?: LLMConfig;
   onToolApplied: () => void;
 }
 
@@ -35,7 +33,7 @@ function errorText(value: unknown, fallback: string): string {
 // disimpan terpisah apa adanya dari server, karena blok tool_use dan tool_result
 // harus tetap berpasangan persis atau permintaan berikutnya ditolak.
 
-export function useAgentRun({ sessionId, workspaceRoot, llmConfig, onToolApplied }: AgentRunOptions): AgentRunResult {
+export function useAgentRun({ sessionId, workspaceRoot, onToolApplied }: AgentRunOptions): AgentRunResult {
   const { t } = useT();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [busy, setBusy] = useState(false);
@@ -111,7 +109,6 @@ export function useAgentRun({ sessionId, workspaceRoot, llmConfig, onToolApplied
           workspaceRoot,
           history: history.current,
           message,
-          ...(llmConfig ? { agentConfig: { baseUrl: llmConfig.baseUrl, apiKey: llmConfig.apiKey, model: llmConfig.modelName } } : {}),
         }),
         signal: ac.signal,
       });
@@ -249,7 +246,7 @@ export function useAgentRun({ sessionId, workspaceRoot, llmConfig, onToolApplied
       }
       if (toolTouchedSession) onToolAppliedRef.current();
     }
-  }, [appendError, llmConfig, sessionId, t, workspaceRoot]);
+  }, [appendError, sessionId, t, workspaceRoot]);
 
   const retry = useCallback(async (): Promise<void> => {
     if (lastMessage.current) await send(lastMessage.current);
