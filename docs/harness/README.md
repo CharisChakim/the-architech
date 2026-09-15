@@ -30,17 +30,17 @@ diserahkan apa adanya ke agent coding (Codex desktop) tanpa konteks percakapan.
 | Fase | Isi | Status | Brief |
 |---|---|---|---|
 | 0 | Diet bundel + ekstraksi `server/messages.ts` dan `server/llm/json.ts` | **Selesai** | — |
-| 1 | Provider layer + adapter Anthropic/OpenAI, `callLlm` mendelegasi, buang `@google/genai` | Siap | [`fase-01-provider-layer.md`](fase-01-provider-layer.md) |
-| 2 | Tabel koneksi + role binding, route, tiga probe test koneksi | Siap | [`fase-02-koneksi-dan-role.md`](fase-02-koneksi-dan-role.md) |
-| 3 | Agent loop provider-netral, tabel percakapan, abort, hapus `agent.ts` | Siap | [`fase-03-agent-loop-netral.md`](fase-03-agent-loop-netral.md) |
-| 4 | Pipeline PRD jadi tool agent + tool coding (`glob`, `grep`, `edit_file`) | Siap | [`fase-04-tool-pipeline-dan-coding.md`](fase-04-tool-pipeline-dan-coding.md) |
-| 5 | Shell UI: Workbench, splitter, pipeline pane | Siap | [`fase-05-shell-ui.md`](fase-05-shell-ui.md) |
-| 6 | Transcript: tool card, diff view, terminal view | Siap | [`fase-06-transcript.md`](fase-06-transcript.md) |
-| 7 | UI koneksi + switcher model + preset | Siap | [`fase-07-ui-koneksi.md`](fase-07-ui-koneksi.md) |
-| 8 | UX: intake percakapan, pecah `Step1Plan` | Siap | [`fase-08-intake-percakapan.md`](fase-08-intake-percakapan.md) |
-| 9 | UX: progres generate inline, hapus modal + kurva palsu | Siap | [`fase-09-progres-generate.md`](fase-09-progres-generate.md) |
-| 10 | UX: papan task yang bisa dieksekusi | Siap | [`fase-10-papan-eksekusi.md`](fase-10-papan-eksekusi.md) |
-| 11 | MCP client + penutup (i18n, README, .env.example) | Siap | [`fase-11-mcp-dan-penutup.md`](fase-11-mcp-dan-penutup.md) |
+| 1 | Provider layer + adapter Anthropic/OpenAI, `callLlm` mendelegasi, buang `@google/genai` | **Selesai** | [`fase-01-provider-layer.md`](fase-01-provider-layer.md) |
+| 2 | Tabel koneksi + role binding, route, tiga probe test koneksi | **Selesai** | [`fase-02-koneksi-dan-role.md`](fase-02-koneksi-dan-role.md) |
+| 3 | Agent loop provider-netral, tabel percakapan, abort, hapus `agent.ts` | **Selesai** | [`fase-03-agent-loop-netral.md`](fase-03-agent-loop-netral.md) |
+| 4 | Pipeline PRD jadi tool agent + tool coding (`glob`, `grep`, `edit_file`) | **Selesai** | [`fase-04-tool-pipeline-dan-coding.md`](fase-04-tool-pipeline-dan-coding.md) |
+| 5 | Shell UI: Workbench, splitter, pipeline pane | **Selesai** | [`fase-05-shell-ui.md`](fase-05-shell-ui.md) |
+| 6 | Transcript: tool card, diff view, terminal view | **Selesai** | [`fase-06-transcript.md`](fase-06-transcript.md) |
+| 7 | UI koneksi + switcher model + preset | **Selesai** | [`fase-07-ui-koneksi.md`](fase-07-ui-koneksi.md) |
+| 8 | UX: intake percakapan, pecah `Step1Plan` | **Selesai** | [`fase-08-intake-percakapan.md`](fase-08-intake-percakapan.md) |
+| 9 | UX: progres generate inline, hapus modal + kurva palsu | **Selesai** | [`fase-09-progres-generate.md`](fase-09-progres-generate.md) |
+| 10 | UX: papan task yang bisa dieksekusi | **Selesai** | [`fase-10-papan-eksekusi.md`](fase-10-papan-eksekusi.md) |
+| 11 | MCP client + penutup (i18n, README, .env.example) | **Selesai** | [`fase-11-mcp-dan-penutup.md`](fase-11-mcp-dan-penutup.md) |
 
 ### Ketergantungan antar fase
 

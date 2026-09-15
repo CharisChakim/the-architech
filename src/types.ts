@@ -46,6 +46,7 @@ export interface McpServerConfig {
   transport: "stdio" | "http";
   command?: string;
   args?: string[];
+  env?: Record<string, string>;
   url?: string;
   headers?: Record<string, string>;
   status?: { ok: boolean; tools: number; message?: string };

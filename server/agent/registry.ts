@@ -5,6 +5,7 @@ import { fsTools } from "./tools/fs.ts";
 import { pipelineTools } from "./tools/pipeline.ts";
 import { projectTools } from "./tools/project.ts";
 import { shellTools } from "./tools/shell.ts";
+import { mcpToolsFor, type McpStatus } from "../mcp/registry.ts";
 
 export interface AgentLimits {
   maxTurns: number;
@@ -80,6 +81,17 @@ export function toolsFor(session: any, extra: ToolSpec[] = []): ToolSpec[] {
       return false;
     }
   });
+}
+
+export async function toolsForTurn(
+  session: any,
+  signal: AbortSignal,
+  onMcpStatus?: (status: McpStatus) => void,
+): Promise<ToolSpec[]> {
+  const builtins = toolsFor(session);
+  const reserved = new Set(builtins.map((spec) => spec.def.name));
+  const mcp = await mcpToolsFor(signal, reserved, onMcpStatus);
+  return [...builtins, ...mcp];
 }
 
 export async function dispatch(

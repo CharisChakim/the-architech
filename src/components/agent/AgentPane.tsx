@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { AlertTriangle, Bot, Check, ChevronDown, Circle, Clock3, Folder } from "lucide-react";
+import { AlertTriangle, Bot, Check, ChevronDown, Circle, Clock3, Folder, PlugZap } from "lucide-react";
 import type { ProjectSession } from "../../types";
 import { SAMPLE_PROJECTS, sampleText, type SampleProject } from "../../lib/sampleData";
 import type { Entry } from "../../lib/agentEvents";
@@ -112,6 +112,13 @@ export const AgentPane: React.FC<AgentPaneProps> = ({
         return <ApprovalCard key={entry.id} entry={entry} onRespond={onDecideApproval} />;
       case "questions":
         return <QuestionsCard key={entry.id} entry={entry} onRespond={onRespondQuestions} />;
+      case "mcp_status":
+        return (
+          <div key={entry.id} className="flex items-start gap-2 rounded-xl border border-warn/30 bg-warn-soft px-3 py-2 text-xs text-warn-ink">
+            <PlugZap className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span className="min-w-0 flex-1">MCP {entry.server}: {entry.message} · {t("{count} tools", { count: entry.tools })}</span>
+          </div>
+        );
       case "turn_end":
         return (
           <div key={entry.id} className="flex items-center gap-2 px-1 text-[11px] text-faint">

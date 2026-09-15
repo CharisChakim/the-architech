@@ -1,19 +1,19 @@
 # The Architech
 
-Turns a rough idea into a plan, a PRD, and a board of tasks an AI coding agent can run — and comes with its own agent that can edit that project, and your files, on request.
+Turns a rough idea into a plan, a PRD, and a task board an AI coding agent can run. It also includes an agent panel that can update the project and, when given a folder, work with its files.
 
 ## What it does
 
-1. **Plan** — you describe an idea, the model asks clarifying questions until it stops guessing, then drafts the architecture, a Mermaid diagram, a roadmap, and an estimate.
-2. **PRD** — the plan becomes a seven-point requirements document, with extra sections when the project needs them.
-3. **Send to Agent** — the PRD is split into atomic tasks with target files, dependencies, a prompt and verification steps, on a kanban board. Download `AGENTS.md` to hand to Cursor, Claude Code, or Codex.
+1. **Plan** — describe an idea; the model asks clarifying questions, then drafts architecture, a Mermaid diagram, a roadmap, and an estimate.
+2. **PRD** — turn the plan into a seven-point requirements document, with extra sections when needed.
+3. **Send to Agent** — split the PRD into atomic tasks with target files, dependencies, prompts, verification steps, and task states. Download `AGENTS.md` for another coding agent.
 
-Alongside those, an **agent** panel runs a real tool loop: it asks for tools, the app executes them, feeds the results back, and asks again until it is done. It can read and edit the project itself, and — once you point it at a folder — read, write and run things there.
+The **Agent** panel runs a tool loop: it requests tools, the app executes them, returns results, and continues until the turn is complete.
 
 ## Requirements
 
-- **Node 22.5 or newer.** Storage uses the built-in `node:sqlite`, so there is no database to install. Developed and tested on Node 25.
-- A model endpoint. See below — there is no bundled model.
+- **Node.js 22.14 or newer. Node 24 is recommended.** The app uses built-in `node:sqlite`, `fs.promises.glob`, and `AbortSignal.any`.
+- A reachable model endpoint. No model is bundled.
 
 ## Setup
 
@@ -22,65 +22,53 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000. Projects are stored in `data/architech.db`, which is created on first run and is not committed.
+Open http://localhost:3000. Projects are stored in `data/architech.db`, created on first run, and not committed.
 
-## Connecting a model
+## Connections and roles
 
-Nothing works until a model is reachable. Open **LLM settings** in the sidebar and pick one:
+Open **Connections** and add a connection by preset or manually. Each connection has a name, wire format (`Anthropic Messages` or `OpenAI compatible`), base URL, model list, optional API key, optional API-key environment variable, and enabled/JSON-mode flags.
 
-| Provider | Base URL | Notes |
-|---|---|---|
-| Gemini | — | Needs `GEMINI_API_KEY` in the server environment, or paste a key in the dialog |
-| Ollama | `http://localhost:11434` | Local models; the app falls back to its OpenAI-compatible route |
-| Custom | your endpoint | Anything OpenAI-compatible. `/v1` in the URL is fine either way |
+Bind a connection and model to each workflow role:
 
-**The agent has a stricter requirement than the rest of the app.** The three generation steps speak the OpenAI format, but the agent needs the **Anthropic Messages format** (`/v1/messages`), because that is what returns `tool_use` blocks for the app to execute. A CLI cannot stand in here: `claude -p` and `codex exec` run their own loop and hand back only final text.
+| Role | Used for |
+|---|---|
+| `agent` | Agent chat and tool execution |
+| `plan` | Follow-up questions and project-plan generation |
+| `prd` | PRD generation |
+| `tasks` | Task-board generation |
 
-So the agent needs one of:
+Role bindings let each workflow use a different model. Agent chat resolves the `agent` role; generation routes resolve their matching role. Legacy `llmConfig` requests remain accepted for compatibility.
 
-- The Anthropic API directly (`https://api.anthropic.com`, with an API key)
-- A local router that serves the Anthropic format — this is how you use a Claude Code, Codex, or Antigravity subscription instead of paying per token
+Saved API keys are held server-side in `data/architech.db`; protect that file and its backups. To keep a key out of the database, set an environment variable and enter its exact name in **API key environment variable**. The server uses that environment value for the connection.
 
-The agent reuses the base URL, key and model from LLM settings. If your endpoint serves both formats on the same base URL, one setting covers everything.
+## Agent tools
 
-Credentials are read in this order: the key in LLM settings, then `ANTHROPIC_AUTH_TOKEN`, then `ANTHROPIC_API_KEY` from the server environment.
+Always available:
 
-## Using the agent
+- Project: `get_project`, `update_features`, `set_task_status`
+- Planning: `get_plan`, `get_prd`, `get_tasks`, `ask_followups`, `generate_plan`, `generate_prd`, `generate_tasks`
 
-Open **Agent** in the top bar. Out of the box it can read the project, replace the feature list, and move cards on the board. Changes land in the database immediately, so the canvas and the board update behind the panel.
+After **Working folder** is set, file tools become available: `list_files`, `read_file`, `read_files`, `glob`, `grep`, `write_file`, and `edit_file`. Enable **Allow shell commands** to add `run_command`.
 
-The project has to be saved first — untitled drafts are deliberately kept out of storage, and the agent will say so rather than guess.
-
-### Files and commands
-
-Type a path into **Working folder** and the agent gains `list_files`, `read_file` and `write_file`, scoped to that folder. There is no default: leave it empty and those tools are not offered at all.
-
-Tick **Allow shell commands** — only available once a folder is set — and it gains `run_command`, which runs with that folder as the working directory.
-
-**Every command is shown to you and waits for approval before it runs.** You approve or refuse each one; refusing tells the model the command did not run, so it can suggest something else. An unanswered request is refused after five minutes.
-
-### What the boundaries actually are
-
-- Paths are resolved to their real location and checked against the real folder, so `../`, an absolute path, and a symlink pointing out of the folder are all refused.
-- Running commands is a separate permission from reading and writing files, and is off by default.
-- Permissions are read from the saved project, never from the request, so a client cannot widen its own access.
-- **There is no denylist of dangerous commands.** Pattern-matching shell strings does not hold up, and shipping one would imply a protection that is not there. If you enable the shell and approve a command, it runs.
-- `write_file` replaces a whole file rather than patching part of it.
+File paths are resolved inside the configured folder, including symlink checks. File writes and shell commands require approval. There is no shell-command denylist; an approved command runs with the configured folder as its working directory.
 
 ## Scripts
 
 | Command | What it does |
 |---|---|
 | `npm run dev` | Vite plus the API on port 3000, restarting on server changes |
-| `npm run build` | Bundles the client and the server into `dist/` |
+| `npm run build` | Bundles the client and server into `dist/` |
 | `npm start` | Runs the built server |
-| `npm run lint` | `tsc --noEmit` |
+| `npm run lint` | Runs `tsc --noEmit` |
 
 ## Environment variables
 
-All optional — everything can be set in the UI instead.
+The normal saved-connection flow does not require one fixed provider environment variable. Use the connection editor's **API key environment variable** field to select the variable the server should read.
 
-| Variable | Used for |
+| Variable | Use |
 |---|---|
-| `GEMINI_API_KEY` | Gemini provider, when no key is given in LLM settings |
-| `ANTHROPIC_AUTH_TOKEN` / `ANTHROPIC_API_KEY` | Agent, when no key is given in LLM settings |
+| `OPENAI_API_KEY` | Common example for an OpenAI-compatible connection, when selected in that connection |
+| `OPENROUTER_API_KEY` | Common example for an OpenRouter connection, when selected in that connection |
+| `ANTHROPIC_API_KEY` | Common example for an Anthropic-format connection, when selected in that connection |
+| `GEMINI_API_KEY` | Legacy Gemini configuration fallback, or a saved connection when selected in the connection editor |
+| `ANTHROPIC_AUTH_TOKEN` | Legacy compatibility fallback only; not the primary connection path |

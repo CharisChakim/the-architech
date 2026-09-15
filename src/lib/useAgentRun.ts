@@ -266,6 +266,18 @@ export function useAgentRun({ sessionId, workspaceRoot, onToolApplied }: AgentRu
                 answered: false,
               },
             ]);
+          } else if (event.type === "mcp_status") {
+            setEntries((prev) => [
+              ...prev,
+              {
+                kind: "mcp_status",
+                id: nextEntryId(sequence),
+                server: event.server || "MCP",
+                state: event.state || "down",
+                tools: Number(event.tools) || 0,
+                message: event.message || "Server MCP tidak tersedia.",
+              },
+            ]);
           } else if (event.type === "history") {
             history.current = event.history;
           } else if (event.type === "error") {

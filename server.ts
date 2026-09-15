@@ -9,6 +9,7 @@ import { callLlm as callLlmCore } from "./server/llm/call.ts";
 import { resolveFor, type Role } from "./server/connections/store.ts";
 import connectionsRouter from "./server/connections/routes.ts";
 import agentRouter from "./server/routes/agent.ts";
+import mcpRouter from "./server/mcp/routes.ts";
 import { generateFollowups } from "./server/pipeline/followups.ts";
 import { generatePlan } from "./server/pipeline/plan.ts";
 import { generatePrd } from "./server/pipeline/prd.ts";
@@ -21,6 +22,7 @@ const app = express();
 app.use(express.json({ limit: "10mb" }));
 app.use(connectionsRouter);
 app.use(agentRouter);
+app.use(mcpRouter);
 
 const PORT = 3000;
 

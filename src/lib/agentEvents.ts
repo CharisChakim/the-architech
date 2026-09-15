@@ -33,6 +33,7 @@ export type Entry =
       round: number;
       answered: boolean;
     }
+  | { kind: "mcp_status"; id: string; server: string; state: string; tools: number; message: string }
   | { kind: "turn_end"; id: string; toolCount: number; ms: number }
   | { kind: "error"; id: string; message: string; retryable: boolean };
 
@@ -46,6 +47,7 @@ export type AgentEvent = {
     | "approval_request"
     | "approval_resolved"
     | "questions"
+    | "mcp_status"
     | "done"
     | "error"
     | "abort"
@@ -66,6 +68,9 @@ export type AgentEvent = {
   command?: string;
   questions?: FollowUpQuestion[];
   round?: number;
+  server?: string;
+  tools?: number;
+  state?: string;
   message?: string;
   retryable?: boolean;
   stop?: "stop" | "tool_calls" | "max_tokens" | "other";

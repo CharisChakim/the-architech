@@ -9,7 +9,7 @@ import {
   dispatch,
   type AgentLimits,
   type Elicit,
-  toolsFor,
+  toolsForTurn,
   type ToolSpec,
 } from "./registry.ts";
 
@@ -25,6 +25,7 @@ export type AgentEventType =
   | "approval_resolved"
   | "done"
   | "error"
+  | "mcp_status"
   | "abort";
 
 export interface AgentEvent {
@@ -44,6 +45,9 @@ export interface AgentEvent {
   elicitId?: string;
   command?: string;
   approved?: boolean;
+  server?: string;
+  tools?: number;
+  state?: string;
 }
 
 export interface AgentRunOptions {
@@ -152,7 +156,9 @@ export async function runAgent(opts: AgentRunOptions): Promise<void> {
         opts.onEvent({ type: "error", message: `Sesi ${opts.sessionId} tidak ditemukan.` });
         return;
       }
-      const specs = toolsFor(session);
+      const specs = await toolsForTurn(session, opts.signal, (status) => {
+        opts.onEvent({ type: "mcp_status", ...status });
+      });
       const root = await workspaceRoot(session);
       const toolContext = {
         sessionId: opts.sessionId,

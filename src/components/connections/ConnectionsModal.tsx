@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
-import { AlertCircle, Check, Cpu, Plus, RefreshCw, Save, Server, Trash2, X } from "lucide-react";
+import { AlertCircle, Check, Cpu, Plus, RefreshCw, Save, Trash2, X } from "lucide-react";
 import type { AgentRole, WireFormat } from "../../types";
 import { useConnections } from "../../lib/connections";
 import type { ConnectionDraft, ConnectionTestResult } from "../../lib/connections";
 import { useT } from "../../lib/i18n";
 import { PROVIDER_PRESETS as CONNECTION_PRESETS, createProviderDraft } from "../../lib/providerPresets";
 import type { ProviderPreset } from "../../lib/providerPresets";
+import { McpPanel } from "./McpPanel";
 
 export interface ConnectionsModalProps {
   isOpen: boolean;
@@ -251,7 +252,7 @@ export const ConnectionsModal: React.FC<ConnectionsModalProps> = ({ isOpen, onCl
           )}
 
           {tab === "mcp" && (
-            <div className="flex min-h-64 flex-1 items-center justify-center p-8 text-center"><div className="max-w-sm"><Server className="mx-auto mb-3 h-7 w-7 text-accent" /><h4 className="text-sm font-semibold text-ink">{t("MCP servers")}</h4><p className="mt-1 text-xs leading-relaxed text-faint">{t("MCP server management will appear here when the MCP routes are enabled in phase 11.")}</p></div></div>
+            <McpPanel />
           )}
         </div>
 
