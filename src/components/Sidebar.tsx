@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Bot, Check, ChevronRight, DraftingCompass, FolderKanban, Languages, Layers, Lock, MessageCircle, Moon, PanelLeftClose, PanelLeftOpen, Plug, Plus, Sun, Trash2, X } from "lucide-react";
+import { Bot, Check, ChevronRight, DraftingCompass, FolderKanban, Languages, Layers, MessageCircle, Moon, PanelLeftClose, PanelLeftOpen, Plug, Plus, Sun, Trash2, X } from "lucide-react";
 import type { ProjectSession, SessionSummary } from "../types";
 import { SAMPLE_PROJECTS, sampleText, type SampleProject } from "../lib/sampleData";
 import type { Theme } from "../lib/theme";
@@ -50,7 +50,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const { lang, t } = useT();
   const [showSamples, setShowSamples] = useState(false);
-  const [lockNotice, setLockNotice] = useState<string | null>(null);
 
   const hasPlan = Boolean(session.plan);
   const hasPrd = Boolean(session.prd);
@@ -64,7 +63,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const steps = [
     { num: 1 as const, label: t("Plan"), complete: hasPlan, available: true },
     { num: 2 as const, label: t("PRD"), complete: hasPrd, available: true },
-    { num: 3 as const, label: t("Kanban"), complete: hasTasks, available: hasPrd },
+    { num: 3 as const, label: t("Kanban"), complete: hasTasks, available: true },
   ];
 
   const selectAgent = () => {
@@ -78,12 +77,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const handleStepClick = (step: (typeof steps)[number]) => {
-    if (!step.available) {
-      setLockNotice(t("Finish step 2 (PRD) first"));
-      window.setTimeout(() => setLockNotice(null), 3000);
-      return;
-    }
-    setLockNotice(null);
     onSelectStep(step.num);
     onClose();
   };
@@ -159,12 +152,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
             {!isRail && <div className="mt-2 space-y-0.5 pl-2">
               {steps.map((step) => (
-                <button key={step.num} type="button" onClick={() => handleStepClick(step)} className={`shell-step ${session.currentStep === step.num ? "is-active" : ""} ${!step.available ? "is-locked" : ""}`} title={!step.available ? t("Finish step 2 (PRD) first") : step.label}>
-                  <span className="grid h-4 w-4 shrink-0 place-items-center rounded-full border border-line text-[9px]">{!step.available ? <Lock className="h-2.5 w-2.5" /> : step.complete ? <Check className="h-2.5 w-2.5 text-ok" /> : step.num}</span><span className="truncate">{step.label}</span>
+                <button key={step.num} type="button" onClick={() => handleStepClick(step)} className={`shell-step ${session.currentStep === step.num ? "is-active" : ""}`} title={step.label}>
+                  <span className="grid h-4 w-4 shrink-0 place-items-center rounded-full border border-line text-[9px]">{step.complete ? <Check className="h-2.5 w-2.5 text-ok" /> : step.num}</span><span className="truncate">{step.label}</span>
                 </button>
               ))}
             </div>}
-            {lockNotice && !isRail && <p className="mt-2 px-2 text-[10px] leading-relaxed text-warn-ink"><Lock className="mr-1 inline h-3 w-3" />{lockNotice}</p>}
           </div>
 
           {!isRail && <div className="mt-6">

@@ -26,6 +26,7 @@ export interface RuntimeControlsProps {
   onChange: (selection: RuntimeChatSelection) => void;
   onOpenConnections?: () => void;
   disabled?: boolean;
+  compact?: boolean;
 }
 
 function preferredValue(
@@ -50,6 +51,7 @@ export const RuntimeControls: React.FC<RuntimeControlsProps> = ({
   onChange,
   onOpenConnections,
   disabled = false,
+  compact = false,
 }) => {
   const { t } = useT();
   const detection = selection.runtime === "legacy"
@@ -124,6 +126,82 @@ export const RuntimeControls: React.FC<RuntimeControlsProps> = ({
     onChange({ ...selection, model, effort });
   };
 
+  const runtimeOptions = (
+    <>
+      <option value="legacy">{t("Legacy API")}</option>
+      {selection.runtime !== "legacy" && !report?.runtimes.some((item) => item.runtime === selection.runtime) && (
+        <option value={selection.runtime} disabled>
+          {RUNTIME_NAMES[selection.runtime]} · {selectedRuntimeStatus}
+        </option>
+      )}
+      {report?.runtimes.map((item) => (
+        <option key={item.runtime} value={item.runtime} disabled={item.status !== "ready"}>
+          {RUNTIME_NAMES[item.runtime]} · {t(STATUS_LABELS[item.status])}
+        </option>
+      ))}
+    </>
+  );
+
+  if (compact) {
+    return (
+      <div className="flex min-w-0 max-w-full items-center gap-1" aria-label={t("Agent runtime controls")}>
+        <label htmlFor="agent-runtime" className="sr-only">{t("Runtime")}</label>
+        <select
+          id="agent-runtime"
+          className="h-8 max-w-36 rounded-lg border-0 bg-transparent px-2 text-[11px] font-medium text-ink outline-hidden hover:bg-subtle focus:bg-subtle"
+          value={selection.runtime}
+          onChange={(event) => changeRuntime(event.target.value)}
+          disabled={disabled}
+          title={t("Runtime")}
+        >
+          {runtimeOptions}
+        </select>
+        {selection.runtime !== "legacy" && (
+          <>
+            <span
+              className={`h-1.5 w-1.5 shrink-0 rounded-full ${selectedRuntimeChecking ? "bg-faint" : selectedRuntimeUnavailable ? "bg-warn" : "bg-ok"}`}
+              title={selectedRuntimeDisplayStatus}
+              aria-label={selectedRuntimeDisplayStatus}
+            />
+            <label htmlFor="agent-runtime-model" className="sr-only">{t("Model")}</label>
+            <select
+              id="agent-runtime-model"
+              className="h-8 max-w-40 rounded-lg border-0 bg-transparent px-2 text-[11px] text-ink outline-hidden hover:bg-subtle focus:bg-subtle"
+              value={selection.model}
+              onChange={(event) => changeModel(event.target.value)}
+              disabled={disabled || selectedRuntimeUnavailable || !models.length}
+              title={t("Model")}
+            >
+              <option value="inherit">{activeModel?.label || t("Use runtime default")}</option>
+              {models.map((model) => <option key={model.modelId} value={model.modelId}>{model.label}</option>)}
+            </select>
+            {effortOptions.length > 0 && (
+              <>
+                <label htmlFor="agent-runtime-effort" className="sr-only">{t("Effort")}</label>
+                <select
+                  id="agent-runtime-effort"
+                  className="h-8 max-w-24 rounded-lg border-0 bg-transparent px-2 text-[11px] text-ink outline-hidden hover:bg-subtle focus:bg-subtle"
+                  value={selection.effort}
+                  onChange={(event) => onChange({ ...selection, effort: event.target.value })}
+                  disabled={disabled || selectedRuntimeUnavailable}
+                  title={t("Effort")}
+                >
+                  <option value="inherit">{activeModel?.defaultEffort || t("Use runtime default")}</option>
+                  {effortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+              </>
+            )}
+          </>
+        )}
+        {selectedRuntimeUnavailable && onOpenConnections && (
+          <button type="button" className="rounded-lg px-2 py-1.5 text-[11px] text-accent-ink hover:bg-subtle" onClick={onOpenConnections}>
+            {t("Connections")}
+          </button>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="min-w-0 flex-1" aria-label={t("Agent runtime controls")}>
       <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -135,17 +213,7 @@ export const RuntimeControls: React.FC<RuntimeControlsProps> = ({
           onChange={(event) => changeRuntime(event.target.value)}
           disabled={disabled}
         >
-          <option value="legacy">{t("Legacy API")}</option>
-          {selection.runtime !== "legacy" && !report?.runtimes.some((item) => item.runtime === selection.runtime) && (
-            <option value={selection.runtime} disabled>
-              {RUNTIME_NAMES[selection.runtime]} · {selectedRuntimeStatus}
-            </option>
-          )}
-          {report?.runtimes.map((item) => (
-            <option key={item.runtime} value={item.runtime} disabled={item.status !== "ready"}>
-              {RUNTIME_NAMES[item.runtime]} · {t(STATUS_LABELS[item.status])}
-            </option>
-          ))}
+          {runtimeOptions}
         </select>
         {loading && <span className="text-[11px] text-faint" role="status" aria-live="polite">{t("Detecting...")}</span>}
         {selection.runtime !== "legacy" && (

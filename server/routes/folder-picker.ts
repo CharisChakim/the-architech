@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import express, { type Request, type Response } from "express";
@@ -128,6 +128,40 @@ function validatedFolderPath(value: string): string {
 }
 
 let pickerInFlight = false;
+
+function gitValue(root: string, args: string[]): Promise<string | null> {
+  return new Promise((resolve) => {
+    execFile("git", ["-C", root, ...args], { timeout: 2_000, maxBuffer: 16_384, encoding: "utf8" }, (error, stdout) => {
+      if (error) {
+        resolve(null);
+        return;
+      }
+      const value = stdout.trim();
+      resolve(value || null);
+    });
+  });
+}
+
+router.get("/api/agent/workspace-context", async (req, res: Response): Promise<void> => {
+  if (!isLoopbackRequest(req)) {
+    res.status(403).json({ error: "Workspace context is available only from the local harness." });
+    return;
+  }
+  const requested = typeof req.query.path === "string" ? req.query.path.trim() : "";
+  if (!requested) {
+    res.status(400).json({ error: "A workspace path is required." });
+    return;
+  }
+  try {
+    const validated = validateTransientWorkspaceRoot(requested);
+    const root = fs.realpathSync(path.resolve(validated));
+    const branch = await gitValue(root, ["branch", "--show-current"])
+      ?? await gitValue(root, ["rev-parse", "--short", "HEAD"]);
+    res.json({ environment: "local", branch });
+  } catch {
+    res.status(400).json({ error: "Workspace path must be inside a trusted workspace root." });
+  }
+});
 
 router.post("/api/agent/folder-picker", async (req, res: Response): Promise<void> => {
   if (!isLoopbackRequest(req)) {

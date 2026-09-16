@@ -23,12 +23,15 @@ import {
   ArrowLeft,
   X,
   AlertTriangle,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { useT } from "../lib/i18n";
 import {
   attachPrdVersionToPrd,
   attachPrdVersionToTasks,
   currentPrdVersion,
+  hasPrdSource,
   mergeGeneratedTasks,
   recordPrdVersion,
   taskNeedsPrdSync,
@@ -39,6 +42,7 @@ interface Step3AgentTasksProps {
   onUpdateSession: (updated: Partial<ProjectSession>) => void;
   onRunTask?: (task: AgentTask) => void;
   runningTaskId?: string | null;
+  onSelectStep?: (step: 1 | 2 | 3) => void;
 }
 
 type TaskStatus = "todo" | "in_progress" | "done";
@@ -49,7 +53,7 @@ function runDate(value: string | null | undefined): string {
   return Number.isFinite(parsed) ? new Date(parsed).toLocaleString() : value;
 }
 
-export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpdateSession, onRunTask, runningTaskId }) => {
+export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpdateSession, onRunTask, runningTaskId, onSelectStep }) => {
   const { t, lang } = useT();
   const [loading, setLoading] = useState(false);
   const [generationChars, setGenerationChars] = useState(0);
@@ -59,6 +63,11 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
   const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>({});
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
   const [selectedTask, setSelectedTask] = useState<AgentTask | null>(null);
+  const [manualFormOpen, setManualFormOpen] = useState(false);
+  const [manualTitle, setManualTitle] = useState("");
+  const [manualInstructions, setManualInstructions] = useState("");
+  const [manualVerification, setManualVerification] = useState("");
+  const [manualPriority, setManualPriority] = useState<AgentTask["priority"]>("Medium");
   const [reviewRefresh, setReviewRefresh] = useState(0);
   const [runReview, setRunReview] = useState<{
     taskId: string | null;
@@ -169,6 +178,43 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
     }
   };
 
+  const nextManualTaskId = (): string => {
+    const used = new Set(tasks.map((task) => task.id));
+    let index = 1;
+    let id = `MANUAL-${String(index).padStart(2, "0")}`;
+    while (used.has(id)) id = `MANUAL-${String(++index).padStart(2, "0")}`;
+    return id;
+  };
+
+  const handleAddManualTask = (): void => {
+    const title = manualTitle.trim();
+    if (!title) return;
+    const task: AgentTask = {
+      id: nextManualTaskId(),
+      phase: t("Manual plan"),
+      title,
+      priority: manualPriority,
+      targetFiles: [],
+      dependencies: [],
+      promptInstructions: manualInstructions.trim() || title,
+      verificationSteps: manualVerification.trim() || t("Verify the requested outcome before marking this task done."),
+      status: "todo",
+    };
+    onUpdateSession({ tasks: [...tasks, task] });
+    setExpandedTasks((current) => ({ ...current, [task.id]: true }));
+    setManualTitle("");
+    setManualInstructions("");
+    setManualVerification("");
+    setManualPriority("Medium");
+    setManualFormOpen(false);
+    setViewMode("kanban");
+  };
+
+  const handleDeleteTask = (taskId: string): void => {
+    onUpdateSession({ tasks: tasks.filter((task) => task.id !== taskId) });
+    if (selectedTask?.id === taskId) setSelectedTask(null);
+  };
+
   const runTask = (task: AgentTask, event?: React.MouseEvent): void => {
     event?.stopPropagation();
     if (task.status !== "in_progress") handleTaskStatusChange(task.id, "in_progress");
@@ -244,18 +290,54 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
   ];
 
   const selectedTaskHandoffJson = selectedTask ? buildHandoffJson(session, selectedTask) : null;
+  const manualTaskForm = manualFormOpen ? (
+    <div className="card max-w-3xl space-y-4 p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="font-semibold text-ink">{t("Add a manual task")}</h3>
+          <p className="mt-1 text-xs leading-relaxed text-muted">{t("Manual tasks are kept when you later generate or sync tasks from a PRD.")}</p>
+        </div>
+        <button type="button" onClick={() => setManualFormOpen(false)} className="rounded-lg p-1.5 text-faint hover:bg-subtle hover:text-ink" aria-label={t("Close")}><X className="h-4 w-4" /></button>
+      </div>
+      <div>
+        <label htmlFor="manual-task-title" className="field-label">{t("Task title")} <span className="text-danger">*</span></label>
+        <input id="manual-task-title" autoFocus value={manualTitle} onChange={(event) => setManualTitle(event.target.value)} className="field" placeholder={t("What needs to be done?")} />
+      </div>
+      <div className="grid gap-4 @2xl/pane:grid-cols-2">
+        <div>
+          <label htmlFor="manual-task-instructions" className="field-label">{t("Implementation notes")}</label>
+          <textarea id="manual-task-instructions" rows={4} value={manualInstructions} onChange={(event) => setManualInstructions(event.target.value)} className="field resize-y" placeholder={t("Describe the work, constraints, and expected result...")} />
+        </div>
+        <div>
+          <label htmlFor="manual-task-verification" className="field-label">{t("Done when")}</label>
+          <textarea id="manual-task-verification" rows={4} value={manualVerification} onChange={(event) => setManualVerification(event.target.value)} className="field resize-y" placeholder={t("Describe how this task should be verified...")} />
+        </div>
+      </div>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <label htmlFor="manual-task-priority" className="field-label">{t("Priority")}</label>
+          <select id="manual-task-priority" value={manualPriority} onChange={(event) => setManualPriority(event.target.value as AgentTask["priority"])} className="field min-w-32 py-2">
+            <option value="High">{t("High")}</option>
+            <option value="Medium">{t("Medium")}</option>
+            <option value="Low">{t("Low")}</option>
+          </select>
+        </div>
+        <button type="button" onClick={handleAddManualTask} disabled={!manualTitle.trim()} className="btn-primary disabled:opacity-40"><Plus className="h-4 w-4" />{t("Add to Kanban")}</button>
+      </div>
+    </div>
+  ) : null;
 
   return (
     <div className="relative space-y-6 pb-12">
       {/* Page heading */}
       <div className="max-w-2xl">
-        <h2 className="text-xl font-semibold tracking-tight text-ink">{t("Tasks for the AI agent")}</h2>
+        <h2 className="text-xl font-semibold tracking-tight text-ink">{t("Kanban workspace")}</h2>
         <p className="text-muted mt-1.5 leading-relaxed">
-          {t(
-            "The PRD is broken into atomic tasks with target files, dependencies, a prompt and verification steps. Copy a single task, or download AGENTS.md to hand to Cursor, Claude Code or Gemini."
-          )}
+          {t("Plan work manually or generate executable tasks from a PRD. Both sources share one board without overwriting each other.")}
         </p>
       </div>
+
+      {manualTaskForm}
 
       {/* Error Alert */}
       {errorMessage && (
@@ -271,31 +353,27 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
         onCancel={() => tasksAbort.current?.abort()}
       />
 
-      {/* Generate Card if no tasks yet */}
+      {/* Choose an explicit starting path if no tasks exist yet. */}
       {tasks.length === 0 ? (
-        <div className="card max-w-3xl p-10 text-center space-y-4">
-          <div className="w-12 h-12 bg-ok-soft text-ok rounded-xl mx-auto flex items-center justify-center">
-            <Bot className="w-6 h-6" />
+        <div className="grid max-w-4xl gap-4 @3xl/pane:grid-cols-2">
+          <div className="card flex flex-col p-6">
+            <div className="mb-4 grid h-10 w-10 place-items-center rounded-xl bg-accent-soft text-accent-ink"><Kanban className="h-5 w-5" /></div>
+            <h3 className="font-semibold text-ink">{t("Plan manually")}</h3>
+            <p className="mt-1 flex-1 text-sm leading-relaxed text-muted">{t("Start with your own tasks and arrange them directly on the board. No Plan or PRD is required.")}</p>
+            <button type="button" onClick={() => setManualFormOpen(true)} className="btn-primary mt-5 self-start"><Plus className="h-4 w-4" />{t("Add first task")}</button>
           </div>
-          <div className="max-w-md mx-auto space-y-1.5">
-            <h3 className="font-semibold text-ink text-base">{t("Build the Kanban task board for the AI agent")}</h3>
-            <p className="text-muted leading-relaxed">
-              {t("The LLM breaks the PRD and architecture into a sequence of modular, ready-to-run tasks with To do, In progress and Done states.")}
-            </p>
-          </div>
-          <button onClick={handleGenerateTasks} disabled={loading} className="btn-primary mx-auto">
-            {loading ? (
-              <>
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                {t("Building the task board...")}
-              </>
+          <div className="card flex flex-col p-6">
+            <div className="mb-4 grid h-10 w-10 place-items-center rounded-xl bg-ok-soft text-ok"><Bot className="h-5 w-5" /></div>
+            <h3 className="font-semibold text-ink">{t("Generate from PRD")}</h3>
+            <p className="mt-1 flex-1 text-sm leading-relaxed text-muted">{session.prd ? t("Turn the current PRD into atomic, agent-ready tasks. Existing manual tasks stay on the board.") : t("Create or open a PRD first, then let the AI break it into executable tasks.")}</p>
+            {session.prd ? (
+              <button onClick={handleGenerateTasks} disabled={loading} className="btn-outline mt-5 self-start">
+                <Sparkles className="h-4 w-4" />{loading ? t("Building the task board...") : t("Generate task board")}
+              </button>
             ) : (
-              <>
-                <Sparkles className="w-4 h-4" />
-                {t("Generate task board")}
-              </>
+              <button type="button" onClick={() => onSelectStep?.(2)} className="btn-outline mt-5 self-start">{t("Open PRD builder")}<ArrowRight className="h-4 w-4" /></button>
             )}
-          </button>
+          </div>
         </div>
       ) : (
         <div className="space-y-5 animate-in fade-in duration-300">
@@ -313,6 +391,9 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
             </div>
 
             <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <button type="button" onClick={() => setManualFormOpen(true)} className="btn-outline">
+                <Plus className="h-4 w-4" />{t("Add task")}
+              </button>
               <button onClick={handleCopyAllMd} className="btn-ghost">
                 {copiedAll ? <Check className="w-4 h-4 text-ok" /> : <Copy className="w-4 h-4" />}
                 {copiedAll ? t("Copied") : t("Copy all")}
@@ -363,10 +444,14 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
               ))}
             </div>
 
-            <button onClick={handleGenerateTasks} disabled={loading} className="btn-outline text-xs">
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-              {tasksNeedingSync > 0 ? t("Sync tasks") : t("Regenerate tasks")}
-            </button>
+            {session.prd ? (
+              <button onClick={handleGenerateTasks} disabled={loading} className="btn-outline text-xs">
+                <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+                {tasksNeedingSync > 0 ? t("Sync PRD tasks") : t("Generate PRD tasks")}
+              </button>
+            ) : (
+              <button type="button" onClick={() => onSelectStep?.(2)} className="text-xs text-muted hover:text-accent-ink">{t("PRD is optional")} · {t("Open builder")}</button>
+            )}
           </div>
 
           {/* VIEW 1: KANBAN BOARD */}
@@ -448,6 +533,7 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
                                 {t("Handed off")}
                               </span>
                             )}
+                            <span className="text-[10px] font-medium text-faint">{hasPrdSource(task) ? t("From PRD") : t("Manual")}</span>
                           </div>
                         </div>
 
@@ -679,14 +765,25 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
               </div>
               <h3 className="text-base font-semibold text-ink">{selectedTask.title}</h3>
             </div>
-            <button
-              type="button"
-              onClick={() => setSelectedTask(null)}
-              className="p-1.5 shrink-0 rounded-lg text-faint hover:text-ink hover:bg-subtle transition-colors"
-              aria-label={t("Close")}
-            >
-              <X className="w-4 h-4" />
-            </button>
+            <div className="flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                onClick={() => handleDeleteTask(selectedTask.id)}
+                className="rounded-lg p-1.5 text-faint transition-colors hover:bg-danger-soft hover:text-danger-ink"
+                aria-label={t("Delete task")}
+                title={t("Delete task")}
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedTask(null)}
+                className="rounded-lg p-1.5 text-faint transition-colors hover:bg-subtle hover:text-ink"
+                aria-label={t("Close")}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto p-6 space-y-4">

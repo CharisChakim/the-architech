@@ -1,5 +1,5 @@
 import React, { Suspense } from "react";
-import { Check, Lock } from "lucide-react";
+import { Check } from "lucide-react";
 import type { AgentTask, ProjectSession } from "../../types";
 import { isStepReachable, STEP_PATHS, Step } from "../../lib/routing";
 import { useT } from "../../lib/i18n";
@@ -68,16 +68,14 @@ export const TabStrip: React.FC<TabStripProps> = ({ step, session, onSelectStep,
         const reachable = isStepReachable(tab.step, session);
         const active = step === tab.step;
         const label = t(tab.label);
-        const unlockReason = tab.step === 3 ? t("Finish step 2 (PRD) first") : undefined;
 
         return (
           <button
             key={tab.path}
             type="button"
-            disabled={!reachable}
             aria-current={active ? "page" : undefined}
-            aria-label={reachable ? `${label} (${tab.path})` : `${label}. ${unlockReason}`}
-            title={reachable ? tab.path : unlockReason}
+            aria-label={`${label} (${tab.path})`}
+            title={tab.path}
             onClick={() => {
               if (reachable) onSelectStep(tab.step);
             }}
@@ -89,7 +87,6 @@ export const TabStrip: React.FC<TabStripProps> = ({ step, session, onSelectStep,
                   : "cursor-not-allowed border-transparent text-faint"
             }`}
           >
-            {!reachable && <Lock className="h-3.5 w-3.5" aria-hidden />}
             {reachable && tab.step < step && <Check className="h-3.5 w-3.5" aria-hidden />}
             {label}
           </button>
@@ -129,6 +126,7 @@ export const PipelinePane: React.FC<PipelinePaneProps> = ({
             onUpdateSession={onUpdateSession}
             onRunTask={onRunTask}
             runningTaskId={runningTaskId}
+            onSelectStep={onSelectStep}
           />
         )}
       </Suspense>

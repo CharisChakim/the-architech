@@ -123,6 +123,28 @@ The current scope is `initialize`, `tools/list`, and `tools/call`. MCP `sampling
 
 ### Install and run
 
+Download and run the installer from GitHub. It keeps existing `data/` and `.env`
+when you run it again to update the application.
+
+**Linux / macOS**
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/CharisChakim/the-architech/main/install.sh
+bash install.sh
+the-architech
+```
+
+**Windows PowerShell**
+
+```powershell
+Invoke-WebRequest https://raw.githubusercontent.com/CharisChakim/the-architech/main/install.ps1 -OutFile install.ps1
+powershell -ExecutionPolicy Bypass -File .\install.ps1
+```
+
+Then run `%LOCALAPPDATA%\TheArchitech\start-the-architech.cmd`.
+
+For development from an existing checkout:
+
 ```bash
 npm install
 npm run dev

@@ -109,7 +109,7 @@ export const Workbench: React.FC<WorkbenchProps> = ({
         <div className="flex items-center gap-1 rounded-lg bg-subtle p-0.5">
           <button type="button" aria-current="page" onClick={() => onLayoutModeChange("agent")} className="rounded-md bg-surface px-2.5 py-1.5 text-[11px] font-medium text-accent-ink shadow-xs">{t("Chat")}</button>
           <button type="button" onClick={() => openPipeline(2)} className="rounded-md px-2.5 py-1.5 text-[11px] font-medium text-muted hover:text-ink">{t("PRD")}</button>
-          <button type="button" disabled={!isStepReachable(3, session)} onClick={() => openPipeline(3)} title={!isStepReachable(3, session) ? t("Finish step 2 (PRD) first") : undefined} className="rounded-md px-2.5 py-1.5 text-[11px] font-medium text-muted hover:text-ink disabled:cursor-not-allowed disabled:text-faint">{t("Kanban")} {taskCount > 0 && <span className="text-faint">{completedTasks}/{taskCount}</span>}</button>
+          <button type="button" onClick={() => openPipeline(3)} className="rounded-md px-2.5 py-1.5 text-[11px] font-medium text-muted hover:text-ink">{t("Kanban")} {taskCount > 0 && <span className="text-faint">{completedTasks}/{taskCount}</span>}</button>
         </div>
         <button type="button" onClick={() => openPipeline(1)} className="ml-auto inline-flex items-center gap-1.5 text-[11px] text-muted hover:text-accent-ink">{session.plan ? <Check className="h-3 w-3 text-ok" /> : <span className="h-1.5 w-1.5 rounded-full bg-faint" />}{t("Plan")}</button>
       </div>

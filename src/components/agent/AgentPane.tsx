@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { AlertTriangle, Bot, Check, ChevronDown, Circle, Clock3, Folder, PlugZap } from "lucide-react";
+import { AlertTriangle, Bot, Check, ChevronDown, Circle, Clock3, Folder, GitBranch, Laptop, PlugZap, ShieldCheck } from "lucide-react";
 import type { ProjectSession, RuntimeDiscoveryReport, RuntimePreference } from "../../types";
 import type { RuntimeChatSelection } from "../../lib/runtimeChat";
 import type { Entry } from "../../lib/agentEvents";
@@ -76,6 +76,7 @@ export const AgentPane: React.FC<AgentPaneProps> = ({
   const [preparingIntake, setPreparingIntake] = useState(false);
   const [intakeError, setIntakeError] = useState<string | null>(null);
   const [composerMode, setComposerMode] = useState<ComposerMode>("agent");
+  const [workspaceBranch, setWorkspaceBranch] = useState<string | null>(null);
   const transcript = useRef<HTMLDivElement>(null);
   const folderPopover = useRef<HTMLDivElement>(null);
   const folderButton = useRef<HTMLButtonElement>(null);
@@ -114,6 +115,24 @@ export const AgentPane: React.FC<AgentPaneProps> = ({
   useEffect(() => {
     if (folderOpen) workspaceInput.current?.focus();
   }, [folderOpen]);
+
+  useEffect(() => {
+    const root = workspaceRoot.trim();
+    if (!root) {
+      setWorkspaceBranch(null);
+      return;
+    }
+    const controller = new AbortController();
+    fetch(`/api/agent/workspace-context?path=${encodeURIComponent(root)}`, { signal: controller.signal })
+      .then((response) => response.ok ? response.json() : null)
+      .then((payload: { branch?: unknown } | null) => {
+        if (!controller.signal.aborted) setWorkspaceBranch(typeof payload?.branch === "string" ? payload.branch : null);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setWorkspaceBranch(null);
+      });
+    return () => controller.abort();
+  }, [workspaceRoot]);
 
   const chooseFolder = async (): Promise<void> => {
     if (folderPickerBusy) return;
@@ -274,7 +293,7 @@ export const AgentPane: React.FC<AgentPaneProps> = ({
         onClick={toggleFolderControl}
         disabled={folderPickerBusy || busy}
         title={workspaceRoot || t("Choose folder")}
-        className="inline-flex h-8 min-w-0 max-w-48 items-center gap-1.5 rounded-lg border border-line bg-canvas px-2 text-[11px] text-muted hover:border-strong hover:text-ink disabled:cursor-wait disabled:opacity-70"
+        className="inline-flex h-7 min-w-0 max-w-48 items-center gap-1.5 rounded-md px-1.5 text-[11px] font-medium text-ink hover:bg-surface disabled:cursor-wait disabled:opacity-70"
       >
         <Folder className="h-3.5 w-3.5 shrink-0 text-accent" aria-hidden />
         <span className="truncate">{folderName(workspaceRoot, t("Choose folder"))}</span>
@@ -294,7 +313,23 @@ export const AgentPane: React.FC<AgentPaneProps> = ({
       onChange={onRuntimeSelectionChange}
       onOpenConnections={onOpenConnections}
       disabled={busy || preparingIntake}
+      compact
     />
+  );
+
+  const contextControls = (
+    <>
+      {folderControl}
+      <span className="inline-flex items-center gap-1.5 whitespace-nowrap"><Laptop className="h-3.5 w-3.5" aria-hidden />{t("Local")}</span>
+      {workspaceBranch && <span className="inline-flex min-w-0 items-center gap-1.5"><GitBranch className="h-3.5 w-3.5 shrink-0" aria-hidden /><span className="max-w-32 truncate">{workspaceBranch}</span></span>}
+    </>
+  );
+
+  const approvalControl = (
+    <span className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-[11px] text-muted" title={t("Commands still require approval before they run.")}>
+      <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
+      <span className="hidden sm:inline">{t("Ask before commands")}</span>
+    </span>
   );
 
   const composer = (variant: "default" | "hero") => (
@@ -307,7 +342,8 @@ export const AgentPane: React.FC<AgentPaneProps> = ({
       retry={error ? onRetry : undefined}
       mode={composerMode}
       onModeChange={handleModeChange}
-      controls={folderControl}
+      contextControls={contextControls}
+      controls={approvalControl}
       secondaryControls={runtimeControl}
       variant={variant}
       placeholder={composerMode === "plan"
@@ -322,10 +358,7 @@ export const AgentPane: React.FC<AgentPaneProps> = ({
     <aside className="flex h-full min-h-0 min-w-0 flex-col bg-surface" aria-label={t("Agent")}>
       <div ref={transcript} role="log" aria-live="polite" aria-relevant="additions text" className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
         {entries.length === 0 && !hasPlan && (
-          <div className="mx-auto flex h-full min-h-64 max-w-xl flex-col justify-center px-2 py-8">
-            <Bot className="mb-3 h-8 w-8 text-accent" />
-            <h2 className="text-lg font-semibold text-ink">{t("What should we build?")}</h2>
-            <p className="mt-1 text-sm leading-relaxed text-muted">{t("Start with a project idea, or tell the agent what to change.")}</p>
+          <div className="mx-auto flex h-full min-h-64 max-w-3xl flex-col justify-center px-2 py-8">
             {intakeError && <p className="mt-2 text-xs text-danger-ink" role="alert">{intakeError}</p>}
             {composer("hero")}
           </div>
