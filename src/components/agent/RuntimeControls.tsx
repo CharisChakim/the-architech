@@ -43,6 +43,24 @@ function selectedModel(models: RuntimeModel[], model: string): RuntimeModel | nu
   return models.find((item) => item.modelId === models[0]?.defaultModel) ?? models[0] ?? null;
 }
 
+function effortLabel(value: string): string {
+  const known: Record<string, string> = {
+    none: "None",
+    minimal: "Minimal",
+    low: "Low",
+    medium: "Medium",
+    high: "High",
+    xhigh: "XHigh",
+    max: "Max",
+    ultra: "Ultra",
+  };
+  return known[value.toLowerCase()] ?? (value.charAt(0).toUpperCase() + value.slice(1));
+}
+
+function defaultEffortLabel(defaultEffort: string | null | undefined, fallback: string, defaultLabel: string): string {
+  return defaultEffort ? `${defaultLabel} · ${effortLabel(defaultEffort)}` : fallback;
+}
+
 export const RuntimeControls: React.FC<RuntimeControlsProps> = ({
   selection,
   report,
@@ -158,11 +176,6 @@ export const RuntimeControls: React.FC<RuntimeControlsProps> = ({
         </select>
         {selection.runtime !== "legacy" && (
           <>
-            <span
-              className={`h-1.5 w-1.5 shrink-0 rounded-full ${selectedRuntimeChecking ? "bg-faint" : selectedRuntimeUnavailable ? "bg-warn" : "bg-ok"}`}
-              title={selectedRuntimeDisplayStatus}
-              aria-label={selectedRuntimeDisplayStatus}
-            />
             <label htmlFor="agent-runtime-model" className="sr-only">{t("Model")}</label>
             <select
               id="agent-runtime-model"
@@ -186,8 +199,8 @@ export const RuntimeControls: React.FC<RuntimeControlsProps> = ({
                   disabled={disabled || selectedRuntimeUnavailable}
                   title={t("Effort")}
                 >
-                  <option value="inherit">{activeModel?.defaultEffort || t("Use runtime default")}</option>
-                  {effortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  <option value="inherit">{defaultEffortLabel(activeModel?.defaultEffort, t("Use runtime default"), t("Default"))}</option>
+                  {effortOptions.map((option) => <option key={option.value} value={option.value}>{effortLabel(option.label)}</option>)}
                 </select>
               </>
             )}
@@ -254,8 +267,8 @@ export const RuntimeControls: React.FC<RuntimeControlsProps> = ({
                 onChange={(event) => onChange({ ...selection, effort: event.target.value })}
                 disabled={disabled || selectedRuntimeUnavailable}
               >
-                <option value="inherit">{t("Use runtime default")}</option>
-                {effortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                <option value="inherit">{defaultEffortLabel(activeModel?.defaultEffort, t("Use runtime default"), t("Default"))}</option>
+                {effortOptions.map((option) => <option key={option.value} value={option.value}>{effortLabel(option.label)}</option>)}
               </select>
             </>
           )}

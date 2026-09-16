@@ -35,6 +35,7 @@ app.use(runtimeAgentRouter);
 app.use(mcpRouter);
 
 const PORT = 3000;
+const PRODUCTION = process.env.NODE_ENV === "production" || process.argv.includes("--production");
 
 // Route lama tetap memakai signature ini supaya klien dan keempat generator tidak
 // perlu berubah saat transport provider dipindahkan ke layer netral.
@@ -211,7 +212,7 @@ app.post("/api/generate-tasks", async (req, res) => {
 
 // Start Express + Vite integration
 async function startServer() {
-  if (process.env.NODE_ENV !== "production") {
+  if (!PRODUCTION) {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",

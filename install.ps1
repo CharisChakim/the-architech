@@ -43,13 +43,16 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "npm ci failed with exit code $LASTEXITCODE" }
     & npm.cmd run build
     if ($LASTEXITCODE -ne 0) { throw "npm run build failed with exit code $LASTEXITCODE" }
+    if (-not (Test-Path (Join-Path $InstallDir "dist\index.html")) -or -not (Test-Path (Join-Path $InstallDir "dist\server.cjs"))) {
+      throw "Production build is incomplete."
+    }
   }
   finally {
     Pop-Location
   }
 
   $Launcher = Join-Path $InstallDir "start-the-architech.cmd"
-  "@echo off`r`ncd /d `"%~dp0`"`r`nnpm start`r`n" | Set-Content -Path $Launcher -Encoding Ascii
+  "@echo off`r`ncd /d `"%~dp0`"`r`nnode dist\server.cjs --production`r`n" | Set-Content -Path $Launcher -Encoding Ascii
 
   Write-Host ""
   Write-Host "Installed in: $InstallDir"

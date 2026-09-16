@@ -351,7 +351,6 @@ export default function App() {
           layoutMode={effectiveLayoutMode}
           onLayoutModeChange={handleLayoutModeChange}
           isNarrow={isNarrow}
-          onOpenConnections={() => { setConnectionsInitialTab("connections"); setIsConnectionsModalOpen(true); }}
         />
 
         <Workbench

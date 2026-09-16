@@ -2,11 +2,8 @@ import React from "react";
 import { ProjectSession } from "../types";
 import { Menu, Download, MessageCircle, FolderKanban, MessageSquare } from "lucide-react";
 import { useT } from "../lib/i18n";
-import { useConnections } from "../lib/connections";
-import { ModelSwitcher } from "./connection/ModelSwitcher";
 
 export type LayoutMode = "agent" | "split" | "board";
-export type ConnectionStatus = "connected" | "checking" | "error" | "unknown";
 
 export interface TopbarProps {
   session: ProjectSession;
@@ -17,10 +14,6 @@ export interface TopbarProps {
   layoutMode?: LayoutMode;
   onLayoutModeChange?: (mode: LayoutMode) => void;
   isNarrow?: boolean;
-  connectionLabel?: string;
-  modelLabel?: string;
-  connectionStatus?: ConnectionStatus;
-  onOpenConnections?: () => void;
 }
 
 export const Topbar: React.FC<TopbarProps> = ({
@@ -32,49 +25,15 @@ export const Topbar: React.FC<TopbarProps> = ({
   layoutMode = "agent",
   onLayoutModeChange,
   isNarrow = false,
-  connectionLabel,
-  modelLabel,
-  connectionStatus = "unknown",
-  onOpenConnections,
 }) => {
   const { t } = useT();
-  const { connections, roles, bindRole } = useConnections();
   const activeTitle = session.input.title || session.title;
   const hasArtifacts = Boolean(session.plan || session.prd || session.tasks);
   const layoutModes: { id: LayoutMode; label: string }[] = [
     { id: "agent", label: t("Chat") },
     ...(!isNarrow ? [{ id: "split" as const, label: t("Split") }] : []),
-    { id: "board", label: t("Project") },
+    { id: "board", label: t("Board") },
   ];
-  const hasConnectionStatus = Boolean(connectionLabel || modelLabel);
-  const statusDotClass =
-    connectionStatus === "connected"
-      ? "bg-ok"
-      : connectionStatus === "checking"
-        ? "bg-warn"
-        : connectionStatus === "error"
-          ? "bg-danger"
-          : "bg-faint";
-
-  const connectionStatusLabel =
-    connectionStatus === "connected"
-      ? "connected"
-      : connectionStatus === "checking"
-        ? "checking"
-        : connectionStatus === "error"
-          ? "error"
-          : "unknown";
-
-  const connectionContent = hasConnectionStatus ? (
-    <>
-      <span className={`w-2 h-2 rounded-full shrink-0 ${statusDotClass}`} aria-hidden />
-      <span className="truncate">
-        {connectionLabel}
-        {connectionLabel && modelLabel && <span className="text-faint"> · </span>}
-        {modelLabel}
-      </span>
-    </>
-  ) : null;
 
   return (
     <header className="shell-topbar sticky top-0 z-30 shrink-0 border-b border-line bg-canvas/90 backdrop-blur">
@@ -93,9 +52,8 @@ export const Topbar: React.FC<TopbarProps> = ({
             <h1 className="truncate text-[13px] font-medium tracking-[-0.01em] text-ink">
               {activeTitle || t("New chat")}
             </h1>
-            {!activeTitle && <span className="shell-topbar-badge">{t("Conversation")}</span>}
           </div>
-          <p className="mt-0.5 hidden text-[10px] text-faint sm:block">{layoutMode === "agent" ? t("Chat is ready for your next idea") : t("Project context")}</p>
+          <p className="mt-0.5 hidden text-[10px] text-faint sm:block">{layoutMode === "agent" ? t("Agent workspace") : t("Project workspace")}</p>
         </div>
 
         {onLayoutModeChange && (
@@ -121,13 +79,6 @@ export const Topbar: React.FC<TopbarProps> = ({
         )}
 
         <div className="ml-auto flex min-w-0 items-center gap-2">
-          <ModelSwitcher
-            connections={connections}
-            roleBindings={roles}
-            onSelectModel={(role, connectionId, model) => bindRole(role, connectionId, model)}
-            onOpenConnections={onOpenConnections}
-          />
-
           {hasArtifacts && (
             <button onClick={onOpenExport} className="shell-icon-button" title={t("Export document & task bundle")}>
               <Download className="h-4 w-4 text-faint" aria-hidden />

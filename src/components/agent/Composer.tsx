@@ -85,7 +85,7 @@ export const Composer: React.FC<ComposerProps> = ({
           </div>
         )}
         <textarea
-          rows={variant === "hero" ? 4 : 2}
+          rows={variant === "hero" ? 3 : 2}
           value={draft}
           disabled={disabled || busy}
           onChange={(event) => setDraft(event.target.value)}
@@ -93,43 +93,47 @@ export const Composer: React.FC<ComposerProps> = ({
           placeholder={placeholder ?? t("Ask for a change...")}
           aria-label={placeholder ?? t("Ask for a change...")}
           aria-describedby="agent-composer-hint"
-          className={`block w-full resize-none border-0 bg-transparent px-4 py-3 text-ink outline-hidden placeholder:text-faint disabled:opacity-60 ${contextControls ? "" : "rounded-t-2xl"} ${variant === "hero" ? "min-h-28" : "min-h-16"}`}
+          className={`block w-full resize-none border-0 bg-transparent px-4 py-3 text-ink outline-hidden placeholder:text-faint disabled:opacity-60 ${contextControls ? "" : "rounded-t-2xl"} ${variant === "hero" ? "min-h-24" : "min-h-16"}`}
         />
 
         <div className="flex min-w-0 flex-wrap items-center gap-2 px-2 py-2">
-          {controls}
-          <label className="sr-only" htmlFor="agent-composer-mode">{t("Interaction mode")}</label>
-          <select
-            id="agent-composer-mode"
-            value={mode}
-            onChange={(event) => onModeChange?.(event.target.value as ComposerMode)}
-            disabled={disabled || busy}
-            className="h-8 rounded-lg border-0 bg-transparent px-2 text-[11px] font-medium text-ink outline-hidden hover:bg-subtle focus:bg-subtle"
-          >
-            <option value="agent">{t("Agent mode")}</option>
-            <option value="plan">{t("Plan mode")}</option>
-            <option value="prd">{t("PRD mode")}</option>
-          </select>
+          <div className="flex min-w-0 items-center gap-1">
+            {controls}
+            <label className="sr-only" htmlFor="agent-composer-mode">{t("Interaction mode")}</label>
+            <select
+              id="agent-composer-mode"
+              value={mode}
+              onChange={(event) => onModeChange?.(event.target.value as ComposerMode)}
+              disabled={disabled || busy}
+              className="h-8 rounded-lg border-0 bg-transparent px-2 text-[11px] font-medium text-ink outline-hidden hover:bg-subtle focus:bg-subtle"
+            >
+              <option value="agent">{t("Agent mode")}</option>
+              <option value="plan">{t("Plan mode")}</option>
+              <option value="prd">{t("PRD mode")}</option>
+            </select>
+          </div>
 
           <div className="min-w-2 flex-1" />
 
-          {secondaryControls}
+          <div className="flex min-w-0 items-center gap-1">
+            {secondaryControls}
 
-          {retryHandler && !busy && (
-            <button type="button" onClick={() => void retryHandler()} disabled={disabled} aria-label={t("Retry")} title={t("Retry")} className="shrink-0 rounded-lg border border-line p-2 text-muted hover:bg-subtle hover:text-ink disabled:opacity-40">
-              <RotateCcw className="h-4 w-4" aria-hidden />
-            </button>
-          )}
+            {retryHandler && !busy && (
+              <button type="button" onClick={() => void retryHandler()} disabled={disabled} aria-label={t("Retry")} title={t("Retry")} className="shrink-0 rounded-lg border border-line p-2 text-muted hover:bg-subtle hover:text-ink disabled:opacity-40">
+                <RotateCcw className="h-4 w-4" aria-hidden />
+              </button>
+            )}
 
-          {busy && stopHandler ? (
-            <button type="button" onClick={() => void stopHandler()} aria-label={t("Stop")} title={t("Stop")} className="shrink-0 rounded-lg border border-danger/30 p-2 text-danger-ink hover:bg-danger-soft">
-              <Square className="h-4 w-4" aria-hidden />
-            </button>
-          ) : (
-            <button type="submit" disabled={busy || disabled || !draft.trim() || !sendHandler} aria-label={t("Send")} className="shrink-0 rounded-lg bg-accent p-2 text-accent-fg disabled:opacity-40">
-              {busy ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden /> : <Send className="h-4 w-4" aria-hidden />}
-            </button>
-          )}
+            {busy && stopHandler ? (
+              <button type="button" onClick={() => void stopHandler()} aria-label={t("Stop")} title={t("Stop")} className="shrink-0 rounded-lg border border-danger/30 p-2 text-danger-ink hover:bg-danger-soft">
+                <Square className="h-4 w-4" aria-hidden />
+              </button>
+            ) : (
+              <button type="submit" disabled={busy || disabled || !draft.trim() || !sendHandler} aria-label={t("Send")} className="shrink-0 rounded-lg bg-accent p-2 text-accent-fg disabled:bg-subtle disabled:text-faint">
+                {busy ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden /> : <Send className="h-4 w-4" aria-hidden />}
+              </button>
+            )}
+          </div>
         </div>
 
       </div>

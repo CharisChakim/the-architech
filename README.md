@@ -26,7 +26,7 @@ Describe what you want to build, clarify the missing pieces, shape the architect
 | Task planning | Break the PRD into atomic coding tasks with target files, dependencies, instructions, and verification steps. |
 | Task execution | Run a task in the Agent panel, update its status, and watch the Kanban board move from To do to Done. |
 | Export | Download the plan, PRD, `AGENTS.md`, or a complete project bundle. |
-| Model routing | Bind separate models to `agent`, `plan`, `prd`, and `tasks` roles. |
+| Model routing | Use Codex, Claude Code, Antigravity, or an API connection; autodetect available models and native effort levels. |
 | MCP tools | Add external tools through stdio or Streamable HTTP without changing application code. |
 
 ## The workflow
@@ -119,7 +119,7 @@ The current scope is `initialize`, `tools/list`, and `tools/call`. MCP `sampling
 ### Requirements
 
 - Node.js **22.14+**. Node 24 is recommended.
-- A reachable model endpoint. The app does not ship with an AI model.
+- Codex, Claude Code, Antigravity, or a reachable model endpoint. The app does not ship with an AI model.
 
 ### Install and run
 

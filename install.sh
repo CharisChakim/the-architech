@@ -43,13 +43,17 @@ printf 'Installing dependencies and building production files...\n'
   cd "$INSTALL_DIR"
   npm ci
   npm run build
+  if [[ ! -f dist/index.html || ! -f dist/server.cjs ]]; then
+    printf 'Production build is incomplete.\n' >&2
+    exit 1
+  fi
 )
 
 launcher="$BIN_DIR/the-architech"
 {
   printf '#!/usr/bin/env bash\n'
   printf 'cd %q\n' "$INSTALL_DIR"
-  printf 'exec npm start\n'
+  printf 'exec node dist/server.cjs --production\n'
 } > "$launcher"
 chmod +x "$launcher"
 

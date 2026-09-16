@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { AlertTriangle, Bot, Check, ChevronDown, Circle, Clock3, Folder, GitBranch, Laptop, PlugZap, ShieldCheck } from "lucide-react";
+import { AlertTriangle, Bot, Check, ChevronDown, Circle, Clock3, Code2, FileText, Folder, GitBranch, Kanban, Laptop, ListChecks, PlugZap, ShieldCheck, Sparkles } from "lucide-react";
 import type { ProjectSession, RuntimeDiscoveryReport, RuntimePreference } from "../../types";
 import type { RuntimeChatSelection } from "../../lib/runtimeChat";
 import type { Entry } from "../../lib/agentEvents";
@@ -81,6 +81,7 @@ export const AgentPane: React.FC<AgentPaneProps> = ({
   const folderPopover = useRef<HTMLDivElement>(null);
   const folderButton = useRef<HTMLButtonElement>(null);
   const workspaceInput = useRef<HTMLInputElement>(null);
+  const composerRegion = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     transcript.current?.scrollTo({ top: transcript.current.scrollHeight });
@@ -206,6 +207,11 @@ export const AgentPane: React.FC<AgentPaneProps> = ({
     if (mode === "prd") onNavigatePipeline?.(2);
   };
 
+  const focusComposerMode = (mode: ComposerMode): void => {
+    setComposerMode(mode);
+    window.requestAnimationFrame(() => composerRegion.current?.querySelector("textarea")?.focus());
+  };
+
   const renderEntry = (entry: Entry): React.ReactNode => {
     switch (entry.kind) {
       case "user":
@@ -320,17 +326,17 @@ export const AgentPane: React.FC<AgentPaneProps> = ({
   const contextControls = (
     <>
       {folderControl}
-      <span className="inline-flex items-center gap-1.5 whitespace-nowrap"><Laptop className="h-3.5 w-3.5" aria-hidden />{t("Local")}</span>
+      {workspaceRoot.trim() && <span className="inline-flex items-center gap-1.5 whitespace-nowrap"><Laptop className="h-3.5 w-3.5" aria-hidden />{t("Local environment")}</span>}
       {workspaceBranch && <span className="inline-flex min-w-0 items-center gap-1.5"><GitBranch className="h-3.5 w-3.5 shrink-0" aria-hidden /><span className="max-w-32 truncate">{workspaceBranch}</span></span>}
     </>
   );
 
-  const approvalControl = (
+  const approvalControl = workspaceRoot.trim() && allowShell ? (
     <span className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-[11px] text-muted" title={t("Commands still require approval before they run.")}>
       <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
       <span className="hidden sm:inline">{t("Ask before commands")}</span>
     </span>
-  );
+  ) : null;
 
   const composer = (variant: "default" | "hero") => (
     <Composer
@@ -358,7 +364,37 @@ export const AgentPane: React.FC<AgentPaneProps> = ({
     <aside className="flex h-full min-h-0 min-w-0 flex-col bg-surface" aria-label={t("Agent")}>
       <div ref={transcript} role="log" aria-live="polite" aria-relevant="additions text" className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
         {entries.length === 0 && !hasPlan && (
-          <div className="mx-auto flex h-full min-h-64 max-w-3xl flex-col justify-center px-2 py-8">
+          <div ref={composerRegion} className="mx-auto flex h-full min-h-64 max-w-3xl flex-col justify-center px-2 py-8">
+            <div className="mb-1 max-w-2xl">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent-soft px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-accent-ink">
+                <Sparkles className="h-3 w-3" aria-hidden />
+                The Architech
+              </div>
+              <h2 className="text-2xl font-semibold tracking-[-0.03em] text-ink">{t("Turn an idea into executable work")}</h2>
+              <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">{t("Work with the coding agent, shape a plan, build a PRD, or organize tasks directly in Kanban.")}</p>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-2 lg:grid-cols-4" aria-label={t("Start a workflow")}>
+              <button type="button" onClick={() => focusComposerMode("agent")} className="group rounded-xl border border-line bg-surface p-3 text-left transition-colors hover:border-accent/40 hover:bg-accent-soft/40">
+                <Code2 className="h-4 w-4 text-accent" aria-hidden />
+                <span className="mt-2 block text-xs font-medium text-ink">{t("Build a feature")}</span>
+                <span className="mt-0.5 block text-[10px] text-faint">{t("Agent mode")}</span>
+              </button>
+              <button type="button" onClick={() => focusComposerMode("plan")} className="group rounded-xl border border-line bg-surface p-3 text-left transition-colors hover:border-accent/40 hover:bg-accent-soft/40">
+                <ListChecks className="h-4 w-4 text-accent" aria-hidden />
+                <span className="mt-2 block text-xs font-medium text-ink">{t("Plan a project")}</span>
+                <span className="mt-0.5 block text-[10px] text-faint">{t("Plan mode")}</span>
+              </button>
+              <button type="button" onClick={() => onNavigatePipeline?.(2)} className="group rounded-xl border border-line bg-surface p-3 text-left transition-colors hover:border-accent/40 hover:bg-accent-soft/40">
+                <FileText className="h-4 w-4 text-accent" aria-hidden />
+                <span className="mt-2 block text-xs font-medium text-ink">{t("Create a PRD")}</span>
+                <span className="mt-0.5 block text-[10px] text-faint">{t("PRD builder")}</span>
+              </button>
+              <button type="button" onClick={() => onNavigatePipeline?.(3)} className="group rounded-xl border border-line bg-surface p-3 text-left transition-colors hover:border-accent/40 hover:bg-accent-soft/40">
+                <Kanban className="h-4 w-4 text-accent" aria-hidden />
+                <span className="mt-2 block text-xs font-medium text-ink">{t("Open Kanban")}</span>
+                <span className="mt-0.5 block text-[10px] text-faint">{t("Plan manually")}</span>
+              </button>
+            </div>
             {intakeError && <p className="mt-2 text-xs text-danger-ink" role="alert">{intakeError}</p>}
             {composer("hero")}
           </div>

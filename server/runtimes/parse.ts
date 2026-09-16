@@ -49,7 +49,7 @@ function stringArray(value: unknown): string[] {
     const direct = stringValue(entry);
     if (direct) return [direct];
     const item = record(entry);
-    const nested = item && (item.value ?? item.id ?? item.name ?? item.level);
+    const nested = item && (item.reasoningEffort ?? item.value ?? item.id ?? item.name ?? item.level);
     const nestedString = stringValue(nested);
     return nestedString ? [nestedString] : [];
   });
@@ -69,7 +69,7 @@ function effortOptions(value: Record<string, unknown>): RuntimeEffortOption[] {
   for (const entry of raw) {
     const direct = stringValue(entry);
     const item = record(entry);
-    const native = direct ?? (item ? stringValue(item.value ?? item.id ?? item.name ?? item.level) : null);
+    const native = direct ?? (item ? stringValue(item.reasoningEffort ?? item.value ?? item.id ?? item.name ?? item.level) : null);
     if (!native || seen.has(native)) continue;
     seen.add(native);
     const label = item ? stringValue(item.label ?? item.displayName ?? item.title) : null;
@@ -127,7 +127,7 @@ function parseModel(value: unknown): ParsedRuntimeModel | null {
   if (!id) return null;
   const label = stringValue(item.label ?? item.displayName ?? item.title ?? item.name) ?? id;
   const defaultEffort = stringValue(
-    item.defaultReasoningEffort ?? item.defaultEffort ?? item.default_effort,
+    item.defaultReasoningEffort ?? item.default_reasoning_effort ?? item.defaultEffort ?? item.default_effort,
   );
   const authScope = stringValue(item.authScope ?? item.auth_scope ?? item.accountScope ?? item.workspace);
   return {
@@ -237,7 +237,14 @@ export function parseCodexConfig(input: unknown): {
   const value = config ?? {};
   return {
     defaultModel: stringValue(value.defaultModel ?? value.model),
-    defaultEffort: stringValue(value.defaultReasoningEffort ?? value.defaultEffort ?? value.reasoningEffort),
+    defaultEffort: stringValue(
+      value.model_reasoning_effort
+        ?? value.defaultReasoningEffort
+        ?? value.default_reasoning_effort
+        ?? value.defaultEffort
+        ?? value.reasoningEffort
+        ?? value.reasoning_effort,
+    ),
     authScope: stringValue(value.authScope ?? value.accountScope ?? value.workspace),
   };
 }
