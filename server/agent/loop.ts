@@ -1,6 +1,7 @@
 import { getSession } from "../../db.ts";
 import { appendMessage, loadMessages, sanitize } from "./conversations.ts";
 import { systemPromptFor } from "./prompt.ts";
+import type { AgentHarnessSettings } from "./harness.ts";
 import { resolveInsideRoot } from "./sandbox.ts";
 import { streamLlm } from "../llm/stream.ts";
 import type { Connection, ContentBlock, StopReason } from "../llm/types.ts";
@@ -60,6 +61,7 @@ export interface AgentRunOptions {
   userMessage: string;
   conn: Connection;
   model: string;
+  harnessSettings: AgentHarnessSettings;
   limits: AgentLimits;
   onEvent: (event: AgentEvent) => void;
   elicit: Elicit;
@@ -197,7 +199,7 @@ export async function runAgent(opts: AgentRunOptions): Promise<void> {
 
       const request = streamLlm(opts.conn, {
         model: opts.model,
-        system: systemPromptFor(session),
+        system: systemPromptFor(session, opts.harnessSettings),
         messages: sanitize(loadMessages(opts.conversationId)),
         tools: specs.map((spec: ToolSpec) => spec.def),
         maxTokens: limits.maxTokens,

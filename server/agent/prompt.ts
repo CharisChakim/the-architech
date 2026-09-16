@@ -1,9 +1,13 @@
-export function systemPromptFor(session: any): string {
+import { agentHarnessPrompt, type AgentHarnessSettings } from "./harness.ts";
+
+export function systemPromptFor(session: any, harnessSettings?: AgentHarnessSettings): string {
   const root = session?.workspaceRoot?.trim();
   const basePrompt = session?.id ? SYSTEM_PROMPT : STANDALONE_SYSTEM_PROMPT;
-  if (!root) return basePrompt;
+  const harnessPrompt = harnessSettings ? agentHarnessPrompt(harnessSettings) : "";
+  const prompt = harnessPrompt ? `${basePrompt}\n\n${harnessPrompt}` : basePrompt;
+  if (!root) return prompt;
 
-  return `${basePrompt}
+  return `${prompt}
 
 Folder kerja: ${root}
 Semua path pada tool berkas relatif terhadap folder itu, dan tidak ada yang bisa menjangkau ke luarnya.

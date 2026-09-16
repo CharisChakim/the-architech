@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Bot, Check, ChevronRight, DraftingCompass, FolderKanban, Languages, Layers, MessageCircle, Moon, PanelLeftClose, PanelLeftOpen, Plug, Plus, Sun, Trash2, X } from "lucide-react";
+import { Bot, Check, ChevronRight, DraftingCompass, FolderKanban, Languages, Layers, MessageCircle, Moon, PanelLeftClose, PanelLeftOpen, Plug, Plus, Settings2, Sun, Trash2, X } from "lucide-react";
 import type { ProjectSession, SessionSummary } from "../types";
 import { SAMPLE_PROJECTS, sampleText, type SampleProject } from "../lib/sampleData";
 import type { Theme } from "../lib/theme";
@@ -15,6 +15,7 @@ interface SidebarProps {
   onDeleteHistory: (id: string) => void;
   onOpenConnections: () => void;
   onOpenAgents: () => void;
+  onOpenSettings: () => void;
   theme: Theme;
   onToggleTheme: () => void;
   onToggleLanguage: () => void;
@@ -38,6 +39,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onDeleteHistory,
   onOpenConnections,
   onOpenAgents,
+  onOpenSettings,
   theme,
   onToggleTheme,
   onToggleLanguage,
@@ -173,6 +175,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {!isRail && <span className="min-w-0"><span className="block truncate text-[11px] font-medium text-ink">{t("Workspace local")}</span><span className="block truncate text-[10px] text-faint">{t("Ready to work")}</span></span>}
           </div>
           <div className="flex items-center gap-0.5">
+            <button type="button" onClick={onOpenSettings} title={t("Agent settings")} className={`shell-settings-button ${isRail ? "mx-auto" : ""}`}><Settings2 className="h-3.5 w-3.5" aria-hidden /><span className="sr-only">{t("Agent settings")}</span></button>
             <button type="button" onClick={onToggleLanguage} title={otherLanguageName} className={`shell-settings-button ${isRail ? "mx-auto" : ""}`}><Languages className="h-3.5 w-3.5" aria-hidden /><span className="sr-only">{otherLanguageName}</span></button>
             <button type="button" onClick={onToggleTheme} title={theme === "dark" ? t("Light mode") : t("Dark mode")} className={`shell-settings-button ${isRail ? "mx-auto" : ""}`}>{theme === "dark" ? <Sun className="h-3.5 w-3.5" aria-hidden /> : <Moon className="h-3.5 w-3.5" aria-hidden />}<span className="sr-only">{theme === "dark" ? t("Light mode") : t("Dark mode")}</span></button>
             {!isOpen && <button type="button" onClick={onToggleCollapsed} title={isRail ? t("Expand sidebar") : t("Collapse sidebar")} className={`shell-settings-button ${isRail ? "mx-auto" : "ml-auto"}`}>{isRail ? <PanelLeftOpen className="h-3.5 w-3.5" aria-hidden /> : <PanelLeftClose className="h-3.5 w-3.5" aria-hidden />}<span className="sr-only">{isRail ? t("Expand sidebar") : t("Collapse sidebar")}</span></button>}

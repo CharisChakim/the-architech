@@ -8,6 +8,7 @@ import {
 } from "./runtimeChat";
 import { toTransportAnswers } from "../components/plan/followups";
 import { useT } from "./i18n";
+import type { AgentHarnessSettings } from "./agentHarness";
 
 interface AgentRunOptions {
   sessionId: string;
@@ -15,6 +16,7 @@ interface AgentRunOptions {
   allowShell: boolean;
   onToolApplied: () => void;
   runtimeSelection?: RuntimeChatSelection;
+  harnessSettings: AgentHarnessSettings;
 }
 
 interface AgentRunResult {
@@ -125,7 +127,7 @@ function entriesFromStoredMessages(messages: unknown[], sequence: { current: num
 // disimpan terpisah apa adanya dari server, karena blok tool_use dan tool_result
 // harus tetap berpasangan persis atau permintaan berikutnya ditolak.
 
-export function useAgentRun({ sessionId, workspaceRoot, allowShell, onToolApplied, runtimeSelection = { runtime: "legacy", model: "inherit", effort: "inherit" } }: AgentRunOptions): AgentRunResult {
+export function useAgentRun({ sessionId, workspaceRoot, allowShell, onToolApplied, runtimeSelection = { runtime: "legacy", model: "inherit", effort: "inherit" }, harnessSettings }: AgentRunOptions): AgentRunResult {
   const { t } = useT();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [busy, setBusy] = useState(false);
@@ -283,6 +285,7 @@ export function useAgentRun({ sessionId, workspaceRoot, allowShell, onToolApplie
           allowShell,
           model: runtimeSelection.model,
           effort: runtimeSelection.effort,
+          harnessSettings,
           message,
         } : {
           sessionId,
@@ -290,6 +293,7 @@ export function useAgentRun({ sessionId, workspaceRoot, allowShell, onToolApplie
           workspaceRoot,
           allowShell,
           history: history.current,
+          harnessSettings,
           message,
         }),
         signal: ac.signal,
@@ -479,7 +483,7 @@ export function useAgentRun({ sessionId, workspaceRoot, allowShell, onToolApplie
       if (toolTouchedSession) onToolAppliedRef.current();
     }
     return !streamFailed && !ac.signal.aborted;
-  }, [allowShell, appendError, runtimeSelection, sessionId, t, workspaceRoot]);
+  }, [allowShell, appendError, harnessSettings, runtimeSelection, sessionId, t, workspaceRoot]);
 
   const retry = useCallback(async (): Promise<void> => {
     if (lastSend.current) await send(lastSend.current.message, lastSend.current.options);

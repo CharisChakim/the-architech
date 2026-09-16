@@ -15,6 +15,7 @@ import {
   loadMessages,
 } from "../agent/conversations.ts";
 import { runAgent } from "../agent/loop.ts";
+import { parseAgentHarnessSettings } from "../agent/harness.ts";
 
 const router = express.Router();
 
@@ -366,6 +367,7 @@ async function chat(req: Request, res: Response): Promise<void> {
       userMessage: message,
       conn: resolved.conn,
       model: resolved.model,
+      harnessSettings: parseAgentHarnessSettings(body.harnessSettings),
       limits: (projectSession?.agentLimits || {}) as any,
       onEvent: (event: unknown) => send(event),
       elicit: makeElicit(convId, ac, send, ownedIds),

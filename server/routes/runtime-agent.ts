@@ -35,6 +35,11 @@ import {
   type ClaudeSdkModule,
   type RuntimeRunnerDependencies,
 } from "../runtime-runner/index.ts";
+import {
+  applyAgentHarness,
+  parseAgentHarnessSettings,
+  type AgentHarnessSettings,
+} from "../agent/harness.ts";
 
 const router = express.Router();
 const APPROVAL_TIMEOUT_MS = 300_000;
@@ -63,6 +68,7 @@ interface RuntimeAgentBody {
   effort?: string | null;
   externalSessionId?: string | null;
   idempotencyKey?: string | null;
+  harnessSettings: AgentHarnessSettings;
 }
 
 interface NormalizedUiEvent extends Record<string, unknown> {
@@ -117,6 +123,7 @@ function parseBody(value: unknown): RuntimeAgentBody {
     effort: preference(value.effort, "effort"),
     externalSessionId: optionalText(value.externalSessionId, "externalSessionId"),
     idempotencyKey: optionalText(value.idempotencyKey, "idempotencyKey"),
+    harnessSettings: parseAgentHarnessSettings(value.harnessSettings),
   };
 }
 
@@ -530,7 +537,7 @@ async function chat(req: Request, res: Response, options: RuntimeAgentRouterOpti
     appendTranscript(conversationId, body.message, "");
     const runner = await createRuntimeRunnerAsync({
       runtime: body.runtime,
-      prompt: body.message,
+      prompt: applyAgentHarness(body.message, body.harnessSettings),
       model: body.model,
       effort: body.effort,
       cwd: body.workspaceRoot,

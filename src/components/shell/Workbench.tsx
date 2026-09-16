@@ -8,6 +8,7 @@ import { useAgentRun } from "../../lib/useAgentRun";
 import { useRuntimeDiscovery } from "../../lib/runtimes";
 import { loadRuntimeSelection, saveRuntimeSelection, type RuntimeChatSelection } from "../../lib/runtimeChat";
 import { AgentPane } from "../agent/AgentPane";
+import type { AgentHarnessSettings } from "../../lib/agentHarness";
 import { PipelinePane } from "./PipelinePane";
 import { Splitter } from "./Splitter";
 
@@ -26,6 +27,7 @@ export interface WorkbenchProps {
   onRatioChange: (ratio: number) => void;
   onRatioCommit: (ratio: number) => void;
   onOpenConnections?: () => void;
+  harnessSettings: AgentHarnessSettings;
 }
 
 const stepLabel = (step: Step, t: ReturnType<typeof useT>["t"]): string => {
@@ -49,6 +51,7 @@ export const Workbench: React.FC<WorkbenchProps> = ({
   onRatioChange,
   onRatioCommit,
   onOpenConnections,
+  harnessSettings,
 }) => {
   const { t } = useT();
   const taskCount = session.tasks?.length ?? 0;
@@ -76,6 +79,7 @@ export const Workbench: React.FC<WorkbenchProps> = ({
     allowShell: Boolean(session.allowShell),
     onToolApplied: handleToolApplied,
     runtimeSelection,
+    harnessSettings,
   });
 
   const handleRunTask = React.useCallback((task: AgentTask): void => {

@@ -21,6 +21,12 @@ import { ConnectionsModal } from "./components/connections/ConnectionsModal";
 import { ExportModal } from "./components/ExportModal";
 import { RefreshCw } from "lucide-react";
 import { projectNameFromWorkspaceRoot } from "./lib/workspace";
+import {
+  loadAgentHarnessSettings,
+  saveAgentHarnessSettings,
+  type AgentHarnessSettings,
+} from "./lib/agentHarness";
+import { AgentSettingsModal } from "./components/AgentSettingsModal";
 
 export default function App() {
   const [session, setSession] = useState<ProjectSession | null>(null);
@@ -30,6 +36,8 @@ export default function App() {
   const [isConnectionsModalOpen, setIsConnectionsModalOpen] = useState(false);
   const [connectionsInitialTab, setConnectionsInitialTab] = useState<"connections" | "runtimes">("connections");
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isAgentSettingsOpen, setIsAgentSettingsOpen] = useState(false);
+  const [agentHarnessSettings, setAgentHarnessSettings] = useState(loadAgentHarnessSettings);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(loadSidebarCollapsed);
   const [layout, setLayout] = useState(loadLayout);
@@ -57,6 +65,11 @@ export default function App() {
       saveLanguage(next);
       return next;
     });
+  };
+
+  const updateAgentHarnessSettings = (settings: AgentHarnessSettings) => {
+    setAgentHarnessSettings(settings);
+    saveAgentHarnessSettings(settings);
   };
 
   useEffect(() => {
@@ -332,6 +345,7 @@ export default function App() {
         onDeleteHistory={handleDeleteHistory}
         onOpenConnections={() => { setConnectionsInitialTab("connections"); setIsConnectionsModalOpen(true); }}
         onOpenAgents={() => { setConnectionsInitialTab("runtimes"); setIsConnectionsModalOpen(true); }}
+        onOpenSettings={() => setIsAgentSettingsOpen(true)}
         theme={theme}
         onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
         onToggleLanguage={toggleLanguage}
@@ -375,6 +389,7 @@ export default function App() {
           onRatioChange={handleRatioChange}
           onRatioCommit={handleRatioCommit}
           onOpenConnections={() => { setConnectionsInitialTab("connections"); setIsConnectionsModalOpen(true); }}
+          harnessSettings={agentHarnessSettings}
         />
       </div>
 
@@ -388,6 +403,13 @@ export default function App() {
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
         session={session}
+      />
+
+      <AgentSettingsModal
+        isOpen={isAgentSettingsOpen}
+        settings={agentHarnessSettings}
+        onChange={updateAgentHarnessSettings}
+        onClose={() => setIsAgentSettingsOpen(false)}
       />
     </div>
     </LanguageProvider>
