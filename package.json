@@ -76,21 +76,22 @@
       "artifactName": "TheArchitech-${version}-${arch}.${ext}"
     }
   },
+  "//dependencies": "Runtime only. Everything the browser needs is bundled into dist/ by Vite, so client libraries belong in devDependencies — electron-builder ships `dependencies` verbatim into the installer.",
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.272",
+    "dotenv": "^17.2.3",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.14",
     "@xyflow/react": "^12.11.2",
     "canvas-confetti": "^1.9.4",
-    "dotenv": "^17.2.3",
-    "express": "^4.21.2",
     "lucide-react": "^0.546.0",
     "mermaid": "^11.16.0",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1"
-  },
-  "devDependencies": {
-    "@tailwindcss/vite": "^4.1.14",
+    "remark-gfm": "^4.0.1",
     "@types/canvas-confetti": "^1.9.0",
     "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
