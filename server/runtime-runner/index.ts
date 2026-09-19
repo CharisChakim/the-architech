@@ -135,8 +135,10 @@ export class RuntimeRunnerError extends Error {
 
 function requiredDetection(input: RuntimeRunnerInput): RuntimeDetection {
   const detection = input.detection;
-  const requiresBinary = input.runtime !== "claude";
-  if (!detection || detection.status !== "ready" || (requiresBinary && !detection.binaryPath)) {
+  // Claude used to be exempt because the SDK vendors its own binary, but the
+  // app drives the installation discovery found so the reported version and
+  // the one actually executed are the same build.
+  if (!detection || detection.status !== "ready" || !detection.binaryPath) {
     const diagnostic = detection?.diagnostic ?? (detection ? detection.status.toUpperCase() : "RUNTIME_NOT_DISCOVERED");
     throw new RuntimeRunnerError(
       "RUNTIME_NOT_READY",
@@ -528,7 +530,7 @@ export async function createRuntimeRunnerAsync(input: RuntimeRunnerInput): Promi
   const detection = requiredDetection(input);
   const dependencies = input.dependencies ?? defaultRuntimeRunnerDependencies;
   const sdk = input.claudeSdk ?? await (dependencies.loadClaudeSdk ?? loadClaudeSdkModule)();
-  const adapter = new ClaudeExecutionAdapter(sdk.query);
+  const adapter = new ClaudeExecutionAdapter({ factory: sdk.query, executablePath: detection.binaryPath });
   const executor = new ClaudeRuntimeExecutor(adapter, input.signal, input.approvalHandler);
   const events = input.externalSessionId
     ? executor.resumeTurn({

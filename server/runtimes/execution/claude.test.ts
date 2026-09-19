@@ -182,3 +182,25 @@ test("factory and prompt failures are structured stream errors", async () => {
   assert.equal(invalidRun[0]?.type, "error");
   assert.equal(invalidRun[0]?.type === "error" ? invalidRun[0].error.code : null, "INVALID_REQUEST");
 });
+
+test("drives the discovered binary instead of the SDK's vendored copy", async () => {
+  let withPath: ClaudeSdkQueryOptions | undefined;
+  let withoutPath: ClaudeSdkQueryOptions | undefined;
+
+  const configured = new ClaudeExecutionAdapter({
+    factory: ({ options }) => { withPath = options; return new FixtureQuery([CLAUDE_RESULT_FIXTURE]); },
+    executablePath: "/usr/local/bin/claude",
+  });
+  await collect(configured.start({ prompt: "hi" }));
+
+  // No discovered path must not become an empty string: the SDK treats that as
+  // an explicit executable and would fail rather than fall back.
+  const bare = new ClaudeExecutionAdapter({
+    factory: ({ options }) => { withoutPath = options; return new FixtureQuery([CLAUDE_RESULT_FIXTURE]); },
+    executablePath: null,
+  });
+  await collect(bare.start({ prompt: "hi" }));
+
+  assert.equal(withPath?.pathToClaudeCodeExecutable, "/usr/local/bin/claude");
+  assert.equal("pathToClaudeCodeExecutable" in (withoutPath ?? {}), false);
+});

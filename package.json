@@ -31,7 +31,8 @@
       "electron/**",
       "dist/**",
       "package.json",
-      "node_modules/**/*"
+      "node_modules/**/*",
+      "!node_modules/@anthropic-ai/claude-agent-sdk-*/**"
     ],
     "asarUnpack": [
       "dist/**"

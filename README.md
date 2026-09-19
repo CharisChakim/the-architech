@@ -143,6 +143,11 @@ directory:
 The database is at `data/architech.db` inside that folder. To supply API keys
 through environment variables rather than the UI, put a `.env` file there.
 
+No agent CLI is bundled. Codex, Claude Code, and Antigravity are detected on
+your machine and driven from there, so the version the app reports is the one
+it actually runs. **Connections → Runtimes** shows what was found and, for
+anything missing, the command to install it.
+
 The installers are unsigned, so Windows SmartScreen will warn on first run
 ("More info" → "Run anyway") and some Linux desktops will ask you to confirm
 the AppImage is executable.

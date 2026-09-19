@@ -530,6 +530,15 @@ const ID: Record<string, string> = {
   "{count}-point PRD": "PRD {count} poin",
   "{features} features · {subs} sub features": "{features} fitur · {subs} sub fitur",
   "{chars} chars · {time}": "{chars} karakter · {time}",
+  "This runtime is not installed on this machine.": "Runtime ini belum terpasang di perangkat ini.",
+  "The runtime is installed but not signed in. Authenticate it in its own CLI, then re-check.": "Runtime sudah terpasang tapi belum login. Autentikasi lewat CLI-nya sendiri, lalu periksa ulang.",
+  "The runtime answered, but offered no models. Signing in again usually restores the list.": "Runtime merespons tapi tidak menawarkan model apa pun. Login ulang biasanya memulihkan daftarnya.",
+  "The runtime binary was found but did not respond. Try running it once in a terminal.": "Binary runtime ditemukan tapi tidak merespons. Coba jalankan sekali lewat terminal.",
+  "The runtime failed to report its models. Re-check after updating it.": "Runtime gagal melaporkan modelnya. Periksa ulang setelah memperbaruinya.",
+  "Claude Code is installed but the agent SDK could not read it.": "Claude Code terpasang tapi SDK agent tidak bisa membacanya.",
+  "Copy install command": "Salin perintah instalasi",
+  "Installation guide": "Panduan instalasi",
+  "Once it is installed, re-check to pick it up.": "Setelah terpasang, periksa ulang agar terdeteksi.",
 };
 
 type Vars = Record<string, string | number>;

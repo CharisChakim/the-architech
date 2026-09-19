@@ -239,6 +239,12 @@ export interface ClaudeExecutionRun extends AsyncIterable<ClaudeExecutionEvent> 
 export interface ClaudeExecutionAdapterOptions {
   factory: ClaudeAgentSdkFactoryLike;
   callbacks?: ClaudeExecutionCallbacks;
+  /**
+   * Claude Code binary to drive. Without it the SDK falls back to the copy it
+   * vendors, which is not the installation discovery found and reported the
+   * version of — so the app would run a different build than it displays.
+   */
+  executablePath?: string | null;
 }
 
 const INHERIT = "inherit";
@@ -761,6 +767,7 @@ export class ClaudeExecutionError extends Error {
 export class ClaudeExecutionAdapter {
   private readonly factory: ClaudeSdkQueryFactory;
   private readonly defaultCallbacks: ClaudeExecutionCallbacks;
+  private readonly executablePath: string | null;
 
   constructor(options: ClaudeExecutionAdapterOptions | ClaudeAgentSdkFactoryLike) {
     const config = typeof options === "function" || typeof (options as ClaudeAgentSdkFactory)?.query === "function"
@@ -768,6 +775,7 @@ export class ClaudeExecutionAdapter {
       : options as ClaudeExecutionAdapterOptions;
     this.factory = queryFactory(config.factory);
     this.defaultCallbacks = config.callbacks ?? {};
+    this.executablePath = config.executablePath ?? null;
   }
 
   /** Start a fresh Claude Code conversation. */
@@ -804,7 +812,10 @@ export class ClaudeExecutionAdapter {
     try {
       query = this.factory({
         prompt: request.prompt,
-        options: buildClaudeSdkOptions(request, callbacks),
+        options: {
+          ...buildClaudeSdkOptions(request, callbacks),
+          ...(this.executablePath ? { pathToClaudeCodeExecutable: this.executablePath } : {}),
+        },
       });
     } catch (error) {
       return new ClaudeExecutionRunImpl(
