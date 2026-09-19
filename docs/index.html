@@ -1,0 +1,669 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>The Architech — specs your coding agent can actually run</title>
+<meta name="description" content="A local-first workbench that turns a rough idea into a dependency-ordered task board, with target files and verification steps. Export AGENTS.md for Claude Code, Codex, or Cursor. Bring your own model." />
+<link rel="canonical" href="https://charischakim.github.io/the-architech/" />
+
+<meta property="og:type" content="website" />
+<meta property="og:title" content="The Architech — specs your coding agent can actually run" />
+<meta property="og:description" content="Turns a rough idea into a dependency-ordered task board with target files and verification steps. Runs on your laptop, against your own model." />
+<meta property="og:image" content="https://charischakim.github.io/the-architech/assets/board-dark.png" />
+<meta name="twitter:card" content="summary_large_image" />
+
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23713dd4'/%3E%3Cpath d='M16 7l7 18h-3.4l-1.4-3.8h-4.4L12.4 25H9l7-18zm0 5.6l-1.5 4.2h3L16 12.6z' fill='white'/%3E%3C/svg%3E" />
+
+<style>
+:root {
+  --canvas: #fcfcfe;
+  --surface: #ffffff;
+  --subtle: #f4f4f8;
+  --ink: #232338;
+  --muted: #5c5e70;
+  --faint: #717387;
+  --line: #dfe0ea;
+  --strong: #c3c6d6;
+  --accent: #6d34d4;
+  --accent-ink: #5a25bb;
+  --accent-soft: #f1eaff;
+  --ok: #1d7a4c;
+  --code-bg: #f6f6fb;
+
+  --elev-1: 0 0 0 0.5px rgb(35 35 65 / .06), 0 1px 2px rgb(35 35 65 / .06);
+  --elev-2: 0 0 0 0.5px rgb(35 35 65 / .06), 0 2px 4px rgb(35 35 65 / .07), 0 6px 14px rgb(35 35 65 / .06);
+  --elev-3: 0 0 0 0.5px rgb(35 35 65 / .08), 0 8px 20px rgb(35 35 65 / .10), 0 20px 48px rgb(35 35 65 / .12);
+  --elev-hero: 0 0 0 0.5px rgb(35 35 65 / .10), 0 2px 6px rgb(35 35 65 / .06), 0 18px 40px rgb(35 35 65 / .13), 0 48px 96px rgb(35 35 65 / .14);
+
+  --glow: radial-gradient(60% 50% at 50% 0%, rgb(109 52 212 / .16) 0%, transparent 70%);
+  --dur: 220ms;
+  --ease: cubic-bezier(.32,.72,0,1);
+  --maxw: 1080px;
+}
+
+html[data-theme="dark"] {
+  --canvas: #101118;
+  --surface: #191b24;
+  --subtle: #20222c;
+  --ink: #eeedf7;
+  --muted: #b3b5c6;
+  --faint: #8e90a3;
+  --line: #2e3140;
+  --strong: #454857;
+  --accent: #b89aff;
+  --accent-ink: #cbb4ff;
+  --accent-soft: #241d3d;
+  --ok: #6ddba0;
+  --code-bg: #14161e;
+
+  --elev-1: inset 0 1px 0 rgb(255 255 255 / .04), 0 0 0 .5px rgb(0 0 0 / .55), 0 1px 2px rgb(0 0 0 / .45);
+  --elev-2: inset 0 1px 0 rgb(255 255 255 / .05), 0 0 0 .5px rgb(0 0 0 / .6), 0 2px 5px rgb(0 0 0 / .45), 0 8px 18px rgb(0 0 0 / .4);
+  --elev-3: inset 0 1px 0 rgb(255 255 255 / .07), 0 0 0 .5px rgb(0 0 0 / .65), 0 10px 24px rgb(0 0 0 / .5), 0 24px 56px rgb(0 0 0 / .55);
+  --elev-hero: inset 0 1px 0 rgb(255 255 255 / .08), 0 0 0 .5px rgb(0 0 0 / .7), 0 18px 40px rgb(0 0 0 / .55), 0 56px 110px rgb(0 0 0 / .6);
+
+  --glow: radial-gradient(60% 50% at 50% 0%, rgb(184 154 255 / .14) 0%, transparent 70%);
+}
+
+* { box-sizing: border-box; }
+
+/* scroll-padding keeps anchored sections clear of the 60px sticky nav */
+html { color-scheme: light; background: var(--canvas); scroll-behavior: smooth; scroll-padding-top: 76px; }
+html[data-theme="dark"] { color-scheme: dark; }
+
+body {
+  margin: 0;
+  background: var(--canvas);
+  color: var(--ink);
+  font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+
+code, pre, .mono {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+/* ---------- nav ---------- */
+nav {
+  position: sticky; top: 0; z-index: 50;
+  background: color-mix(in srgb, var(--canvas) 82%, transparent);
+  backdrop-filter: saturate(180%) blur(16px);
+  -webkit-backdrop-filter: saturate(180%) blur(16px);
+  border-bottom: 1px solid transparent;
+  transition: border-color var(--dur) var(--ease);
+}
+nav.scrolled { border-bottom-color: var(--line); }
+.nav-in { display: flex; align-items: center; gap: 16px; height: 60px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 640; letter-spacing: -.015em; text-decoration: none; color: var(--ink); }
+.mark {
+  width: 28px; height: 28px; border-radius: 8px; flex: none;
+  background: linear-gradient(160deg, #8b5cf6, #6d34d4);
+  display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 15px;
+  box-shadow: var(--elev-1);
+}
+.nav-sp { flex: 1; }
+.nav-link { color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 500; padding: 6px 2px; transition: color var(--dur) var(--ease); }
+.nav-link:hover { color: var(--ink); }
+.icon-btn {
+  width: 34px; height: 34px; display: grid; place-items: center; cursor: pointer;
+  border-radius: 9px; border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+  box-shadow: var(--elev-1);
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.icon-btn:hover { color: var(--ink); transform: translateY(-1px); box-shadow: var(--elev-2); }
+.icon-btn:active { transform: translateY(0) scale(.97); }
+@media (max-width: 720px) { .nav-hide { display: none; } }
+
+/* ---------- hero ---------- */
+header.hero { position: relative; padding: 88px 0 0; overflow: hidden; }
+header.hero::before {
+  content: ""; position: absolute; inset: -20% 0 auto 0; height: 700px;
+  background: var(--glow); pointer-events: none;
+}
+.hero-in { position: relative; text-align: center; }
+
+.eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 12.5px; font-weight: 560; letter-spacing: .01em;
+  color: var(--accent-ink); background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
+  padding: 5px 12px; border-radius: 999px; margin-bottom: 26px;
+}
+.dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
+
+h1 {
+  margin: 0 0 20px;
+  font-size: clamp(34px, 5.6vw, 60px);
+  line-height: 1.04;
+  letter-spacing: -.035em;
+  font-weight: 700;
+  max-width: 17ch; margin-inline: auto;
+}
+h1 .em { color: var(--accent-ink); }
+
+.lede {
+  margin: 0 auto 32px; max-width: 62ch;
+  font-size: clamp(16px, 2.1vw, 19px); line-height: 1.62; color: var(--muted);
+}
+.lede code { background: var(--code-bg); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; font-size: .88em; color: var(--ink); }
+
+.cta-row { display: flex; gap: 12px; justify-content: center; align-items: stretch; flex-wrap: wrap; margin-bottom: 14px; }
+
+.cmd {
+  display: inline-flex; align-items: center; gap: 12px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 12px; padding: 11px 12px 11px 16px;
+  box-shadow: var(--elev-2); font-size: 14px;
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.cmd:hover { transform: translateY(-1px); box-shadow: var(--elev-3); }
+.cmd .p { color: var(--faint); user-select: none; }
+.cmd .t { color: var(--ink); }
+.copy {
+  border: 1px solid var(--line); background: var(--subtle); color: var(--muted);
+  border-radius: 8px; padding: 5px 10px; font-size: 12px; font-weight: 560; cursor: pointer;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.copy:hover { color: var(--ink); border-color: var(--strong); }
+.copy.done { color: #fff; background: var(--ok); border-color: transparent; }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 9px; text-decoration: none;
+  border-radius: 12px; padding: 13px 22px; font-size: 14.5px; font-weight: 580;
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.btn-primary { background: var(--accent); color: #fff; box-shadow: var(--elev-2); }
+html[data-theme="dark"] .btn-primary { color: #1a1030; }
+.btn-primary:hover { transform: translateY(-1px); box-shadow: var(--elev-3); }
+.btn-primary:active { transform: translateY(0) scale(.985); }
+.btn-ghost { background: var(--surface); color: var(--ink); border: 1px solid var(--line); box-shadow: var(--elev-1); }
+.btn-ghost:hover { transform: translateY(-1px); box-shadow: var(--elev-2); }
+
+.subnote { font-size: 13px; color: var(--faint); margin: 0 0 56px; }
+
+/* hero shot with a little depth */
+.shot-wrap { perspective: 2000px; padding-bottom: 96px; }
+.shot {
+  border-radius: 14px; overflow: hidden; background: var(--surface);
+  box-shadow: var(--elev-hero);
+  transform: rotateX(5deg) scale(.985);
+  transform-origin: 50% 0%;
+  transition: transform 700ms var(--ease);
+}
+.shot.level { transform: rotateX(0deg) scale(1); }
+.shot img { display: block; width: 100%; height: auto; }
+
+/* ---------- sections ---------- */
+section { padding: 84px 0; border-top: 1px solid var(--line); }
+section.plain { border-top: none; }
+
+.kicker { font-size: 12.5px; font-weight: 640; letter-spacing: .07em; text-transform: uppercase; color: var(--accent-ink); margin: 0 0 14px; }
+h2 { margin: 0 0 16px; font-size: clamp(26px, 3.6vw, 38px); line-height: 1.14; letter-spacing: -.028em; font-weight: 680; max-width: 20ch; }
+.section-lede { margin: 0 0 44px; max-width: 60ch; color: var(--muted); font-size: 17px; }
+
+/* problem list */
+.breaks { display: grid; gap: 14px; max-width: 760px; }
+.brk {
+  display: flex; gap: 14px; align-items: flex-start;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px;
+  box-shadow: var(--elev-1);
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.brk:hover { transform: translateY(-1px); box-shadow: var(--elev-2); border-color: var(--strong); }
+.brk .n { flex: none; width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; background: var(--subtle); color: var(--faint); font-size: 12px; font-weight: 640; }
+.brk p { margin: 0; font-size: 15.5px; color: var(--muted); }
+.brk b { color: var(--ink); font-weight: 600; }
+
+/* steps */
+.steps { display: grid; gap: 22px; grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 860px) { .steps { grid-template-columns: 1fr; } }
+.step {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 22px;
+  box-shadow: var(--elev-1);
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.step:hover { transform: translateY(-2px); box-shadow: var(--elev-2); }
+.step .idx { font-size: 12px; font-weight: 680; color: var(--accent-ink); letter-spacing: .05em; }
+.step h3 { margin: 8px 0 10px; font-size: 18.5px; letter-spacing: -.018em; }
+.step p { margin: 0 0 14px; font-size: 14.6px; color: var(--muted); }
+.step ul { margin: 0; padding-left: 18px; font-size: 14px; color: var(--faint); }
+.step li { margin-bottom: 5px; }
+
+/* figure */
+figure { margin: 48px 0 0; }
+figure .shot { transform: none; box-shadow: var(--elev-3); }
+figcaption { margin-top: 14px; font-size: 13.5px; color: var(--faint); text-align: center; }
+
+/* feature grid */
+.grid2 { display: grid; gap: 20px; grid-template-columns: 1fr 1fr; }
+/* Grid items default to min-width:auto, so a long unwrappable command would
+   stretch the column instead of letting the <pre> scroll inside it. */
+.grid2 > * { min-width: 0; }
+@media (max-width: 860px) { .grid2 { grid-template-columns: 1fr; } }
+.tile {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 24px;
+  box-shadow: var(--elev-1);
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.tile:hover { transform: translateY(-2px); box-shadow: var(--elev-2); }
+.tile h3 { margin: 0 0 10px; font-size: 17px; letter-spacing: -.015em; }
+.tile p { margin: 0; color: var(--muted); font-size: 14.8px; }
+.tile p + p { margin-top: 10px; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.chip {
+  font-size: 12.5px; font-weight: 520; color: var(--muted);
+  border: 1px solid var(--line); background: var(--subtle);
+  border-radius: 999px; padding: 4px 11px;
+}
+
+/* callout */
+.callout {
+  margin-top: 26px; border-radius: 14px; padding: 22px 24px;
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 26%, transparent);
+}
+.callout p { margin: 0; font-size: 15px; color: var(--ink); }
+.callout p + p { margin-top: 10px; }
+.callout strong { font-weight: 640; }
+
+/* install */
+pre.block {
+  margin: 0; background: var(--code-bg); border: 1px solid var(--line); border-radius: 12px;
+  padding: 18px 20px; overflow-x: auto; font-size: 13.6px; line-height: 1.75; color: var(--ink);
+  box-shadow: var(--elev-1);
+}
+pre.block .c { color: var(--faint); }
+.os { font-size: 13px; font-weight: 620; color: var(--faint); margin: 0 0 10px; letter-spacing: .03em; }
+
+/* footer */
+footer { border-top: 1px solid var(--line); padding: 44px 0 64px; color: var(--faint); font-size: 14px; }
+.foot-in { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+footer a { color: var(--muted); text-decoration: none; }
+footer a:hover { color: var(--ink); text-decoration: underline; }
+
+/* reveal */
+.rv { opacity: 0; transform: translateY(14px); transition: opacity 620ms var(--ease), transform 620ms var(--ease); }
+.rv.in { opacity: 1; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
+  .rv { opacity: 1; transform: none; }
+  .shot { transform: none; }
+}
+</style>
+</head>
+<body>
+
+<nav id="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="#top"><span class="mark">A</span> The Architech</a>
+    <span class="nav-sp"></span>
+    <a class="nav-link nav-hide" href="#how">How it works</a>
+    <a class="nav-link nav-hide" href="#models">Models</a>
+    <a class="nav-link nav-hide" href="#trust">Boundaries</a>
+    <a class="nav-link nav-hide" href="#install">Install</a>
+    <a class="nav-link" href="https://github.com/CharisChakim/the-architech">GitHub</a>
+    <button class="icon-btn" id="theme" aria-label="Toggle dark mode" title="Toggle dark mode">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+    </button>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div class="wrap hero-in">
+    <span class="eyebrow"><span class="dot"></span> Local-first · Bring your own model</span>
+
+    <h1>Your coding agent deserves a better spec than <span class="em">one paragraph</span>.</h1>
+
+    <p class="lede">
+      The Architech interviews you about the idea until the gaps are closed, drafts the architecture,
+      then splits it into atomic tasks — each with target files, dependencies, and verification steps.
+      Download <code>AGENTS.md</code> and hand it to Claude Code, Codex, or Cursor.
+    </p>
+
+    <div class="cta-row">
+      <div class="cmd">
+        <span class="p mono">$</span>
+        <span class="t mono" id="cmd">bash install.sh</span>
+        <button class="copy" id="copy" data-full="curl -fsSLO https://raw.githubusercontent.com/CharisChakim/the-architech/main/install.sh &amp;&amp; bash install.sh">Copy</button>
+      </div>
+      <a class="btn btn-ghost" href="https://github.com/CharisChakim/the-architech">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.4 7.4 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+        View source
+      </a>
+    </div>
+    <p class="subnote">Node 22.14+ · no database to provision · no account, no telemetry</p>
+  </div>
+
+  <div class="wrap shot-wrap">
+    <div class="shot" id="heroShot">
+      <img class="themed" data-light="assets/board-light.png" data-dark="assets/board-dark.png"
+           src="assets/board-dark.png"
+           alt="The Architech kanban workspace: nine generated tasks in a To do column, each with an ID, phase, priority and target file count, plus a Download AGENTS.md button."
+           width="2880" height="1800" />
+    </div>
+  </div>
+</header>
+
+<section id="problem" class="plain">
+  <div class="wrap">
+    <p class="kicker">The gap</p>
+    <h2>Most agent runs go wrong before the first line of code.</h2>
+    <p class="section-lede">
+      Coding agents are good at writing code. They are much worse at deciding what to build, in what
+      order, and how anyone would know it worked. That part is still yours — and a paragraph of intent
+      does not carry it.
+    </p>
+
+    <div class="breaks">
+      <div class="brk"><span class="n">1</span><p><b>It picks an architecture you would not have picked.</b> You find out after the third file.</p></div>
+      <div class="brk"><span class="n">2</span><p><b>It writes task 7 before task 3</b> — and task 3 was the schema everything else depends on.</p></div>
+      <div class="brk"><span class="n">3</span><p><b>Nothing says how you would know it worked.</b> So the agent declares success and you go read the diff anyway.</p></div>
+      <div class="brk"><span class="n">4</span><p><b>You re-explain the same context tomorrow,</b> because it lived in a chat window that is now gone.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="how">
+  <div class="wrap">
+    <p class="kicker">How it works</p>
+    <h2>Idea in. Executable backlog out.</h2>
+    <p class="section-lede">
+      Three steps, each one editable before it feeds the next. You are reviewing a document, not
+      babysitting a chat.
+    </p>
+
+    <div class="steps">
+      <div class="step">
+        <span class="idx">STEP 01</span>
+        <h3>Plan</h3>
+        <p>Describe the idea in a sentence. The agent asks focused follow-ups until it stops guessing, then drafts:</p>
+        <ul>
+          <li>Summary, audience, value proposition</li>
+          <li>Core features and tech stack</li>
+          <li>Architecture and data flow, as Mermaid diagrams</li>
+          <li>Phased roadmap, estimate, risks</li>
+        </ul>
+      </div>
+      <div class="step">
+        <span class="idx">STEP 02</span>
+        <h3>PRD</h3>
+        <p>The approved plan becomes a seven-point requirements document you can actually edit:</p>
+        <ul>
+          <li>Requirements and features by phase</li>
+          <li>User flow and architecture</li>
+          <li>Database schema and tech stack</li>
+          <li>Structured view, raw fields, or Markdown</li>
+        </ul>
+      </div>
+      <div class="step">
+        <span class="idx">STEP 03</span>
+        <h3>Task board</h3>
+        <p>The PRD splits into atomic coding tasks. Every card carries what an agent needs to execute it:</p>
+        <ul>
+          <li>Stable ID, priority, phase</li>
+          <li>Target files and dependencies</li>
+          <li>Instructions and verification steps</li>
+          <li>Export as <code>AGENTS.md</code></li>
+        </ul>
+      </div>
+    </div>
+
+    <figure>
+      <div class="shot"><img class="themed" data-light="assets/plan-light.png" data-dark="assets/plan-dark.png"
+           src="assets/plan-light.png"
+           alt="Split view: the agent chat on the left, and on the right the generated plan with an architecture summary and an interactive feature-structure diagram."
+           width="2880" height="1800" loading="lazy" /></div>
+      <figcaption>Split view — chat on the left, the living plan document on the right.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="models">
+  <div class="wrap">
+    <p class="kicker">Models</p>
+    <h2>Bring your own model. Nothing is bundled.</h2>
+    <p class="section-lede">
+      The Architech ships with no model and no API key. You point it at whatever you already pay for —
+      or at something running on your own machine.
+    </p>
+
+    <div class="grid2">
+      <div class="tile">
+        <h3>Route by role, not by app</h3>
+        <p>
+          Bind a different connection to each stage. A strong model drafts the architecture; a cheap,
+          fast one fills in the task board. The app does not care which is which.
+        </p>
+        <div class="chips">
+          <span class="chip">Agent</span><span class="chip">Plan</span><span class="chip">PRD</span><span class="chip">Tasks</span>
+        </div>
+      </div>
+      <div class="tile">
+        <h3>Two wire formats, many endpoints</h3>
+        <p>
+          Anthropic Messages and OpenAI-compatible, with presets for local routers, Ollama, LM Studio,
+          OpenRouter, Anthropic, and Gemini. Codex, Claude Code, and Antigravity are detected if you
+          have them installed.
+        </p>
+        <div class="chips">
+          <span class="chip">Ollama</span><span class="chip">LM Studio</span><span class="chip">OpenRouter</span><span class="chip">Anthropic</span><span class="chip">Gemini</span><span class="chip">Custom</span>
+        </div>
+      </div>
+      <div class="tile">
+        <h3>MCP tools, no code changes</h3>
+        <p>
+          Register external tools over stdio or Streamable HTTP. They are discovered lazily and
+          namespaced as <code>mcp__server__tool</code>, isolated from the built-ins. A slow or dead
+          server does not stall the turn — the UI just reports it.
+        </p>
+      </div>
+      <div class="tile">
+        <h3>Keys stay where you put them</h3>
+        <p>
+          Keys saved through the UI live server-side in <code>data/architech.db</code>. Prefer them out
+          of the database? Name an environment variable on the connection instead and keep the value
+          in <code>.env</code>.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="trust">
+  <div class="wrap">
+    <p class="kicker">Boundaries</p>
+    <h2>It runs on your machine, and it asks first.</h2>
+    <p class="section-lede">
+      File and shell access are real capabilities, so they are gated deliberately rather than enabled
+      by default.
+    </p>
+
+    <div class="grid2">
+      <div class="tile">
+        <h3>No workspace, no file access</h3>
+        <p>
+          The agent gets no file tools at all until you select a working folder. Paths are then
+          resolved to their real location and checked against that folder, so <code>../</code>, an
+          absolute path, and a symlink pointing outside are all refused.
+        </p>
+      </div>
+      <div class="tile">
+        <h3>Shell is a separate switch</h3>
+        <p>
+          Off by default, and only available once a folder is set. Every command is shown to you and
+          waits for approval before it runs. Refusing tells the model the command did not run, so it
+          can suggest something else.
+        </p>
+      </div>
+      <div class="tile">
+        <h3>Your data stays local</h3>
+        <p>
+          Sessions, connections, and MCP definitions live in a SQLite file on disk. There is no
+          account, no sync, and no telemetry. Deleting <code>data/</code> deletes everything.
+        </p>
+      </div>
+      <div class="tile">
+        <h3>Permissions come from the project</h3>
+        <p>
+          They are read from saved project state, never from the request, so a client cannot widen its
+          own access mid-conversation.
+        </p>
+      </div>
+    </div>
+
+    <div class="callout">
+      <p><strong>One thing we will not pretend about.</strong></p>
+      <p>
+        There is no denylist of dangerous commands. Pattern-matching shell strings does not hold up,
+        and shipping one would imply a protection that is not there. If you enable the shell and
+        approve a command, it runs. Read the approvals.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section id="install">
+  <div class="wrap">
+    <p class="kicker">Install</p>
+    <h2>Two commands, then it is running.</h2>
+    <p class="section-lede">
+      Storage uses the built-in <code>node:sqlite</code>, so there is no database to install. Running
+      the installer again keeps your existing <code>data/</code> and <code>.env</code>.
+    </p>
+
+    <div class="grid2">
+      <div>
+        <p class="os">LINUX / MACOS</p>
+<pre class="block">curl -fsSLO https://raw.githubusercontent.com/CharisChakim/the-architech/main/install.sh
+bash install.sh
+the-architech</pre>
+      </div>
+      <div>
+        <p class="os">WINDOWS POWERSHELL</p>
+<pre class="block">Invoke-WebRequest https://raw.githubusercontent.com/CharisChakim/the-architech/main/install.ps1 -OutFile install.ps1
+powershell -ExecutionPolicy Bypass -File .\install.ps1</pre>
+      </div>
+    </div>
+
+    <div style="margin-top:22px">
+      <p class="os">FROM A CHECKOUT</p>
+<pre class="block">npm install
+npm run dev   <span class="c"># http://localhost:3000</span></pre>
+    </div>
+
+    <div style="margin-top:34px; display:flex; gap:12px; flex-wrap:wrap">
+      <a class="btn btn-primary" href="https://github.com/CharisChakim/the-architech">Open the repository</a>
+      <a class="btn btn-ghost" href="https://github.com/CharisChakim/the-architech#readme">Read the docs</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot-in">
+    <span class="mark" style="width:22px;height:22px;border-radius:7px;font-size:12px">A</span>
+    <span>The Architech</span>
+    <span class="nav-sp"></span>
+    <a href="https://github.com/CharisChakim/the-architech">GitHub</a>
+    <a href="https://github.com/CharisChakim/the-architech/issues">Issues</a>
+    <span>React 19 · TypeScript · Vite · Express · node:sqlite</span>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  var stored = null;
+  try { stored = localStorage.getItem('architech-site-theme'); } catch (e) {}
+  var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+  // Screenshots follow the theme, so a light page never shows a dark app.
+  // Driven from the data-theme attribute rather than a <picture> media query,
+  // which would ignore a manual toggle.
+  function applyTheme(theme) {
+    root.setAttribute('data-theme', theme);
+    var key = theme === 'dark' ? 'dark' : 'light';
+    [].forEach.call(document.querySelectorAll('img.themed'), function (img) {
+      var next = img.getAttribute('data-' + key);
+      if (next && img.getAttribute('src') !== next) img.setAttribute('src', next);
+    });
+  }
+  applyTheme(stored || (prefersDark ? 'dark' : 'light'));
+
+  document.getElementById('theme').addEventListener('click', function () {
+    var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    applyTheme(next);
+    try { localStorage.setItem('architech-site-theme', next); } catch (e) {}
+  });
+
+  // sticky nav hairline
+  var nav = document.getElementById('nav');
+  var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 8); };
+  onScroll();
+  window.addEventListener('scroll', onScroll, { passive: true });
+
+  // copy install command
+  var copy = document.getElementById('copy');
+  copy.addEventListener('click', function () {
+    var text = copy.getAttribute('data-full');
+    var done = function () {
+      copy.textContent = 'Copied';
+      copy.classList.add('done');
+      setTimeout(function () { copy.textContent = 'Copy'; copy.classList.remove('done'); }, 1600);
+    };
+    if (navigator.clipboard) { navigator.clipboard.writeText(text).then(done, function(){}); }
+    else {
+      var ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); done(); } catch (e) {}
+      document.body.removeChild(ta);
+    }
+  });
+
+  // hero settles flat once it is in view
+  requestAnimationFrame(function () {
+    setTimeout(function () { document.getElementById('heroShot').classList.add('level'); }, 120);
+  });
+
+  // Scroll reveal. Deliberately not IntersectionObserver: a fast scroll or a
+  // jump-to-anchor can skip past elements without them ever being reported as
+  // intersecting, which leaves that content invisible for good. Re-checking
+  // every pending element on each frame cannot strand anything, and with ~17
+  // elements the cost is irrelevant.
+  var pending = [].slice.call(document.querySelectorAll('.brk, .step, .tile, figure, .callout'));
+  pending.forEach(function (el) { el.classList.add('rv'); });
+
+  var ticking = false;
+  function check() {
+    ticking = false;
+    var line = window.innerHeight * 0.92;
+    var stagger = 0;
+    pending = pending.filter(function (el) {
+      if (el.getBoundingClientRect().top > line) return true;
+      var d = Math.min(stagger * 55, 220);
+      stagger++;
+      setTimeout(function () { el.classList.add('in'); }, d);
+      return false;
+    });
+    if (!pending.length) {
+      window.removeEventListener('scroll', request);
+      window.removeEventListener('resize', request);
+    }
+  }
+  function request() {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(check);
+  }
+  window.addEventListener('scroll', request, { passive: true });
+  window.addEventListener('resize', request);
+  check();
+})();
+</script>
+</body>
+</html>
