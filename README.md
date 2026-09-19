@@ -128,8 +128,8 @@ Download an installer from the [latest release](https://github.com/CharisChakim/
 | Platform | File | Notes |
 | --- | --- | --- |
 | Windows | `TheArchitech-Setup-<version>-x64.exe` | Installs per user; you can pick the directory. |
-| Linux | `TheArchitech-<version>-x64.AppImage` | Portable. `chmod +x` it, then run it. |
-| Linux (Debian/Ubuntu) | `TheArchitech-<version>-x64.deb` | `sudo apt install ./<file>.deb` |
+| Linux | `TheArchitech-<version>-x86_64.AppImage` | Portable. `chmod +x` it, then run it. |
+| Linux (Debian/Ubuntu) | `TheArchitech-<version>-amd64.deb` | `sudo apt install ./<file>.deb` |
 
 The desktop build runs the same local server, picks a free port instead of
 3000, and listens on `127.0.0.1` only. It keeps its data outside the install
