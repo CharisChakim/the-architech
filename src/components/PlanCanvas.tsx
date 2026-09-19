@@ -29,7 +29,7 @@ const SUB_FEATURES_SHOWN = 3;
 // tombol fit bawaan React Flow di kiri bawah tetap bisa memuat semuanya.
 const FIT_VIEW: FitViewOptions = { padding: 0.15, minZoom: 0.75, maxZoom: 1 };
 
-const CARD = "w-56 rounded-xl px-3.5 py-3 bg-surface border border-line shadow-sm dark:shadow-none";
+const CARD = "w-56 rounded-xl px-3.5 py-3 bg-surface border border-line shadow-elev-1";
 
 const PRIORITY_LABEL: Record<string, string> = { P0: "MVP", P1: "IMPORTANT", P2: "LATER" };
 
@@ -181,8 +181,8 @@ export const PlanCanvas: React.FC<PlanCanvasProps> = ({ title, features }) => {
         disabled={!flow}
         title={t("Back to the default view")}
         className="absolute top-3 right-3 z-10 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg
-          bg-surface border border-line text-xs font-medium text-muted hover:text-ink shadow-sm
-          transition-colors disabled:opacity-40"
+          bg-surface border border-line text-xs font-medium text-muted hover:text-ink shadow-elev-1
+          lift disabled:opacity-40"
       >
         <Maximize className="w-3.5 h-3.5" />
         {t("Reset view")}
@@ -202,7 +202,7 @@ export const PlanCanvas: React.FC<PlanCanvasProps> = ({ title, features }) => {
         edgesFocusable={false}
         nodeOrigin={[0, 0.5]}
       >
-        <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#91919a" />
+        <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--app-strong)" />
         <Controls showInteractive={false} position="bottom-left" />
       </ReactFlow>
     </div>

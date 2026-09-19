@@ -261,7 +261,7 @@ export const AgentPane: React.FC<AgentPaneProps> = ({
   const folderControl = (
     <div className="relative" ref={folderPopover}>
       {folderOpen && (
-        <div id="agent-workspace-popover" role="dialog" aria-label={t("Working folder")} className="absolute bottom-full left-0 z-30 mb-2 w-[min(22rem,calc(100vw-2rem))] rounded-xl border border-line bg-surface p-3 shadow-lg">
+        <div id="agent-workspace-popover" role="dialog" aria-label={t("Working folder")} className="absolute bottom-full left-0 z-30 mb-2 w-[min(22rem,calc(100vw-2rem))] rounded-xl border border-line bg-surface p-3 shadow-elev-3">
           <button type="button" onClick={() => void chooseFolder()} disabled={folderPickerBusy} className="btn-outline flex w-full items-center justify-center gap-1.5 text-xs">
             <Folder className={`h-3.5 w-3.5 ${folderPickerBusy ? "animate-pulse" : ""}`} aria-hidden />
             {folderPickerBusy ? t("Opening folder picker...") : t("Choose folder")}
@@ -374,22 +374,22 @@ export const AgentPane: React.FC<AgentPaneProps> = ({
               <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">{t("Work with the coding agent, shape a plan, build a PRD, or organize tasks directly in Kanban.")}</p>
             </div>
             <div className="mt-5 grid grid-cols-2 gap-2 lg:grid-cols-4" aria-label={t("Start a workflow")}>
-              <button type="button" onClick={() => focusComposerMode("agent")} className="group rounded-xl border border-line bg-surface p-3 text-left transition-colors hover:border-accent/40 hover:bg-accent-soft/40">
+              <button type="button" onClick={() => focusComposerMode("agent")} className="group lift rounded-xl border border-line bg-surface p-3 text-left hover:border-accent/40 hover:bg-accent-soft/40">
                 <Code2 className="h-4 w-4 text-accent" aria-hidden />
                 <span className="mt-2 block text-xs font-medium text-ink">{t("Build a feature")}</span>
                 <span className="mt-0.5 block text-[10px] text-faint">{t("Agent mode")}</span>
               </button>
-              <button type="button" onClick={() => focusComposerMode("plan")} className="group rounded-xl border border-line bg-surface p-3 text-left transition-colors hover:border-accent/40 hover:bg-accent-soft/40">
+              <button type="button" onClick={() => focusComposerMode("plan")} className="group lift rounded-xl border border-line bg-surface p-3 text-left hover:border-accent/40 hover:bg-accent-soft/40">
                 <ListChecks className="h-4 w-4 text-accent" aria-hidden />
                 <span className="mt-2 block text-xs font-medium text-ink">{t("Plan a project")}</span>
                 <span className="mt-0.5 block text-[10px] text-faint">{t("Plan mode")}</span>
               </button>
-              <button type="button" onClick={() => onNavigatePipeline?.(2)} className="group rounded-xl border border-line bg-surface p-3 text-left transition-colors hover:border-accent/40 hover:bg-accent-soft/40">
+              <button type="button" onClick={() => onNavigatePipeline?.(2)} className="group lift rounded-xl border border-line bg-surface p-3 text-left hover:border-accent/40 hover:bg-accent-soft/40">
                 <FileText className="h-4 w-4 text-accent" aria-hidden />
                 <span className="mt-2 block text-xs font-medium text-ink">{t("Create a PRD")}</span>
                 <span className="mt-0.5 block text-[10px] text-faint">{t("PRD builder")}</span>
               </button>
-              <button type="button" onClick={() => onNavigatePipeline?.(3)} className="group rounded-xl border border-line bg-surface p-3 text-left transition-colors hover:border-accent/40 hover:bg-accent-soft/40">
+              <button type="button" onClick={() => onNavigatePipeline?.(3)} className="group lift rounded-xl border border-line bg-surface p-3 text-left hover:border-accent/40 hover:bg-accent-soft/40">
                 <Kanban className="h-4 w-4 text-accent" aria-hidden />
                 <span className="mt-2 block text-xs font-medium text-ink">{t("Open Kanban")}</span>
                 <span className="mt-0.5 block text-[10px] text-faint">{t("Plan manually")}</span>

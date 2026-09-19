@@ -81,7 +81,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, sessi
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="card shadow-lg w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="card shadow-elev-3 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         <div className="px-6 py-4 border-b border-line flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <Download className="w-4 h-4 text-faint" />
@@ -166,7 +166,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, sessi
                 key={title}
                 onClick={onClick}
                 disabled={disabled}
-                className="w-full flex items-center justify-between gap-3 p-3 border border-line hover:bg-subtle rounded-lg text-left transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
+                className="lift w-full flex items-center justify-between gap-3 p-3 border border-line hover:bg-subtle rounded-lg text-left disabled:opacity-40 disabled:hover:bg-transparent"
               >
                 <span className="flex items-center gap-3 min-w-0">
                   <span className="w-8 h-8 shrink-0 rounded-lg bg-accent-soft text-accent-ink grid place-items-center">

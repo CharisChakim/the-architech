@@ -251,7 +251,7 @@ export const ConnectionsModal: React.FC<ConnectionsModalProps> = ({ isOpen, onCl
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-xs">
-      <div ref={modalRef} role="dialog" aria-modal="true" aria-labelledby="connections-modal-title" className="card flex min-w-0 max-h-[min(760px,calc(100vh-2rem))] w-full max-w-4xl flex-col overflow-hidden shadow-lg">
+      <div ref={modalRef} role="dialog" aria-modal="true" aria-labelledby="connections-modal-title" className="card flex min-w-0 max-h-[min(760px,calc(100vh-2rem))] w-full max-w-4xl flex-col overflow-hidden shadow-elev-3">
         <div className="flex items-center justify-between border-b border-line px-5 py-4">
           <div className="flex min-w-0 items-center gap-2.5"><Cpu className="h-4 w-4 shrink-0 text-accent" /><h3 id="connections-modal-title" className="truncate font-semibold text-ink">{t("Connections")}</h3></div>
           <button ref={closeButtonRef} type="button" onClick={onClose} aria-label={t("Close")} className="shrink-0 rounded-lg p-1.5 text-faint hover:bg-subtle hover:text-ink"><X className="h-4 w-4" aria-hidden /></button>
@@ -278,7 +278,7 @@ export const ConnectionsModal: React.FC<ConnectionsModalProps> = ({ isOpen, onCl
                 }}
                 data-tab={item}
                 onClick={() => setTab(item)}
-                className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-left text-xs font-medium ${tab === item ? "bg-surface text-accent-ink shadow-sm" : "text-muted hover:text-ink"}`}
+                className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-left text-xs font-medium ${tab === item ? "bg-surface text-accent-ink shadow-elev-1" : "text-muted hover:text-ink"}`}
               >
                 {item === "connections" ? t("Connections") : item === "runtimes" ? t("Runtimes") : item === "roles" ? t("Roles") : t("MCP")}
               </button>
@@ -291,8 +291,8 @@ export const ConnectionsModal: React.FC<ConnectionsModalProps> = ({ isOpen, onCl
                 <div className="mb-2 flex items-center justify-between"><span className="text-xs font-semibold text-ink">{t("Saved connections")}</span><button type="button" onClick={() => setShowPresets((value) => !value)} aria-expanded={showPresets} aria-controls="connection-preset-list" title={t("Add connection")} aria-label={t("Add connection")} className="rounded-md p-1 text-accent hover:bg-accent-soft"><Plus className="h-4 w-4" aria-hidden /></button></div>
                 {showPresets ? (
                   <div id="connection-preset-list" className="min-h-0 space-y-1 overflow-y-auto">
-                    {CUSTOM_CONNECTION_PRESET && <button type="button" onClick={() => void choosePreset(CUSTOM_CONNECTION_PRESET)} className="mb-1 flex w-full items-center gap-2 rounded-lg border border-dashed border-line px-2.5 py-2 text-left text-xs text-muted hover:border-accent hover:text-ink"><Plus className="h-3.5 w-3.5" />{t("Custom connection")}</button>}
-                    {CONNECTION_PRESETS.filter((preset) => preset.id !== "custom").map((preset) => <button key={preset.id} type="button" onClick={() => void choosePreset(preset)} className="block w-full rounded-lg border border-line px-2.5 py-2 text-left hover:bg-subtle"><span className="block text-xs font-medium text-ink">{preset.name}</span><span className="mt-0.5 block break-all text-[11px] text-faint">{preset.baseUrl}</span></button>)}
+                    {CUSTOM_CONNECTION_PRESET && <button type="button" onClick={() => void choosePreset(CUSTOM_CONNECTION_PRESET)} className="lift mb-1 flex w-full items-center gap-2 rounded-lg border border-dashed border-line px-2.5 py-2 text-left text-xs text-muted hover:border-accent hover:text-ink"><Plus className="h-3.5 w-3.5" />{t("Custom connection")}</button>}
+                    {CONNECTION_PRESETS.filter((preset) => preset.id !== "custom").map((preset) => <button key={preset.id} type="button" onClick={() => void choosePreset(preset)} className="lift block w-full rounded-lg border border-line px-2.5 py-2 text-left hover:bg-subtle"><span className="block text-xs font-medium text-ink">{preset.name}</span><span className="mt-0.5 block break-all text-[11px] text-faint">{preset.baseUrl}</span></button>)}
                   </div>
                 ) : (
                   <div className="min-h-0 space-y-1 overflow-y-auto">

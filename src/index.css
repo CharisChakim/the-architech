@@ -26,12 +26,12 @@
   --app-subtle: #f1f2f7;
   --app-sidebar: #f1f2f7;
 
-  --app-line: #e1e2ed;
-  --app-strong: #cdd0dd;
+  --app-line: #b7bace;
+  --app-strong: #a4a7bd;
 
   --app-ink: #292a3a;
   --app-muted: #6c6e80;
-  --app-faint: #9799a8;
+  --app-faint: #717387;
 
   --app-accent: #713dd4;
   --app-accent-fg: #ffffff;
@@ -43,6 +43,7 @@
   --app-ok-ink: #226d54;
 
   --app-warn: #855e27;
+  --app-warn-fg: #ffffff;
   --app-warn-soft: #fff7e8;
   --app-warn-ink: #855e27;
 
@@ -62,12 +63,12 @@
   --app-subtle: #292b36;
   --app-sidebar: #111219;
 
-  --app-line: #343643;
-  --app-strong: #4a4c5b;
+  --app-line: #4e5163;
+  --app-strong: #63667a;
 
   --app-ink: #eeedf7;
   --app-muted: #abadc0;
-  --app-faint: #77798a;
+  --app-faint: #8e90a3;
 
   --app-accent: #b89aff;
   --app-accent-fg: #20132f;
@@ -79,6 +80,7 @@
   --app-ok-ink: #8cd4b6;
 
   --app-warn: #efc88e;
+  --app-warn-fg: #2b1d08;
   --app-warn-soft: #392e20;
   --app-warn-ink: #efc88e;
 
@@ -88,6 +90,47 @@
 
   --app-code: #12161f;
   --app-code-ink: #e6ebf4;
+}
+
+/* ---------------------------------------------------------------------------
+   Token kedalaman, gerak, dan radius.
+
+   Elevasi dibangun berlapis — garis kontak setipis rambut, bayangan ambient,
+   lalu key shadow — karena satu blur lembut saja terbaca datar. Di mode gelap
+   bayangan gelap di atas permukaan gelap tidak terlihat, jadi variannya memakai
+   hitam yang lebih pekat plus inset highlight di tepi atas; garis terang itulah
+   yang memberi kesan tebal pada permukaan gelap.
+--------------------------------------------------------------------------- */
+:root {
+  --elev-1: 0 0 0 0.5px rgb(35 35 65 / 0.06), 0 1px 2px rgb(35 35 65 / 0.06);
+  --elev-2: 0 0 0 0.5px rgb(35 35 65 / 0.06), 0 2px 4px rgb(35 35 65 / 0.07),
+    0 6px 14px rgb(35 35 65 / 0.06);
+  --elev-3: 0 0 0 0.5px rgb(35 35 65 / 0.08), 0 8px 20px rgb(35 35 65 / 0.1),
+    0 20px 48px rgb(35 35 65 / 0.12);
+
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms;
+  --ease-standard: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Besar angkatan hover dan tekanan aktif. Dipakai lewat var() supaya
+     prefers-reduced-motion cukup menolkannya di satu tempat. */
+  --lift: -1px;
+  --press: 0.985;
+
+  --r-xs: 6px;
+  --r-sm: 8px;
+  --r-md: 12px;
+}
+
+.dark {
+  --elev-1: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 0 0 0.5px rgb(0 0 0 / 0.55),
+    0 1px 2px rgb(0 0 0 / 0.45);
+  --elev-2: inset 0 1px 0 rgb(255 255 255 / 0.05), 0 0 0 0.5px rgb(0 0 0 / 0.6),
+    0 2px 5px rgb(0 0 0 / 0.45), 0 8px 18px rgb(0 0 0 / 0.4);
+  --elev-3: inset 0 1px 0 rgb(255 255 255 / 0.07), 0 0 0 0.5px rgb(0 0 0 / 0.65),
+    0 10px 24px rgb(0 0 0 / 0.5), 0 24px 56px rgb(0 0 0 / 0.55);
 }
 
 /* Latar dipasang di <html> juga supaya area overscroll dan scrollbar bawaan
@@ -124,6 +167,7 @@ html.dark {
   --color-ok-ink: var(--app-ok-ink);
 
   --color-warn: var(--app-warn);
+  --color-warn-fg: var(--app-warn-fg);
   --color-warn-soft: var(--app-warn-soft);
   --color-warn-ink: var(--app-warn-ink);
 
@@ -133,6 +177,10 @@ html.dark {
 
   --color-code: var(--app-code);
   --color-code-ink: var(--app-code-ink);
+
+  --shadow-elev-1: var(--elev-1);
+  --shadow-elev-2: var(--elev-2);
+  --shadow-elev-3: var(--elev-3);
 }
 
 /* Kelas isian dipakai di banyak form; dikumpulkan di sini agar satu perubahan
@@ -141,6 +189,11 @@ html.dark {
   .field {
     @apply w-full px-3 py-2 bg-surface border border-strong rounded-lg text-sm text-ink
            placeholder:text-faint focus:outline-hidden focus:ring-2 focus:ring-accent focus:border-accent;
+    box-shadow: var(--elev-1);
+    transition: box-shadow var(--dur-base) var(--ease-standard),
+      border-color var(--dur-base) var(--ease-standard),
+      background-color var(--dur-base) var(--ease-standard),
+      color var(--dur-base) var(--ease-standard);
   }
 
   .field-label {
@@ -151,25 +204,146 @@ html.dark {
     @apply mt-1.5 text-xs text-faint;
   }
 
-  /* Kartu: satu radius dan satu jenis garis untuk seluruh aplikasi. */
+  /* Kartu: satu radius dan satu jenis garis untuk seluruh aplikasi. Kartu di
+     aplikasi ini semuanya panel statis, jadi ia diam di --elev-1 dan tidak ikut
+     terangkat saat kursor lewat. */
   .card {
     @apply bg-surface border border-line rounded-xl;
+    box-shadow: var(--elev-1);
+    transition: box-shadow var(--dur-base) var(--ease-standard),
+      border-color var(--dur-base) var(--ease-standard),
+      background-color var(--dur-base) var(--ease-standard),
+      color var(--dur-base) var(--ease-standard);
   }
 
   .btn-primary {
     @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent text-accent-fg text-sm font-medium
-           hover:brightness-110 transition-all disabled:opacity-40 disabled:hover:brightness-100;
+           hover:brightness-110 disabled:opacity-40 disabled:hover:brightness-100;
+    box-shadow: var(--elev-1);
   }
 
   .btn-ghost {
     @apply inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-muted
-           hover:text-ink hover:bg-subtle transition-colors disabled:opacity-40;
+           hover:text-ink hover:bg-subtle disabled:opacity-40;
   }
 
   .btn-outline {
     @apply inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-line bg-surface text-sm font-medium
-           text-muted hover:text-ink hover:bg-subtle transition-colors disabled:opacity-40;
+           text-muted hover:text-ink hover:bg-subtle disabled:opacity-40;
   }
+
+  /* Umpan balik fisik bersama: rest → hover terangkat → tekan mendarat.
+     Properti transisi didaftar satu per satu; menganimasikan seluruh properti
+     sekaligus ikut menarik hal yang tidak diinginkan seperti width dan filter. */
+  .btn-primary,
+  .btn-ghost,
+  .btn-outline {
+    transition: transform var(--dur-base) var(--ease-standard),
+      box-shadow var(--dur-base) var(--ease-standard),
+      background-color var(--dur-base) var(--ease-standard),
+      border-color var(--dur-base) var(--ease-standard),
+      color var(--dur-base) var(--ease-standard);
+  }
+
+  /* Sejajar dengan `hover:` bawaan Tailwind: angkatan hanya untuk penunjuk
+     sungguhan, supaya di layar sentuh tidak tersangkut setelah ketukan. */
+  @media (hover: hover) {
+    .btn-primary:hover:not(:disabled),
+    .btn-outline:hover:not(:disabled),
+    .btn-ghost:hover:not(:disabled) {
+      transform: translateY(var(--lift));
+      box-shadow: var(--elev-2);
+    }
+  }
+
+  .btn-primary:active:not(:disabled),
+  .btn-outline:active:not(:disabled),
+  .btn-ghost:active:not(:disabled) {
+    transform: translateY(0) scale(var(--press));
+    box-shadow: var(--elev-1);
+    transition-duration: var(--dur-fast);
+    transition-timing-function: var(--ease-spring);
+  }
+
+  .card:focus-visible,
+  .btn-primary:focus-visible,
+  .btn-ghost:focus-visible,
+  .btn-outline:focus-visible {
+    outline: 2px solid var(--app-accent);
+    outline-offset: 2px;
+  }
+
+  /* Dipasang pada permukaan yang benar-benar bisa diklik (kartu dengan onClick,
+     baris daftar, petak pilihan). .card sendiri diam karena sebagian besar
+     kartu di aplikasi ini panel statis; kelas ini yang memberinya angkatan. */
+  .lift {
+    transition: transform var(--dur-base) var(--ease-standard),
+      box-shadow var(--dur-base) var(--ease-standard),
+      background-color var(--dur-base) var(--ease-standard),
+      border-color var(--dur-base) var(--ease-standard),
+      color var(--dur-base) var(--ease-standard);
+  }
+
+  @media (hover: hover) {
+    .lift:hover:not(:disabled) {
+      transform: translateY(var(--lift));
+      box-shadow: var(--elev-2);
+    }
+  }
+
+  .lift:active:not(:disabled) {
+    transform: translateY(0) scale(var(--press));
+    box-shadow: var(--elev-1);
+    transition-duration: var(--dur-fast);
+    transition-timing-function: var(--ease-spring);
+  }
+
+  .lift:focus-visible {
+    outline: 2px solid var(--app-accent);
+    outline-offset: 2px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Animasi masuk.
+
+   Markup memakai nama kelas dari tailwindcss-animate (`animate-in`, `fade-in`,
+   `zoom-in-95`, `slide-in-from-right`), tapi paketnya tidak terpasang sehingga
+   kelas-kelas itu tidak pernah menghasilkan apa pun. Subset yang benar-benar
+   dipakai aplikasi ditulis ulang di sini dengan API yang sama, jadi tidak ada
+   call site yang perlu berubah.
+
+   Catatan: `duration-*` di markup mengatur transition-duration, bukan
+   animation-duration, jadi tempo diambil dari token gerak di atas.
+--------------------------------------------------------------------------- */
+@keyframes app-enter {
+  from {
+    opacity: var(--enter-opacity, 1);
+    transform: translate3d(var(--enter-x, 0), var(--enter-y, 0), 0)
+      scale3d(var(--enter-scale, 1), var(--enter-scale, 1), 1);
+  }
+}
+
+.animate-in {
+  animation-name: app-enter;
+  animation-duration: var(--dur-base);
+  animation-timing-function: var(--ease-standard);
+  /* `backwards`, bukan `both`: fill maju akan membekukan transform/opacity dan
+     mengalahkan state lain seperti disabled:opacity-40 atau hover lift. */
+  animation-fill-mode: backwards;
+}
+
+.fade-in {
+  --enter-opacity: 0;
+}
+
+.zoom-in-95 {
+  --enter-scale: 0.95;
+}
+
+.slide-in-from-right {
+  --enter-x: 100%;
+  animation-duration: var(--dur-slow);
 }
 
 /* Tab "Raw markdown" merender HTML dari react-markdown, jadi elemennya tidak
@@ -291,7 +465,7 @@ html.dark {
    workflow behavior and inherit these restrained surfaces and controls. */
 .shell-sidebar {
   font-size: 14px;
-  box-shadow: 1px 0 0 rgb(35 35 65 / 2%);
+  box-shadow: var(--elev-1);
 }
 
 .shell-nav-item,
@@ -302,24 +476,39 @@ html.dark {
   align-items: center;
   gap: 10px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--app-muted);
   font-size: 12px;
   line-height: 1.35;
-  transition: background-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
+  transition: transform var(--dur-base) var(--ease-standard),
+    background-color var(--dur-base) var(--ease-standard),
+    color var(--dur-base) var(--ease-standard),
+    box-shadow var(--dur-base) var(--ease-standard);
 }
 
+/* Baris navigasi selebar sidebar terlihat salah kalau ikut terangkat dari
+   halaman, jadi umpan baliknya lewat latar dan bayangan saja — tekanannya
+   cukup diwakili sedikit penyusutan. */
 .shell-nav-item:hover,
 .shell-new-chat:hover,
 .shell-project:hover {
   background: var(--app-surface);
+  box-shadow: var(--elev-1);
   color: var(--app-ink);
+}
+
+.shell-nav-item:active,
+.shell-new-chat:active,
+.shell-project:active {
+  transform: scale(var(--press));
+  transition-duration: var(--dur-fast);
+  transition-timing-function: var(--ease-spring);
 }
 
 .shell-nav-item.is-active {
   background: var(--app-surface);
-  box-shadow: 0 1px 4px rgb(35 35 65 / 7%);
+  box-shadow: var(--elev-2);
   color: var(--app-accent);
 }
 
@@ -338,15 +527,25 @@ html.dark {
   display: flex;
   min-width: 0;
   align-items: center;
-  border-radius: 7px;
+  border-radius: var(--r-sm);
   color: var(--app-muted);
-  transition: background-color 140ms ease, color 140ms ease;
+  transition: transform var(--dur-base) var(--ease-standard),
+    background-color var(--dur-base) var(--ease-standard),
+    color var(--dur-base) var(--ease-standard),
+    box-shadow var(--dur-base) var(--ease-standard);
 }
 
 .shell-history-row:hover,
 .shell-history-row.is-active {
   background: var(--app-surface);
+  box-shadow: var(--elev-1);
   color: var(--app-ink);
+}
+
+.shell-history-row:active {
+  transform: scale(var(--press));
+  transition-duration: var(--dur-fast);
+  transition-timing-function: var(--ease-spring);
 }
 
 .shell-project {
@@ -361,24 +560,38 @@ html.dark {
   align-items: center;
   gap: 8px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--r-xs);
   background: transparent;
   padding: 4px 8px;
   color: var(--app-muted);
   font-size: 11px;
   text-align: left;
-  transition: background-color 140ms ease, color 140ms ease;
+  transition: transform var(--dur-base) var(--ease-standard),
+    background-color var(--dur-base) var(--ease-standard),
+    color var(--dur-base) var(--ease-standard),
+    box-shadow var(--dur-base) var(--ease-standard);
 }
 
 .shell-step:hover,
 .shell-step.is-active {
   background: var(--app-surface);
+  box-shadow: var(--elev-1);
   color: var(--app-accent-ink);
+}
+
+.shell-step:active:not(.is-locked) {
+  transform: scale(var(--press));
+  transition-duration: var(--dur-fast);
+  transition-timing-function: var(--ease-spring);
 }
 
 .shell-step.is-locked {
   color: var(--app-faint);
   cursor: not-allowed;
+}
+
+.shell-step.is-locked:hover {
+  box-shadow: none;
 }
 
 .shell-settings-button,
@@ -389,19 +602,50 @@ html.dark {
   justify-content: center;
   gap: 7px;
   border: 1px solid transparent;
-  border-radius: 7px;
+  border-radius: var(--r-sm);
   background: transparent;
   padding: 6px 8px;
   color: var(--app-muted);
   font-size: 11px;
-  transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease;
+  transition: transform var(--dur-base) var(--ease-standard),
+    box-shadow var(--dur-base) var(--ease-standard),
+    border-color var(--dur-base) var(--ease-standard),
+    background-color var(--dur-base) var(--ease-standard),
+    color var(--dur-base) var(--ease-standard);
 }
 
 .shell-settings-button:hover,
 .shell-icon-button:hover {
   border-color: var(--app-line);
   background: var(--app-surface);
+  box-shadow: var(--elev-2);
   color: var(--app-ink);
+}
+
+@media (hover: hover) {
+  .shell-settings-button:hover,
+  .shell-icon-button:hover {
+    transform: translateY(var(--lift));
+  }
+}
+
+.shell-settings-button:active,
+.shell-icon-button:active {
+  transform: translateY(0) scale(var(--press));
+  box-shadow: var(--elev-1);
+  transition-duration: var(--dur-fast);
+  transition-timing-function: var(--ease-spring);
+}
+
+.shell-nav-item:focus-visible,
+.shell-new-chat:focus-visible,
+.shell-project:focus-visible,
+.shell-history-row:focus-visible,
+.shell-step:focus-visible,
+.shell-settings-button:focus-visible,
+.shell-icon-button:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
 }
 
 .shell-topbar {
@@ -411,7 +655,7 @@ html.dark {
 .shell-topbar-badge {
   display: inline-flex;
   align-items: center;
-  border-radius: 5px;
+  border-radius: var(--r-xs);
   background: var(--app-subtle);
   padding: 3px 7px;
   color: var(--app-muted);
@@ -420,7 +664,7 @@ html.dark {
 }
 
 .shell-layout-switcher {
-  box-shadow: 0 1px 2px rgb(35 35 65 / 3%);
+  box-shadow: var(--elev-1);
 }
 
 .shell-workbench {
@@ -447,10 +691,6 @@ html.dark {
   padding-inline: 2px;
 }
 
-.shell-chat-pane [role="log"] .rounded-xl {
-  border-radius: 10px;
-}
-
 .shell-chat-pane > aside > div:last-child {
   background: var(--app-surface);
 }
@@ -462,7 +702,7 @@ html.dark {
 
 .shell-chat-pane [aria-label="Agent runtime controls"] .field {
   min-height: 30px;
-  border-radius: 7px;
+  border-radius: var(--r-sm);
   background: var(--app-canvas);
 }
 
@@ -521,15 +761,24 @@ html.dark {
   }
 }
 
+/* Menolkan --lift dan --press mematikan seluruh angkatan hover dan tekanan
+   aktif di satu tempat; blok universal di bawahnya menangani sisa transisi dan
+   animasi, termasuk utility Tailwind seperti animate-spin dan animate-pulse
+   yang tidak ditulis di berkas ini. */
 @media (prefers-reduced-motion: reduce) {
-  .shell-sidebar,
-  .shell-nav-item,
-  .shell-new-chat,
-  .shell-project,
-  .shell-history-row,
-  .shell-step,
-  .shell-settings-button,
-  .shell-icon-button {
-    transition: none;
+  :root {
+    --lift: 0px;
+    --press: 1;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
   }
 }

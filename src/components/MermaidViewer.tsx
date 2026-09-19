@@ -107,7 +107,7 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({ chart, explanation
   };
 
   const viewer = (
-    <div className={`card overflow-hidden transition-all ${isFullscreen ? "fixed inset-4 z-50 flex flex-col shadow-lg" : ""}`}>
+    <div className={`card overflow-hidden ${isFullscreen ? "fixed inset-4 z-50 flex flex-col shadow-elev-3" : ""}`}>
       {/* Header Toolbar */}
       <div className="flex flex-wrap items-center justify-between px-4 py-2.5 bg-subtle border-b border-line gap-3">
         <h4 className="font-medium text-ink text-sm truncate">{title || t("System logic diagram")}</h4>
@@ -154,7 +154,7 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({ chart, explanation
           <button
             onClick={handleDownloadSvg}
             disabled={!svgContent}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent-soft text-accent-ink rounded-lg text-xs font-medium hover:brightness-105 transition-all disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent-soft text-accent-ink rounded-lg text-xs font-medium hover:brightness-105 transition-[filter,opacity] disabled:opacity-50"
             title={t("Download SVG")}
           >
             <Download className="w-3.5 h-3.5" />
@@ -180,7 +180,7 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({ chart, explanation
               <p className="text-xs text-warn-ink/80 mb-3">{t('You can still read and copy the Mermaid syntax from the "Mermaid" tab.')}</p>
               <button
                 onClick={() => setActiveTab("code")}
-                className="px-3 py-1.5 bg-warn text-white rounded-lg text-xs font-medium hover:brightness-110"
+                className="px-3 py-1.5 bg-warn text-warn-fg rounded-lg text-xs font-medium hover:brightness-110"
               >
                 {t("View the syntax")}
               </button>

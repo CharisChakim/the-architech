@@ -107,7 +107,7 @@ export const Workbench: React.FC<WorkbenchProps> = ({
       <div className="flex min-w-max items-center gap-3">
         <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-faint">{t("Project context")}</span>
         <div className="flex items-center gap-1 rounded-lg bg-subtle p-0.5">
-          <button type="button" aria-current="page" onClick={() => onLayoutModeChange("agent")} className="rounded-md bg-surface px-2.5 py-1.5 text-[11px] font-medium text-accent-ink shadow-xs">{t("Chat")}</button>
+          <button type="button" aria-current="page" onClick={() => onLayoutModeChange("agent")} className="rounded-md bg-surface px-2.5 py-1.5 text-[11px] font-medium text-accent-ink shadow-elev-1">{t("Chat")}</button>
           <button type="button" onClick={() => openPipeline(2)} className="rounded-md px-2.5 py-1.5 text-[11px] font-medium text-muted hover:text-ink">{t("PRD")}</button>
           <button type="button" onClick={() => openPipeline(3)} className="rounded-md px-2.5 py-1.5 text-[11px] font-medium text-muted hover:text-ink">{t("Kanban")} {taskCount > 0 && <span className="text-faint">{completedTasks}/{taskCount}</span>}</button>
         </div>
@@ -195,7 +195,7 @@ export const Workbench: React.FC<WorkbenchProps> = ({
           <button
             type="button"
             onClick={() => onLayoutModeChange("agent")}
-            className="absolute bottom-4 right-4 z-20 inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-2 text-xs font-medium text-ink shadow-lg hover:border-accent"
+            className="lift absolute bottom-4 right-4 z-20 inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-2 text-xs font-medium text-ink shadow-elev-3 hover:border-accent"
           >
             <Bot className="h-3.5 w-3.5 text-accent" />
             {t("Agent")} · {completedTasks} {t("In progress")}

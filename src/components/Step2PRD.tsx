@@ -497,7 +497,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
                   key={id}
                   onClick={() => setActiveTab(id)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                    activeTab === id ? "bg-surface text-ink shadow-xs" : "text-muted hover:text-ink"
+                    activeTab === id ? "bg-surface text-ink shadow-elev-1" : "text-muted hover:text-ink"
                   }`}
                 >
                   <Icon className="w-3.5 h-3.5" />

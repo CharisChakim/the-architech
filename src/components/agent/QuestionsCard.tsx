@@ -161,7 +161,7 @@ export const QuestionsCard: React.FC<QuestionsCardProps> = ({
                       type="button"
                       onClick={() => selectOption(question.id, option)}
                       disabled={answered || submitting}
-                      className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-left text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                      className={`lift inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-left text-xs font-medium disabled:cursor-not-allowed disabled:opacity-60 ${
                         selected
                           ? "border-accent bg-accent text-accent-fg"
                           : "border-line bg-subtle text-muted hover:text-ink"
@@ -181,7 +181,7 @@ export const QuestionsCard: React.FC<QuestionsCardProps> = ({
                   type="button"
                   onClick={() => activateCustomAnswer(question.id)}
                   disabled={answered || submitting}
-                  className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-left text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                  className={`lift inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-left text-xs font-medium disabled:cursor-not-allowed disabled:opacity-60 ${
                     isCustom
                       ? "border-ink bg-ink text-canvas"
                       : "border-line bg-surface text-muted hover:text-ink"

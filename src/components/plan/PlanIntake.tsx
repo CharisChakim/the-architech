@@ -239,7 +239,7 @@ export const PlanIntake: React.FC<PlanIntakeProps> = ({
               type="button"
               onClick={() => setSubView("form")}
               className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${
-                subView === "form" ? "bg-surface text-ink shadow-xs" : "text-muted hover:text-ink"
+                subView === "form" ? "bg-surface text-ink shadow-elev-1" : "text-muted hover:text-ink"
               }`}
             >
               <Edit3 className="w-3.5 h-3.5" /> {t("Project data")}
@@ -248,7 +248,7 @@ export const PlanIntake: React.FC<PlanIntakeProps> = ({
               type="button"
               onClick={() => setSubView("clarify")}
               className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${
-                subView === "clarify" ? "bg-surface text-ink shadow-xs" : "text-muted hover:text-ink"
+                subView === "clarify" ? "bg-surface text-ink shadow-elev-1" : "text-muted hover:text-ink"
               }`}
             >
               <HelpCircle className="w-3.5 h-3.5" /> {t("Clarification")}

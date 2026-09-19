@@ -78,7 +78,7 @@ export const Composer: React.FC<ComposerProps> = ({
       className={variant === "hero" ? "mt-6 w-full" : "bg-surface px-3 pb-3 pt-2"}
       onSubmit={(event) => { event.preventDefault(); void submit(); }}
     >
-      <div className="overflow-visible rounded-2xl border border-line bg-surface shadow-[0_12px_40px_rgb(35_35_65/0.09)] focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/15">
+      <div className="overflow-visible rounded-2xl border border-line bg-surface shadow-elev-3 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/15">
         {contextControls && (
           <div className="flex min-h-10 min-w-0 flex-wrap items-center gap-x-3 gap-y-1 rounded-t-2xl border-b border-line bg-subtle/60 px-3 py-2 text-[11px] text-muted">
             {contextControls}

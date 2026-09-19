@@ -151,7 +151,7 @@ export const ModelSwitcher: React.FC<ModelSwitcherProps> = ({
           id="model-switcher-popover"
           role="dialog"
           aria-label={t("Switch model")}
-          className="absolute right-0 top-full z-40 mt-2 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-line bg-surface shadow-lg"
+          className="absolute right-0 top-full z-40 mt-2 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-line bg-surface shadow-elev-3"
         >
           <div className="border-b border-line p-2.5">
             <div className="mb-2 flex items-center justify-between gap-2">

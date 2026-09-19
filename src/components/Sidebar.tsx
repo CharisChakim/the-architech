@@ -89,7 +89,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         aria-label={t("Main navigation")}
       >
         <div className={`flex h-16 shrink-0 items-center gap-2.5 border-b border-line ${isRail ? "justify-center px-0" : "px-4"}`}>
-          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] bg-accent text-accent-fg shadow-sm">
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] bg-accent text-accent-fg shadow-elev-1">
             <DraftingCompass className="h-4 w-4" strokeWidth={2} aria-hidden />
           </span>
           {!isRail && <span className="truncate text-[13px] font-medium tracking-[-0.02em] text-ink">The Architech</span>}

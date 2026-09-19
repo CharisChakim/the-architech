@@ -435,7 +435,7 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
                   key={id}
                   onClick={() => setViewMode(id)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                    viewMode === id ? "bg-surface text-ink shadow-xs" : "text-muted hover:text-ink"
+                    viewMode === id ? "bg-surface text-ink shadow-elev-1" : "text-muted hover:text-ink"
                   }`}
                 >
                   <Icon className="w-3.5 h-3.5" />
@@ -508,7 +508,7 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
                           setDropTarget(null);
                         }}
                         onClick={() => setSelectedTask(task)}
-                        className={`card p-3.5 cursor-grab active:cursor-grabbing transition-colors hover:border-accent space-y-2 ${
+                        className={`card lift p-3.5 cursor-grab active:cursor-grabbing hover:border-accent space-y-2 ${
                           draggingId === task.id ? "opacity-40" : ""
                         }`}
                       >
@@ -754,7 +754,7 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
 
       {/* Panel tetap berada di dalam pipeline agar papan dan transcript tidak tertutup modal penuh. */}
       {selectedTask && (
-        <aside className="absolute inset-y-0 right-0 z-30 flex w-[min(100%,32rem)] flex-col border-l border-line bg-surface shadow-2xl animate-in slide-in-from-right duration-200" aria-label={t("Task details")}>
+        <aside className="absolute inset-y-0 right-0 z-30 flex w-[min(100%,32rem)] flex-col border-l border-line bg-surface shadow-elev-3 animate-in slide-in-from-right duration-200" aria-label={t("Task details")}>
           <div className="sticky top-0 flex items-start justify-between gap-4 border-b border-line bg-surface px-6 py-4">
             <div className="min-w-0">
               <div className="flex items-center gap-2 mb-1">
@@ -805,7 +805,7 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
                       key={status}
                       onClick={() => handleTaskStatusChange(selectedTask.id, status)}
                       className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                        isActive ? "bg-surface text-ink shadow-xs" : "text-muted hover:text-ink"
+                        isActive ? "bg-surface text-ink shadow-elev-1" : "text-muted hover:text-ink"
                       }`}
                     >
                       {label}

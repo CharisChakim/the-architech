@@ -167,7 +167,7 @@ export const PlanView: React.FC<PlanViewProps> = ({
           <p className="text-muted mt-1.5 leading-relaxed">{t("Start from a rough idea. The AI asks clarifying questions until it is confident enough, then drafts an architecture and diagram for you to review before the PRD.")}</p>
         </div>
         <div className="inline-flex items-center gap-1 p-1 bg-subtle rounded-lg">
-          <span className="px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1.5 bg-surface text-ink shadow-xs"><CheckCircle2 className="w-3.5 h-3.5" /> {t("Architecture review")}</span>
+          <span className="px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1.5 bg-surface text-ink shadow-elev-1"><CheckCircle2 className="w-3.5 h-3.5" /> {t("Architecture review")}</span>
         </div>
       </div>
 
@@ -195,7 +195,7 @@ export const PlanView: React.FC<PlanViewProps> = ({
 
         {session.planFeaturesEdited && <div className="p-4 bg-warn-soft border border-warn/30 rounded-xl flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-start gap-3 min-w-0"><AlertTriangle className="w-4 h-4 text-warn shrink-0 mt-0.5" /><div className="text-warn-ink leading-relaxed"><strong className="font-semibold block mb-0.5">{t("Features changed; the rest has not caught up.")}</strong>{t("The architecture, diagram, roadmap and estimate still describe the version before your edit. Re-sync so the PRD does not inherit parts that no longer apply.")}</div></div>
-          <button type="button" onClick={() => void handleResyncPlan()} disabled={resyncing} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-warn text-white text-sm font-medium hover:brightness-110 transition-all disabled:opacity-50 shrink-0"><RefreshCw className={`w-4 h-4 ${resyncing ? "animate-spin" : ""}`} />{resyncing ? t("Re-syncing...") : t("Re-sync")}</button>
+          <button type="button" onClick={() => void handleResyncPlan()} disabled={resyncing} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-warn text-warn-fg text-sm font-medium hover:brightness-110 transition-[filter,opacity] disabled:opacity-50 shrink-0"><RefreshCw className={`w-4 h-4 ${resyncing ? "animate-spin" : ""}`} />{resyncing ? t("Re-syncing...") : t("Re-sync")}</button>
         </div>}
 
         <GenerationProgress
