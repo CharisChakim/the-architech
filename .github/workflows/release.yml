@@ -1,0 +1,51 @@
+name: Release
+
+# Linux packages cannot be built from a Windows machine, so each target is
+# built on its own native runner and both upload into the same GitHub release.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows installer
+            os: windows-latest
+            target: --win
+          - name: Linux packages
+            os: ubuntu-latest
+            target: --linux
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npm run lint
+
+      - name: Build client and server bundle
+        run: npm run build
+
+      # electron-builder creates the release as a draft, so nothing is public
+      # until the release is reviewed and published by hand.
+      - name: Package and upload
+        run: npx electron-builder ${{ matrix.target }} --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

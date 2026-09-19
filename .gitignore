@@ -9,3 +9,4 @@ coverage/
 ai-plan-architect.zip
 .claude/settings.local.json
 data/
+release/

@@ -118,13 +118,36 @@ The current scope is `initialize`, `tools/list`, and `tools/call`. MCP `sampling
 
 ### Requirements
 
-- Node.js **22.14+**. Node 24 is recommended.
 - Codex, Claude Code, Antigravity, or a reachable model endpoint. The app does not ship with an AI model.
+- Node.js **22.14+** only if you run from source. The desktop app bundles its own runtime.
 
-### Install and run
+### Desktop app
 
-Download and run the installer from GitHub. It keeps existing `data/` and `.env`
-when you run it again to update the application.
+Download an installer from the [latest release](https://github.com/CharisChakim/the-architech/releases/latest):
+
+| Platform | File | Notes |
+| --- | --- | --- |
+| Windows | `TheArchitech-Setup-<version>-x64.exe` | Installs per user; you can pick the directory. |
+| Linux | `TheArchitech-<version>-x64.AppImage` | Portable. `chmod +x` it, then run it. |
+| Linux (Debian/Ubuntu) | `TheArchitech-<version>-x64.deb` | `sudo apt install ./<file>.deb` |
+
+The desktop build runs the same local server, picks a free port instead of
+3000, and listens on `127.0.0.1` only. It keeps its data outside the install
+directory:
+
+| Platform | Data and `.env` location |
+| --- | --- |
+| Windows | `%APPDATA%\The Architech` |
+| Linux | `~/.config/The Architech` |
+
+The database is at `data/architech.db` inside that folder. To supply API keys
+through environment variables rather than the UI, put a `.env` file there.
+
+The installers are unsigned, so Windows SmartScreen will warn on first run
+("More info" → "Run anyway") and some Linux desktops will ask you to confirm
+the AppImage is executable.
+
+### Run from source
 
 **Linux / macOS**
 

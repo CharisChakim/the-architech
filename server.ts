@@ -1,6 +1,5 @@
 import express from "express";
 import path from "path";
-import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 import { listSessions, getSession, saveSession, deleteSession } from "./db.ts";
 import { Lang, langOf, msg } from "./server/messages.ts";
@@ -34,7 +33,11 @@ app.use(runsRouter);
 app.use(runtimeAgentRouter);
 app.use(mcpRouter);
 
-const PORT = 3000;
+// Port 0 membuat OS memilih port bebas; paket desktop memakainya supaya tidak
+// bentrok dengan apa pun yang sudah memakai 3000, lalu membaca port sebenarnya
+// dari nilai yang di-resolve startServer().
+const PORT = Number(process.env.PORT ?? 3000);
+const HOST = process.env.HOST ?? "0.0.0.0";
 const PRODUCTION = process.env.NODE_ENV === "production" || process.argv.includes("--production");
 
 // Route lama tetap memakai signature ini supaya klien dan keempat generator tidak
@@ -213,22 +216,33 @@ app.post("/api/generate-tasks", async (req, res) => {
 // Start Express + Vite integration
 async function startServer() {
   if (!PRODUCTION) {
+    // Diimpor di sini, bukan di puncak berkas, supaya Vite tidak ikut terbawa
+    // ke dalam paket desktop yang tidak pernah menjalankan cabang ini.
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), "dist");
+    const distPath = process.env.ARCHITECH_DIST_DIR ?? path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
     app.get("*", (_req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`The Architech server listening on http://localhost:${PORT}`);
+  return new Promise<number>((resolve, reject) => {
+    const server = app.listen(PORT, HOST, () => {
+      const address = server.address();
+      const port = typeof address === "object" && address ? address.port : PORT;
+      console.log(`The Architech server listening on http://localhost:${port}`);
+      resolve(port);
+    });
+    server.on("error", reject);
   });
 }
 
-startServer();
+// Di-export supaya shell desktop bisa menunggu server siap dan tahu port yang
+// benar-benar dipakai sebelum membuka jendela.
+export const serverReady = startServer();
