@@ -1,5 +1,5 @@
 import { getSession, saveSession } from "../../../db.ts";
-import { resolveRole } from "../../connections/store.ts";
+import { resolveRoleOrAgent } from "../../connections/store.ts";
 import { generateFollowups } from "../../pipeline/followups.ts";
 import { generatePlan } from "../../pipeline/plan.ts";
 import { generatePrd } from "../../pipeline/prd.ts";
@@ -29,8 +29,8 @@ function titleFor(session: any): string {
 }
 
 function roleConnection(role: "plan" | "prd" | "tasks"): { conn: any; model: string } | { error: string } {
-  const resolved = resolveRole(role);
-  return resolved || { error: `Koneksi untuk role ${role} belum dikonfigurasi.` };
+  const resolved = resolveRoleOrAgent(role);
+  return resolved || { error: `Belum ada koneksi LLM aktif untuk tahap ${role}.` };
 }
 
 function shortPlanResult(plan: any): Record<string, unknown> {

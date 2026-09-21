@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo } from "react";
 import type { RuntimeDetection, RuntimePreference, RuntimeModel, RuntimeDiscoveryReport } from "../../types";
 import type { RuntimeChatSelection } from "../../lib/runtimeChat";
+import { useConnections } from "../../lib/connections";
 import { useT } from "../../lib/i18n";
 
 const RUNTIME_NAMES: Record<RuntimeDetection["runtime"], string> = {
@@ -72,6 +73,7 @@ export const RuntimeControls: React.FC<RuntimeControlsProps> = ({
   compact = false,
 }) => {
   const { t } = useT();
+  const { connections, roles, bindRole } = useConnections();
   const detection = selection.runtime === "legacy"
     ? undefined
     : report?.runtimes.find((item) => item.runtime === selection.runtime);
@@ -144,6 +146,50 @@ export const RuntimeControls: React.FC<RuntimeControlsProps> = ({
     onChange({ ...selection, model, effort });
   };
 
+  // Legacy API memilih koneksi dan modelnya di sini. Pilihannya disimpan sebagai
+  // binding role `agent` — sumber yang sama yang sudah dibaca server, jadi
+  // memindahkan kendalinya ke composer tidak mengubah jalur request.
+  //
+  // Satu select membawa koneksi dan model sekaligus karena di bar yang sempit dua
+  // dropdown untuk satu pilihan hanya menambah langkah. Nilainya indeks, sebab id
+  // koneksi dan nama model bisa memuat karakter apa pun.
+  const legacyChoices = useMemo(() => connections
+    .filter((connection) => connection.enabled)
+    .flatMap((connection) => connection.models.map((model) => ({
+      connectionId: connection.id,
+      model,
+      label: `${connection.name} · ${model}`,
+    }))), [connections]);
+  const legacyBinding = roles.agent;
+  const legacyValue = String(legacyChoices.findIndex((choice) => (
+    choice.connectionId === legacyBinding?.connectionId && choice.model === legacyBinding?.model
+  )));
+
+  const changeLegacyModel = (value: string) => {
+    const choice = legacyChoices[Number(value)];
+    if (!choice) return;
+    void bindRole("agent", choice.connectionId, choice.model).catch(() => undefined);
+  };
+
+  const legacyModelSelect = (
+    <>
+      <label htmlFor="agent-legacy-model" className="sr-only">{t("Model")}</label>
+      <select
+        id="agent-legacy-model"
+        className="h-8 max-w-44 rounded-lg border-0 bg-transparent px-2 text-[11px] text-ink outline-hidden hover:bg-subtle focus:bg-subtle"
+        value={legacyValue}
+        onChange={(event) => changeLegacyModel(event.target.value)}
+        disabled={disabled || !legacyChoices.length}
+        title={t("Model")}
+      >
+        <option value="-1">
+          {legacyChoices.length ? t("Choose a model") : t("No endpoint with a model yet")}
+        </option>
+        {legacyChoices.map((choice, index) => <option key={choice.label} value={index}>{choice.label}</option>)}
+      </select>
+    </>
+  );
+
   const runtimeOptions = (
     <>
       <option value="legacy">{t("Legacy API")}</option>
@@ -174,6 +220,7 @@ export const RuntimeControls: React.FC<RuntimeControlsProps> = ({
         >
           {runtimeOptions}
         </select>
+        {selection.runtime === "legacy" && legacyModelSelect}
         {selection.runtime !== "legacy" && (
           <>
             <label htmlFor="agent-runtime-model" className="sr-only">{t("Model")}</label>
@@ -243,6 +290,29 @@ export const RuntimeControls: React.FC<RuntimeControlsProps> = ({
           </div>
         )}
       </div>
+
+      {selection.runtime === "legacy" && (
+        <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
+          <label htmlFor="agent-legacy-model" className="text-[11px] font-medium text-muted">{t("Model")}</label>
+          <select
+            id="agent-legacy-model"
+            className="field min-w-44 flex-1 py-1 text-[11px] sm:max-w-72 sm:flex-none"
+            value={legacyValue}
+            onChange={(event) => changeLegacyModel(event.target.value)}
+            disabled={disabled || !legacyChoices.length}
+          >
+            <option value="-1">
+              {legacyChoices.length ? t("Choose a model") : t("No endpoint with a model yet")}
+            </option>
+            {legacyChoices.map((choice, index) => <option key={choice.label} value={index}>{choice.label}</option>)}
+          </select>
+          {!legacyChoices.length && onOpenConnections && (
+            <button type="button" className="text-[11px] text-accent-ink hover:underline" onClick={onOpenConnections}>
+              {t("Add an endpoint")}
+            </button>
+          )}
+        </div>
+      )}
 
       {selection.runtime !== "legacy" && (
         <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">

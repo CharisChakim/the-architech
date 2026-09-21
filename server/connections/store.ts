@@ -290,6 +290,19 @@ export function resolveRole(role: Role): { conn: Connection; model: string } | n
   return { conn: connection, model: row.model };
 }
 
+/**
+ * Only the agent stage is chosen in the composer, so the other stages follow it
+ * rather than refusing to run: one picked connection governs the whole
+ * pipeline, and an unbound stage is no longer a dead end.
+ */
+export function resolveRoleOrAgent(role: Role): { conn: Connection; model: string } | null {
+  const bound = resolveRole(role) ?? resolveRole("agent");
+  if (bound) return bound;
+
+  const fallback = listConnections().find((connection) => connection.enabled && connection.models[0]);
+  return fallback ? { conn: fallback, model: fallback.models[0] } : null;
+}
+
 function resolutionError(role: Role, lang: Lang, detail: string): Error {
   if (lang === "id") return new Error(`Koneksi LLM tidak dapat diselesaikan untuk role ${role}: ${detail}`);
   return new Error(`Could not resolve LLM connection for role ${role}: ${detail}`);

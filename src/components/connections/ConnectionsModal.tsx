@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { AlertCircle, Check, Cpu, Plus, RefreshCw, Save, Trash2, X } from "lucide-react";
-import type { AgentRole, RuntimeId, RuntimeStatus, WireFormat } from "../../types";
+import { AlertCircle, Cpu, Plus, RefreshCw, Save, Trash2, X } from "lucide-react";
+import type { RuntimeId, RuntimeStatus, WireFormat } from "../../types";
 import { useConnections } from "../../lib/connections";
 import type { ConnectionDraft, ConnectionTestResult } from "../../lib/connections";
 import { useT } from "../../lib/i18n";
@@ -16,7 +16,7 @@ export interface ConnectionsModalProps {
   initialTab?: ConnectionsModalEntry;
 }
 
-type Tab = "connections" | "roles" | "mcp";
+type Tab = "connections" | "mcp";
 
 /**
  * Runtimes are no longer a tab of their own, but they are still an entry point:
@@ -37,14 +37,10 @@ const RUNTIME_STATUS_DOTS: Record<RuntimeStatus, string> = {
   error: "bg-danger",
   not_installed: "bg-faint",
 };
-const ROLES: AgentRole[] = ["agent", "plan", "prd", "tasks"];
 const CUSTOM_CONNECTION_PRESET = getProviderPreset("custom");
 
 const inputClass = "field";
 const labelClass = "field-label";
-
-const roleLabel = (role: AgentRole, t: (key: string) => string): string =>
-  role === "agent" ? t("Agent") : role === "plan" ? t("Plan") : role === "prd" ? t("PRD") : t("Tasks");
 
 function testSummary(result: ConnectionTestResult, t: (key: string) => string): string {
   return result.probes.map((probe) => `${probe.name} ${probe.ok ? "✓" : "✗"} ${probe.ms}ms${probe.detail ? ` · ${probe.detail}` : ""}`).join("\n") || t("No probe result");
@@ -52,7 +48,7 @@ function testSummary(result: ConnectionTestResult, t: (key: string) => string): 
 
 export const ConnectionsModal: React.FC<ConnectionsModalProps> = ({ isOpen, onClose, initialTab = "connections" }) => {
   const { t } = useT();
-  const { connections, roles, loading, error, createConnection, updateConnection, deleteConnection, bindRole, testConnection, refresh } = useConnections();
+  const { connections, loading, error, createConnection, updateConnection, deleteConnection, testConnection, refresh } = useConnections();
   const runtimeDiscovery = useRuntimeDiscovery(isOpen);
   const [tab, setTab] = useState<Tab>("connections");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -67,9 +63,6 @@ export const ConnectionsModal: React.FC<ConnectionsModalProps> = ({ isOpen, onCl
   const [models, setModels] = useState("");
   const [enabled, setEnabled] = useState(true);
   const [jsonMode, setJsonMode] = useState(true);
-  const [selectedRole, setSelectedRole] = useState<AgentRole>("agent");
-  const [roleConnectionId, setRoleConnectionId] = useState("");
-  const [roleModel, setRoleModel] = useState("");
   const [testResult, setTestResult] = useState<ConnectionTestResult | null>(null);
   const [testError, setTestError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -135,12 +128,6 @@ export const ConnectionsModal: React.FC<ConnectionsModalProps> = ({ isOpen, onCl
     setTestResult(null);
     setTestError(null);
   }, [active?.id, connections.length, isOpen]);
-
-  useEffect(() => {
-    const binding = roles[selectedRole];
-    setRoleConnectionId(binding?.connectionId || connections.find((connection) => connection.enabled)?.id || "");
-    setRoleModel(binding?.model || "");
-  }, [connections, roles, selectedRole, isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -284,15 +271,6 @@ export const ConnectionsModal: React.FC<ConnectionsModalProps> = ({ isOpen, onCl
     }
   };
 
-  const handleBindRole = async () => {
-    if (!roleConnectionId || !roleModel.trim()) return;
-    try {
-      await bindRole(selectedRole, roleConnectionId, roleModel.trim());
-    } catch (cause) {
-      setTestError(cause instanceof Error ? cause.message : t("Failed to bind role."));
-    }
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-xs">
       <div ref={modalRef} role="dialog" aria-modal="true" aria-labelledby="connections-modal-title" className="card flex min-w-0 max-h-[min(760px,calc(100vh-2rem))] w-full max-w-4xl flex-col overflow-hidden shadow-elev-3">
@@ -303,7 +281,7 @@ export const ConnectionsModal: React.FC<ConnectionsModalProps> = ({ isOpen, onCl
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col sm:flex-row">
           <nav role="tablist" aria-label={t("Connection settings")} className="flex shrink-0 gap-1 overflow-x-auto border-b border-line bg-subtle/50 p-2 sm:w-44 sm:flex-col sm:border-b-0 sm:border-r">
-            {(["connections", "roles", "mcp"] as Tab[]).map((item, index, all) => (
+            {(["connections", "mcp"] as Tab[]).map((item, index, all) => (
               <button
                 key={item}
                 type="button"
@@ -324,7 +302,7 @@ export const ConnectionsModal: React.FC<ConnectionsModalProps> = ({ isOpen, onCl
                 onClick={() => setTab(item)}
                 className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-left text-xs font-medium ${tab === item ? "bg-surface text-accent-ink shadow-elev-1" : "text-muted hover:text-ink"}`}
               >
-                {item === "connections" ? t("Connections") : item === "roles" ? t("Roles") : t("MCP")}
+                {item === "connections" ? t("Connections") : t("MCP")}
               </button>
             ))}
           </nav>
@@ -421,9 +399,6 @@ export const ConnectionsModal: React.FC<ConnectionsModalProps> = ({ isOpen, onCl
             </div>
           )}
 
-          {tab === "roles" && (
-            <div id="roles-tabpanel" role="tabpanel" aria-labelledby="tab-roles" className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4 sm:p-5"><div className="max-w-xl space-y-5"><div><h4 className="text-sm font-semibold text-ink">{t("Role bindings")}</h4><p className="mt-1 text-xs leading-relaxed text-faint">{t("Choose which connection and model each workflow role uses.")}</p></div><div className="grid grid-cols-2 gap-2">{ROLES.map((item) => <button key={item} type="button" aria-pressed={selectedRole === item} onClick={() => setSelectedRole(item)} className={`rounded-lg border px-3 py-2 text-left text-xs ${selectedRole === item ? "border-accent bg-accent-soft text-accent-ink" : "border-line text-muted hover:bg-subtle"}`}>{roleLabel(item, t)}<span className="mt-1 block truncate text-[11px] opacity-70">{roles[item]?.model || t("Not bound")}</span></button>)}</div><div><label htmlFor="role-connection" className={labelClass}>{t("Connection")}</label><select id="role-connection" className={inputClass} value={roleConnectionId} onChange={(event) => setRoleConnectionId(event.target.value)}><option value="">{t("Choose connection")}</option>{connections.filter((connection) => connection.enabled).map((connection) => <option key={connection.id} value={connection.id}>{connection.name}</option>)}</select></div><div><label htmlFor="role-model" className={labelClass}>{t("Model")}</label><input id="role-model" className={`${inputClass} font-mono text-xs`} value={roleModel} onChange={(event) => setRoleModel(event.target.value)} placeholder="model-name" /></div>{selectedRole === "agent" && roleConnectionId && !connections.find((connection) => connection.id === roleConnectionId)?.lastCheck?.toolsSupported && <p className="rounded-lg border border-warn/30 bg-warn-soft p-3 text-xs text-warn-ink">{t("This connection has not passed the tools probe; agent tools may not work.")}</p>}<button type="button" onClick={() => void handleBindRole()} disabled={!roleConnectionId || !roleModel.trim()} className="btn-primary"><Check className="h-4 w-4" />{t("Save role binding")}</button></div></div>
-          )}
 
 
           {tab === "mcp" && (
