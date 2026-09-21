@@ -7,30 +7,58 @@ import {
   parseAgentHarnessSettings,
 } from "./harness.ts";
 
+const ALL_OFF = {
+  compactTerminal: false,
+  conciseAnswers: false,
+  minimalCode: false,
+  karpathyGuidelines: false,
+};
+
 test("agent harness settings default on and can be disabled independently", () => {
   assert.deepEqual(parseAgentHarnessSettings(undefined), {
-    efficiencyStack: true,
+    compactTerminal: true,
+    conciseAnswers: true,
+    minimalCode: true,
     karpathyGuidelines: true,
   });
-  assert.deepEqual(parseAgentHarnessSettings({ efficiencyStack: false }), {
-    efficiencyStack: false,
+  assert.deepEqual(parseAgentHarnessSettings({ conciseAnswers: false }), {
+    compactTerminal: true,
+    conciseAnswers: false,
+    minimalCode: true,
     karpathyGuidelines: true,
   });
 });
 
 test("agent harness emits only enabled instruction groups", () => {
-  const efficiencyOnly = agentHarnessPrompt({ efficiencyStack: true, karpathyGuidelines: false });
+  const efficiencyOnly = agentHarnessPrompt({ ...ALL_OFF, compactTerminal: true, conciseAnswers: true, minimalCode: true });
   assert.match(efficiencyOnly, /Efficiency stack/);
   assert.doesNotMatch(efficiencyOnly, /Karpathy/);
 
-  const disabled = { efficiencyStack: false, karpathyGuidelines: false };
-  assert.equal(agentHarnessPrompt(disabled), "");
-  assert.equal(applyAgentHarness("Keep this exact request", disabled), "Keep this exact request");
+  assert.equal(agentHarnessPrompt(ALL_OFF), "");
+  assert.equal(applyAgentHarness("Keep this exact request", ALL_OFF), "Keep this exact request");
+});
+
+test("each efficiency layer can be enabled on its own", () => {
+  const answersOnly = agentHarnessPrompt({ ...ALL_OFF, conciseAnswers: true });
+  assert.match(answersOnly, /Efficiency stack/);
+  assert.match(answersOnly, /- Answers:/);
+  assert.doesNotMatch(answersOnly, /- Terminal:/);
+  assert.doesNotMatch(answersOnly, /- Code:/);
+
+  const terminalOnly = agentHarnessPrompt({ ...ALL_OFF, compactTerminal: true });
+  assert.match(terminalOnly, /- Terminal:/);
+  assert.doesNotMatch(terminalOnly, /- Answers:/);
+
+  const codeOnly = agentHarnessPrompt({ ...ALL_OFF, minimalCode: true });
+  assert.match(codeOnly, /- Code:/);
+  assert.doesNotMatch(codeOnly, /- Answers:/);
 });
 
 test("native runtime request is separated from harness instructions", () => {
   const prompt = applyAgentHarness("Fix <tag> safely", {
-    efficiencyStack: true,
+    compactTerminal: true,
+    conciseAnswers: true,
+    minimalCode: true,
     karpathyGuidelines: true,
   });
   assert.match(prompt, /^<agent_harness>/);

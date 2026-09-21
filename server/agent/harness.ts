@@ -1,10 +1,14 @@
 export interface AgentHarnessSettings {
-  efficiencyStack: boolean;
+  compactTerminal: boolean;
+  conciseAnswers: boolean;
+  minimalCode: boolean;
   karpathyGuidelines: boolean;
 }
 
 export const DEFAULT_AGENT_HARNESS_SETTINGS: AgentHarnessSettings = {
-  efficiencyStack: true,
+  compactTerminal: true,
+  conciseAnswers: true,
+  minimalCode: true,
   karpathyGuidelines: true,
 };
 
@@ -12,18 +16,36 @@ export function parseAgentHarnessSettings(value: unknown): AgentHarnessSettings 
   if (!value || typeof value !== "object" || Array.isArray(value)) return DEFAULT_AGENT_HARNESS_SETTINGS;
   const settings = value as Record<string, unknown>;
   return {
-    efficiencyStack: settings.efficiencyStack !== false,
+    compactTerminal: settings.compactTerminal !== false,
+    conciseAnswers: settings.conciseAnswers !== false,
+    minimalCode: settings.minimalCode !== false,
     karpathyGuidelines: settings.karpathyGuidelines !== false,
   };
 }
 
 export function agentHarnessPrompt(settings: AgentHarnessSettings): string {
   const sections: string[] = [];
-  if (settings.efficiencyStack) {
-    sections.push(`Efficiency stack:
-- Terminal: use targeted commands, search with rg first, filter or cap long output, and summarize logs instead of dumping them.
-- Answers: address only the request; omit preambles, repetition, and unsolicited alternatives. Preserve exact code, commands, paths, numbers, negation, uncertainty, and safety warnings.
-- Code: implement the minimum correct change. Avoid speculative abstractions, dependencies, files, and rewrites.`);
+  // Ketiga lapis efisiensi dinyalakan terpisah, jadi judulnya ditulis sekali
+  // dan hanya bullet yang aktif menyusul. Menyalakan satu lapis tidak boleh
+  // membawa instruksi dua lapis lainnya.
+  const efficiency: string[] = [];
+  if (settings.compactTerminal) {
+    efficiency.push(
+      "- Terminal: use targeted commands, search with rg first, filter or cap long output, and summarize logs instead of dumping them."
+    );
+  }
+  if (settings.conciseAnswers) {
+    efficiency.push(
+      "- Answers: address only the request; omit preambles, repetition, and unsolicited alternatives. Preserve exact code, commands, paths, numbers, negation, uncertainty, and safety warnings."
+    );
+  }
+  if (settings.minimalCode) {
+    efficiency.push(
+      "- Code: implement the minimum correct change. Avoid speculative abstractions, dependencies, files, and rewrites."
+    );
+  }
+  if (efficiency.length) {
+    sections.push(`Efficiency stack:\n${efficiency.join("\n")}`);
   }
   if (settings.karpathyGuidelines) {
     sections.push(`Karpathy coding guidelines:

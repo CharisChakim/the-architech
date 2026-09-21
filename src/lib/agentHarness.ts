@@ -1,20 +1,31 @@
 export interface AgentHarnessSettings {
-  efficiencyStack: boolean;
+  compactTerminal: boolean;
+  conciseAnswers: boolean;
+  minimalCode: boolean;
   karpathyGuidelines: boolean;
 }
 
 const STORAGE_KEY = "ai_plan_architect_agent_harness_v1";
 
 export const DEFAULT_AGENT_HARNESS_SETTINGS: AgentHarnessSettings = {
-  efficiencyStack: true,
+  compactTerminal: true,
+  conciseAnswers: true,
+  minimalCode: true,
   karpathyGuidelines: true,
 };
 
 export function loadAgentHarnessSettings(): AgentHarnessSettings {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+    // Versi sebelumnya menyimpan satu tombol `efficiencyStack` untuk ketiga
+    // lapis sekaligus. Kalau pengguna sengaja mematikannya, pilihan itu
+    // dihormati — tanpa ini token yang sudah ia tolak diam-diam menyala lagi.
+    const legacyOff = saved?.efficiencyStack === false;
+    const layer = (value: unknown) => (value === undefined ? !legacyOff : value !== false);
     return {
-      efficiencyStack: saved?.efficiencyStack !== false,
+      compactTerminal: layer(saved?.compactTerminal),
+      conciseAnswers: layer(saved?.conciseAnswers),
+      minimalCode: layer(saved?.minimalCode),
       karpathyGuidelines: saved?.karpathyGuidelines !== false,
     };
   } catch (error) {

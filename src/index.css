@@ -273,6 +273,103 @@ html.dark {
     outline-offset: 2px;
   }
 
+  /* Sakelar nyala/mati.
+
+     Kesan tiga dimensinya datang dari kontras kedalaman, bukan dari gradien di
+     atas permukaan rata: treknya cekung (bayangan inset) sementara knob-nya
+     menonjol (bayangan jatuh ke luar plus highlight di tepi atas). Mata membaca
+     pasangan cekung-menonjol itu sebagai kedalaman sungguhan.
+
+     Knob memakai --ease-spring supaya geserannya mendarat dengan sedikit
+     lonjakan seperti sakelar mekanis, sedangkan warna trek tetap
+     --ease-standard — kalau warna ikut memantul, perpindahannya terlihat gelisah. */
+  .switch {
+    @apply relative block h-6 w-11 shrink-0 rounded-full;
+    background: linear-gradient(180deg, var(--app-subtle), var(--app-surface));
+    box-shadow: inset 0 1px 3px rgb(35 35 65 / 0.2), inset 0 0 0 0.5px rgb(35 35 65 / 0.12);
+    transition: background var(--dur-base) var(--ease-standard),
+      box-shadow var(--dur-base) var(--ease-standard);
+  }
+
+  .switch-knob {
+    @apply absolute top-0.5 left-0.5 block h-5 w-5 rounded-full;
+    background: linear-gradient(180deg, #fff, #e8e8ef);
+    box-shadow: 0 0 0 0.5px rgb(35 35 65 / 0.16), 0 1px 2px rgb(35 35 65 / 0.26),
+      0 2px 6px rgb(35 35 65 / 0.16), inset 0 1px 0 rgb(255 255 255 / 0.9);
+    transition: transform var(--dur-base) var(--ease-spring),
+      box-shadow var(--dur-base) var(--ease-standard);
+  }
+
+  .switch-input:checked + .switch {
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--app-accent) 82%, white),
+      var(--app-accent)
+    );
+    box-shadow: inset 0 1px 3px rgb(35 35 65 / 0.26),
+      inset 0 0 0 0.5px color-mix(in srgb, var(--app-accent) 65%, black);
+  }
+
+  /* 44px trek − 20px knob − 2×2px jarak tepi = 20px langkah. */
+  .switch-input:checked + .switch .switch-knob {
+    transform: translateX(20px);
+  }
+
+  .switch-input:focus-visible + .switch {
+    outline: 2px solid var(--app-accent);
+    outline-offset: 2px;
+  }
+
+  /* Menekan knob memipihkannya sedikit; itu memberi kesan tombol yang benar
+     ditekan alih-alih gambar yang berpindah. */
+  .switch-row:active .switch-knob {
+    box-shadow: 0 0 0 0.5px rgb(35 35 65 / 0.16), 0 1px 1px rgb(35 35 65 / 0.22),
+      inset 0 1px 0 rgb(255 255 255 / 0.9);
+    transform: scale(var(--press));
+  }
+
+  /* Ditulis terpisah karena aturan `:checked` di atas lebih spesifik daripada
+     aturan `:active`, jadi tanpa ini knob yang menyala kehilangan efek tekan. */
+  .switch-row:active .switch-input:checked + .switch .switch-knob {
+    transform: translateX(20px) scale(var(--press));
+  }
+
+  /* Baris opsi ikut pola tombol: rest → terangkat saat kursor lewat → mendarat
+     saat ditekan, memakai --lift/--press yang sama supaya reduced-motion cukup
+     menolkannya di satu tempat. */
+  .switch-row {
+    @apply flex cursor-pointer items-start gap-3 rounded-xl border border-line bg-surface p-4;
+    box-shadow: var(--elev-1);
+    transition: transform var(--dur-base) var(--ease-standard),
+      box-shadow var(--dur-base) var(--ease-standard),
+      border-color var(--dur-base) var(--ease-standard);
+  }
+
+  @media (hover: hover) {
+    .switch-row:hover {
+      @apply border-accent/40;
+      transform: translateY(var(--lift));
+      box-shadow: var(--elev-2);
+    }
+  }
+
+  .switch-row:active {
+    transform: translateY(0) scale(var(--press));
+    box-shadow: var(--elev-1);
+    transition-duration: var(--dur-fast);
+    transition-timing-function: var(--ease-spring);
+  }
+
+  /* Di permukaan gelap, bayangan gelap tidak terbaca; cekungan treknya dibuat
+     dari hitam yang lebih pekat, sejalan dengan cara --elev-* dioverride. */
+  .dark .switch {
+    box-shadow: inset 0 1px 3px rgb(0 0 0 / 0.55), inset 0 0 0 0.5px rgb(0 0 0 / 0.6);
+  }
+
+  .dark .switch-knob {
+    background: linear-gradient(180deg, #f6f6f9, #d9d9e2);
+  }
+
   /* Dipasang pada permukaan yang benar-benar bisa diklik (kartu dengan onClick,
      baris daftar, petak pilihan). .card sendiri diam karena sebagian besar
      kartu di aplikasi ini panel statis; kelas ini yang memberinya angkatan. */

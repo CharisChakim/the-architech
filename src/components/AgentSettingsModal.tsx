@@ -17,18 +17,25 @@ interface ToggleProps {
   onChange: (checked: boolean) => void;
 }
 
+// Checkbox aslinya tetap dipakai dan hanya disembunyikan secara visual: ia yang
+// membawa peran, status, dan dukungan keyboard, sementara trek dan knob di
+// sebelahnya murni tampilan.
 const Toggle: React.FC<ToggleProps> = ({ checked, title, description, onChange }) => (
-  <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-line bg-surface p-4 hover:border-accent/40">
+  <label className="switch-row">
     <span className="min-w-0 flex-1">
       <span className="block text-sm font-medium text-ink">{title}</span>
       <span className="mt-1 block text-xs leading-relaxed text-muted">{description}</span>
     </span>
     <input
       type="checkbox"
+      role="switch"
       checked={checked}
       onChange={(event) => onChange(event.target.checked)}
-      className="mt-1 h-4 w-4 shrink-0 accent-[var(--color-accent)]"
+      className="switch-input sr-only"
     />
+    <span className="switch mt-0.5" aria-hidden>
+      <span className="switch-knob" />
+    </span>
   </label>
 );
 
@@ -67,11 +74,24 @@ export const AgentSettingsModal: React.FC<AgentSettingsModalProps> = ({ isOpen, 
         </div>
 
         <div className="space-y-3 p-5">
+          <p className="px-1 text-[11px] font-medium tracking-wide text-faint uppercase">{t("Efficiency stack")}</p>
           <Toggle
-            checked={settings.efficiencyStack}
-            title={t("Efficiency stack")}
-            description={t("Compact terminal output, concise answers, and minimum-code discipline. Inspired by RTK/chop, Caveman, and Ponytail.")}
-            onChange={(efficiencyStack) => onChange({ ...settings, efficiencyStack })}
+            checked={settings.compactTerminal}
+            title={t("Compact terminal")}
+            description={t("Targeted commands, rg-first search, capped output, and summarized logs instead of raw dumps. Inspired by RTK/chop.")}
+            onChange={(compactTerminal) => onChange({ ...settings, compactTerminal })}
+          />
+          <Toggle
+            checked={settings.conciseAnswers}
+            title={t("Concise answers")}
+            description={t("Answers only what was asked: no preambles, repetition, or unsolicited alternatives. Code, paths, numbers, and warnings stay verbatim. Inspired by Caveman.")}
+            onChange={(conciseAnswers) => onChange({ ...settings, conciseAnswers })}
+          />
+          <Toggle
+            checked={settings.minimalCode}
+            title={t("Minimal code")}
+            description={t("Implements the minimum correct change. No speculative abstractions, dependencies, or rewrites. Inspired by Ponytail.")}
+            onChange={(minimalCode) => onChange({ ...settings, minimalCode })}
           />
           <Toggle
             checked={settings.karpathyGuidelines}
@@ -80,7 +100,7 @@ export const AgentSettingsModal: React.FC<AgentSettingsModalProps> = ({ isOpen, 
             onChange={(karpathyGuidelines) => onChange({ ...settings, karpathyGuidelines })}
           />
           <p className="px-1 text-[11px] leading-relaxed text-faint">
-            {t("Both are enabled by default. Disable either to remove its extra prompt tokens. Lower runtime effort for larger token savings on simple work.")}
+            {t("All are enabled by default. Switch off any layer on its own to drop just its prompt tokens. Lower runtime effort for larger token savings on simple work.")}
           </p>
         </div>
       </div>
