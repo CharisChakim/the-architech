@@ -23,7 +23,8 @@ process.chdir(userData);
 process.env.NODE_ENV = "production";
 process.env.ARCHITECH_DATA_DIR = dataDir;
 // Aset klien ikut di dalam paket, bukan di folder data.
-process.env.ARCHITECH_DIST_DIR = path.join(__dirname, "..", "dist").replace("app.asar", "app.asar.unpacked");
+const distDir = path.join(__dirname, "..", "dist").replace("app.asar", "app.asar.unpacked");
+process.env.ARCHITECH_DIST_DIR = distDir;
 // Port 0 = OS memilih port bebas, supaya tidak bentrok dengan proses lain.
 process.env.PORT = "0";
 // Aplikasi desktop tidak perlu terekspos ke jaringan lokal.
@@ -40,6 +41,10 @@ function createWindow(port) {
     backgroundColor: "#101118",
     show: false,
     autoHideMenuBar: true,
+    // Tanpa ini jendela tidak membawa _NET_WM_ICON, dan desktop Linux jatuh ke
+    // ikon aplikasi generiknya — sebuah gear — karena AppImage portable juga
+    // tidak memasang entri .desktop yang bisa dicocokkan lewat WM_CLASS.
+    icon: path.join(distDir, "icon.png"),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,

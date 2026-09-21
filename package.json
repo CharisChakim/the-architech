@@ -1,6 +1,7 @@
 {
   "name": "the-architech",
   "productName": "The Architech",
+  "desktopName": "the-architech.desktop",
   "description": "A local-first AI workbench that turns a rough idea into an agent-ready task board.",
   "author": "Charis Chakim",
   "license": "MIT",
@@ -78,6 +79,7 @@
       ],
       "icon": "build-resources/icon.png",
       "category": "Development",
+      "syncDesktopName": true,
       "maintainer": "Charis Chakim <charis@24slides.com>",
       "synopsis": "Turn a rough idea into an agent-ready task board",
       "artifactName": "TheArchitech-${version}-${arch}.${ext}"
