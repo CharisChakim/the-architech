@@ -36,12 +36,22 @@ const DIAGNOSTIC_HINTS: Record<string, string> = {
   CLAUDE_SDK_NOT_CONFIGURED: "Claude Code is installed but the agent SDK could not read it.",
 };
 
+// Antigravity CLI ships as a vendor install script rather than an npm package,
+// and the script differs per OS — handing a Windows user the curl line is the
+// same dead end as showing no command at all.
+const windows = /windows/i.test(navigator.userAgent);
+
 // Shown when the binary is missing, so "not installed" comes with the one
 // command that fixes it rather than a dead end.
 const SETUP_GUIDE: Record<RuntimeDetection["runtime"], { command: string | null; docsUrl: string }> = {
   claude: { command: "npm install -g @anthropic-ai/claude-code", docsUrl: "https://docs.claude.com/en/docs/claude-code" },
   codex: { command: "npm install -g @openai/codex", docsUrl: "https://github.com/openai/codex" },
-  antigravity: { command: null, docsUrl: "https://antigravity.google" },
+  antigravity: {
+    command: windows
+      ? "irm https://antigravity.google/cli/install.ps1 | iex"
+      : "curl -fsSL https://antigravity.google/cli/install.sh | bash",
+    docsUrl: "https://antigravity.google/docs/cli/install/",
+  },
 };
 
 const STATUS_STYLES: Record<RuntimeDetection["status"], string> = {

@@ -5,10 +5,14 @@ import { cloneCapabilities, type CatalogSource, type RuntimeCatalog, type Runtim
 
 export const DEFAULT_CATALOG_TTL_MS = 15 * 60 * 1_000;
 
+// Antigravity is driven through the `agy` CLI protocol, and that CLI ships as a
+// binary named `agy`. A binary named `antigravity` is the desktop IDE, which can
+// never answer `agy models` — matching it only turns a missing CLI into an
+// "unsupported version" dead end that hides the install guidance.
 const BINARY_CANDIDATES: Record<RuntimeId, readonly string[]> = {
   codex: ["codex", "codex-cli"],
   claude: ["claude"],
-  antigravity: ["agy", "antigravity"],
+  antigravity: ["agy"],
 };
 
 const CATALOG_SOURCES: Record<RuntimeId, CatalogSource> = {
