@@ -54,6 +54,12 @@ const SETUP_GUIDE: Record<RuntimeDetection["runtime"], { command: string | null;
   },
 };
 
+const PATH_ERRORS: Record<string, string> = {
+  PATH_NOT_ABSOLUTE: "Enter a full path, starting from the root of the filesystem.",
+  PATH_NOT_EXECUTABLE: "Nothing executable was found at that path.",
+  RUNTIME_INVALID: "That runtime is not recognised.",
+};
+
 const STATUS_STYLES: Record<RuntimeDetection["status"], string> = {
   ready: "border-ok/30 bg-ok-soft text-ok-ink",
   needs_login: "border-warn/30 bg-warn-soft text-warn-ink",
@@ -67,6 +73,7 @@ export interface RuntimeCardProps {
   preference?: RuntimePreference;
   onRefresh: () => Promise<void>;
   onSavePreference: (input: RuntimePreferenceInput) => Promise<RuntimePreference>;
+  onSaveBinaryPath: (runtime: RuntimeDetection["runtime"], path: string | null) => Promise<unknown>;
   refreshing?: boolean;
 }
 
@@ -88,14 +95,31 @@ function checkedLabel(value: string, unknownLabel: string): string {
   }
 }
 
-export const RuntimeCard: React.FC<RuntimeCardProps> = ({ detection, preference, onRefresh, onSavePreference, refreshing = false }) => {
+export const RuntimeCard: React.FC<RuntimeCardProps> = ({ detection, preference, onRefresh, onSavePreference, onSaveBinaryPath, refreshing = false }) => {
   const { t } = useT();
   const [modelId, setModelId] = useState(INHERIT);
   const [effort, setEffort] = useState(INHERIT);
   const [saving, setSaving] = useState<"model" | "effort" | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [pathDraft, setPathDraft] = useState(detection.binaryPathOverride ?? "");
+  const [pathSaving, setPathSaving] = useState(false);
+  const [pathError, setPathError] = useState<string | null>(null);
   const setup = SETUP_GUIDE[detection.runtime];
+
+  const submitPath = async (next: string | null) => {
+    setPathSaving(true);
+    setPathError(null);
+    try {
+      await onSaveBinaryPath(detection.runtime, next);
+      setPathDraft(next ?? "");
+    } catch (cause) {
+      const code = cause instanceof Error ? cause.message : String(cause);
+      setPathError(t(PATH_ERRORS[code] ?? code));
+    } finally {
+      setPathSaving(false);
+    }
+  };
 
   const copyCommand = async () => {
     if (!setup.command) return;
@@ -251,6 +275,53 @@ export const RuntimeCard: React.FC<RuntimeCardProps> = ({ detection, preference,
           )}
         </div>
       )}
+
+      {/* Shown for every status, not just a missing binary: a runtime can be
+          detected on PATH and still be the wrong copy to run. */}
+      <div className="mt-3 border-t border-line pt-3">
+        <label htmlFor={`runtime-${detection.runtime}-path`} className="block text-[11px] font-medium text-muted">
+          {t("Executable path")}
+        </label>
+        <p className="mt-0.5 text-[11px] leading-relaxed text-faint">
+          {detection.binaryPathOverride
+            ? t("Discovery uses this path instead of searching PATH.")
+            : t("Leave empty to search PATH. Set a path when the CLI lives somewhere else.")}
+        </p>
+        <input
+          id={`runtime-${detection.runtime}-path`}
+          className="field mt-1.5 font-mono text-[11px]"
+          value={pathDraft}
+          onChange={(event) => setPathDraft(event.target.value)}
+          disabled={pathSaving}
+          placeholder="/usr/local/bin/agy"
+          spellCheck={false}
+        />
+        <div className="mt-1.5 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void submitPath(pathDraft.trim() || null)}
+            disabled={pathSaving || pathDraft.trim() === (detection.binaryPathOverride ?? "")}
+            className="btn-outline px-2 py-1 text-[11px]"
+          >
+            {pathSaving ? t("Saving...") : t("Use this path")}
+          </button>
+          {detection.binaryPathOverride && (
+            <button
+              type="button"
+              onClick={() => void submitPath(null)}
+              disabled={pathSaving}
+              className="btn-ghost px-2 py-1 text-[11px]"
+            >
+              {t("Clear")}
+            </button>
+          )}
+        </div>
+        {pathError && (
+          <p className="mt-1.5 rounded-lg border border-danger/30 bg-danger-soft px-2 py-1.5 text-[11px] text-danger-ink" role="alert">
+            {pathError}
+          </p>
+        )}
+      </div>
 
       <div className="mt-4 border-t border-line pt-4">
         <div className="flex items-center justify-between gap-2">

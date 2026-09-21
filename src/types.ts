@@ -108,6 +108,8 @@ export interface RuntimeDetection {
   status: RuntimeStatus;
   authStatus: RuntimeAuthStatus;
   binaryFound: boolean;
+  /** Path yang diisi pengguna; null berarti deteksi menelusuri PATH. */
+  binaryPathOverride: string | null;
   version: string | null;
   checkedAt: string;
   capabilities: RuntimeCapabilities;

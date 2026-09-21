@@ -168,6 +168,7 @@ function runtimeDetection(value: unknown): RuntimeDetection | null {
     status: runtimeStatus(value.status),
     authStatus: authStatus(value.authStatus),
     binaryFound: value.binaryFound === true,
+    binaryPathOverride: stringValue(value.binaryPathOverride),
     version,
     checkedAt,
     capabilities: capabilities(value.capabilities),
@@ -248,6 +249,24 @@ export function discoverRuntimes(): Promise<RuntimeDiscoveryReport> {
   return requestRuntimeDiscovery("POST");
 }
 
+/**
+ * Saving returns a freshly detected report, because an override changes what
+ * discovery resolves and a stale card would contradict what was just saved.
+ */
+export async function saveRuntimeBinaryPath(runtime: RuntimeId, path: string | null): Promise<RuntimeDiscoveryReport> {
+  const response = await fetch("/api/runtimes/binary-path", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ runtime, path }),
+  });
+  const body = await responseBody(response);
+  if (!response.ok) {
+    const message = isRecord(body) && typeof body.error === "string" ? body.error : "Failed to save runtime path.";
+    throw new RuntimeApiError(message, response.status);
+  }
+  return runtimeReport(body);
+}
+
 export async function fetchRuntimePreferences(): Promise<RuntimePreference[]> {
   const response = await fetch("/api/runtime-preferences");
   const body = await responseBody(response);
@@ -282,6 +301,7 @@ export interface RuntimeDiscoveryState {
   error: string | null;
   refresh: () => Promise<RuntimeDiscoveryReport>;
   savePreference: (input: RuntimePreferenceInput) => Promise<RuntimePreference>;
+  saveBinaryPath: (runtime: RuntimeId, path: string | null) => Promise<RuntimeDiscoveryReport>;
 }
 
 /** Fetches metadata only while enabled, preserving the last report during refresh. */
@@ -330,6 +350,12 @@ export function useRuntimeDiscovery(enabled = true): RuntimeDiscoveryState {
     return next;
   }, []);
 
+  const saveBinaryPath = useCallback(async (runtime: RuntimeId, path: string | null) => {
+    const next = await saveRuntimeBinaryPath(runtime, path);
+    setReport(next);
+    return next;
+  }, []);
+
   useEffect(() => {
     if (!enabled) {
       setLoading(false);
@@ -356,5 +382,5 @@ export function useRuntimeDiscovery(enabled = true): RuntimeDiscoveryState {
     };
   }, [enabled]);
 
-  return { report, preferences, loading, error, refresh, savePreference };
+  return { report, preferences, loading, error, refresh, savePreference, saveBinaryPath };
 }

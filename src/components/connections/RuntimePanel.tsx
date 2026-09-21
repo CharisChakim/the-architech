@@ -6,7 +6,7 @@ import { RuntimeCard } from "./RuntimeCard";
 
 export type RuntimePanelProps = RuntimeDiscoveryState;
 
-export const RuntimePanel: React.FC<RuntimePanelProps> = ({ report, preferences, loading, error, refresh, savePreference }) => {
+export const RuntimePanel: React.FC<RuntimePanelProps> = ({ report, preferences, loading, error, refresh, savePreference, saveBinaryPath }) => {
   const { t } = useT();
   return (
   <div className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4 sm:p-5" aria-labelledby="runtime-panel-title">
@@ -45,6 +45,7 @@ export const RuntimePanel: React.FC<RuntimePanelProps> = ({ report, preferences,
           ))}
           onRefresh={async () => { await refresh(); }}
           onSavePreference={savePreference}
+          onSaveBinaryPath={saveBinaryPath}
           refreshing={loading}
         />)}
       </div>
