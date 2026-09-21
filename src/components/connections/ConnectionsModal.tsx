@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { AlertCircle, Check, Cpu, Plus, RefreshCw, Save, Trash2, X } from "lucide-react";
-import type { AgentRole, WireFormat } from "../../types";
+import type { AgentRole, RuntimeId, RuntimeStatus, WireFormat } from "../../types";
 import { useConnections } from "../../lib/connections";
 import type { ConnectionDraft, ConnectionTestResult } from "../../lib/connections";
 import { useT } from "../../lib/i18n";
@@ -8,15 +8,35 @@ import { getProviderPreset, PROVIDER_PRESETS as CONNECTION_PRESETS, createProvid
 import type { ProviderPreset } from "../../lib/providerPresets";
 import { useRuntimeDiscovery } from "../../lib/runtimes";
 import { McpPanel } from "./McpPanel";
-import { RuntimePanel } from "./RuntimePanel";
+import { RuntimeCard } from "./RuntimeCard";
 
 export interface ConnectionsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  initialTab?: Tab;
+  initialTab?: ConnectionsModalEntry;
 }
 
-type Tab = "connections" | "roles" | "mcp" | "runtimes";
+type Tab = "connections" | "roles" | "mcp";
+
+/**
+ * Runtimes are no longer a tab of their own, but they are still an entry point:
+ * opening from Agents should land on a runtime rather than an endpoint form.
+ */
+export type ConnectionsModalEntry = Tab | "runtimes";
+
+const RUNTIME_LABELS: Record<RuntimeId, string> = {
+  codex: "Codex",
+  claude: "Claude Code",
+  antigravity: "Antigravity",
+};
+
+const RUNTIME_STATUS_DOTS: Record<RuntimeStatus, string> = {
+  ready: "bg-ok",
+  needs_login: "bg-warn",
+  unsupported_version: "bg-warn",
+  error: "bg-danger",
+  not_installed: "bg-faint",
+};
 const ROLES: AgentRole[] = ["agent", "plan", "prd", "tasks"];
 const CUSTOM_CONNECTION_PRESET = getProviderPreset("custom");
 
@@ -36,6 +56,9 @@ export const ConnectionsModal: React.FC<ConnectionsModalProps> = ({ isOpen, onCl
   const runtimeDiscovery = useRuntimeDiscovery(isOpen);
   const [tab, setTab] = useState<Tab>("connections");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Null berarti panel kanan menampilkan form endpoint; berisi runtime berarti
+  // ia menampilkan kartu runtime. Satu daftar di kiri memilih keduanya.
+  const [selectedRuntime, setSelectedRuntime] = useState<RuntimeId | null>(null);
   const [showPresets, setShowPresets] = useState(false);
   const [name, setName] = useState("");
   const [format, setFormat] = useState<WireFormat>("openai");
@@ -61,12 +84,32 @@ export const ConnectionsModal: React.FC<ConnectionsModalProps> = ({ isOpen, onCl
 
   const active = selectedId ? connections.find((connection) => connection.id === selectedId) || null : null;
 
+  const runtimes = runtimeDiscovery.report?.runtimes ?? [];
+  const selectedRuntimeDetection = selectedRuntime
+    ? runtimes.find((detection) => detection.runtime === selectedRuntime) ?? null
+    : null;
+
   useEffect(() => {
     if (!isOpen) return;
-    setTab(initialTab);
+    setTab(initialTab === "runtimes" ? "connections" : initialTab);
     setShowPresets(false);
     setSelectedId((current) => current && connections.some((connection) => connection.id === current) ? current : connections[0]?.id || null);
   }, [isOpen, connections, initialTab]);
+
+  // Entri runtime hanya bisa dipilih setelah deteksi selesai, jadi pilihan awal
+  // untuk pintu masuk Agents menunggu laporannya dan mendarat di runtime yang
+  // benar-benar siap kalau ada.
+  useEffect(() => {
+    if (!isOpen || initialTab !== "runtimes") return;
+    setSelectedRuntime((current) => current ?? (
+      runtimes.find((detection) => detection.status === "ready")?.runtime ?? runtimes[0]?.runtime ?? null
+    ));
+  }, [isOpen, initialTab, runtimes]);
+
+  useEffect(() => {
+    if (isOpen) return;
+    setSelectedRuntime(null);
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -138,6 +181,7 @@ export const ConnectionsModal: React.FC<ConnectionsModalProps> = ({ isOpen, onCl
   const choosePreset = async (preset: ProviderPreset) => {
     const draft = createProviderDraft(preset);
     setSelectedId(null);
+    setSelectedRuntime(null);
     setName(draft.name);
     setFormat(draft.format || "openai");
     setBaseUrl(draft.baseUrl);
@@ -259,7 +303,7 @@ export const ConnectionsModal: React.FC<ConnectionsModalProps> = ({ isOpen, onCl
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col sm:flex-row">
           <nav role="tablist" aria-label={t("Connection settings")} className="flex shrink-0 gap-1 overflow-x-auto border-b border-line bg-subtle/50 p-2 sm:w-44 sm:flex-col sm:border-b-0 sm:border-r">
-            {(["connections", "runtimes", "roles", "mcp"] as Tab[]).map((item, index, all) => (
+            {(["connections", "roles", "mcp"] as Tab[]).map((item, index, all) => (
               <button
                 key={item}
                 type="button"
@@ -280,15 +324,43 @@ export const ConnectionsModal: React.FC<ConnectionsModalProps> = ({ isOpen, onCl
                 onClick={() => setTab(item)}
                 className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-left text-xs font-medium ${tab === item ? "bg-surface text-accent-ink shadow-elev-1" : "text-muted hover:text-ink"}`}
               >
-                {item === "connections" ? t("Connections") : item === "runtimes" ? t("Runtimes") : item === "roles" ? t("Roles") : t("MCP")}
+                {item === "connections" ? t("Connections") : item === "roles" ? t("Roles") : t("MCP")}
               </button>
             ))}
           </nav>
 
           {tab === "connections" && (
             <div id="connections-tabpanel" role="tabpanel" aria-labelledby="tab-connections" className="flex min-h-0 min-w-0 flex-1 flex-col sm:flex-row">
-              <div className="flex max-h-48 shrink-0 flex-col border-b border-line p-3 sm:max-h-none sm:w-56 sm:border-b-0 sm:border-r">
-                <div className="mb-2 flex items-center justify-between"><span className="text-xs font-semibold text-ink">{t("Saved connections")}</span><button type="button" onClick={() => setShowPresets((value) => !value)} aria-expanded={showPresets} aria-controls="connection-preset-list" title={t("Add connection")} aria-label={t("Add connection")} className="rounded-md p-1 text-accent hover:bg-accent-soft"><Plus className="h-4 w-4" aria-hidden /></button></div>
+              <div className="flex max-h-64 shrink-0 flex-col gap-4 overflow-y-auto border-b border-line p-3 sm:max-h-none sm:w-56 sm:border-b-0 sm:border-r">
+                {/* Runtime lokal dan endpoint HTTP hidup di satu daftar karena
+                    keduanya sama-sama sumber model; yang membedakan cuma apa
+                    yang harus disiapkan, dan itu dijelaskan per entri. */}
+                <div>
+                  <span className="text-xs font-semibold text-ink">{t("Agent runtimes")}</span>
+                  <div className="mt-2 space-y-1">
+                    {runtimes.map((detection) => (
+                      <button
+                        key={detection.runtime}
+                        type="button"
+                        aria-pressed={selectedRuntime === detection.runtime}
+                        onClick={() => { setSelectedRuntime(detection.runtime); setShowPresets(false); }}
+                        className={`flex w-full min-w-0 items-center gap-2 rounded-lg px-2.5 py-2 text-left ${selectedRuntime === detection.runtime ? "bg-accent-soft text-accent-ink" : "text-muted hover:bg-subtle hover:text-ink"}`}
+                      >
+                        <span className={`h-2 w-2 shrink-0 rounded-full ${RUNTIME_STATUS_DOTS[detection.status]}`} aria-hidden />
+                        <span className="min-w-0 flex-1 truncate text-xs font-medium">{RUNTIME_LABELS[detection.runtime]}</span>
+                        <span className="shrink-0 text-[10px] text-faint">{t("CLI")}</span>
+                      </button>
+                    ))}
+                    {!runtimes.length && (
+                      <p className="px-2 py-2 text-[11px] leading-relaxed text-faint">
+                        {runtimeDiscovery.loading ? t("Detecting...") : t("No runtime detection result.")}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="min-h-0">
+                <div className="mb-2 flex items-center justify-between"><span className="text-xs font-semibold text-ink">{t("Custom endpoints")}</span><button type="button" onClick={() => { setShowPresets((value) => !value); setSelectedRuntime(null); }} aria-expanded={showPresets} aria-controls="connection-preset-list" title={t("Add connection")} aria-label={t("Add connection")} className="rounded-md p-1 text-accent hover:bg-accent-soft"><Plus className="h-4 w-4" aria-hidden /></button></div>
                 {showPresets ? (
                   <div id="connection-preset-list" className="min-h-0 space-y-1 overflow-y-auto">
                     {CUSTOM_CONNECTION_PRESET && <button type="button" onClick={() => void choosePreset(CUSTOM_CONNECTION_PRESET)} className="lift mb-1 flex w-full items-center gap-2 rounded-lg border border-dashed border-line px-2.5 py-2 text-left text-xs text-muted hover:border-accent hover:text-ink"><Plus className="h-3.5 w-3.5" />{t("Custom connection")}</button>}
@@ -296,14 +368,40 @@ export const ConnectionsModal: React.FC<ConnectionsModalProps> = ({ isOpen, onCl
                   </div>
                 ) : (
                   <div className="min-h-0 space-y-1 overflow-y-auto">
-                    {connections.map((connection) => <button key={connection.id} type="button" aria-pressed={selectedId === connection.id} onClick={() => setSelectedId(connection.id)} className={`flex w-full min-w-0 items-center gap-2 rounded-lg px-2.5 py-2 text-left ${selectedId === connection.id ? "bg-accent-soft text-accent-ink" : "text-muted hover:bg-subtle hover:text-ink"}`}><span className={`h-2 w-2 shrink-0 rounded-full ${connection.lastCheck?.ok ? "bg-ok" : connection.lastCheck ? "bg-warn" : "bg-faint"}`} aria-hidden /><span className="min-w-0 flex-1 truncate text-xs font-medium">{connection.name}</span>{connection.hasKey && <span className="shrink-0 text-[10px] text-faint">key</span>}</button>)}
+                    {connections.map((connection) => <button key={connection.id} type="button" aria-pressed={!selectedRuntime && selectedId === connection.id} onClick={() => { setSelectedId(connection.id); setSelectedRuntime(null); }} className={`flex w-full min-w-0 items-center gap-2 rounded-lg px-2.5 py-2 text-left ${!selectedRuntime && selectedId === connection.id ? "bg-accent-soft text-accent-ink" : "text-muted hover:bg-subtle hover:text-ink"}`}><span className={`h-2 w-2 shrink-0 rounded-full ${connection.lastCheck?.ok ? "bg-ok" : connection.lastCheck ? "bg-warn" : "bg-faint"}`} aria-hidden /><span className="min-w-0 flex-1 truncate text-xs font-medium">{connection.name}</span>{connection.hasKey && <span className="shrink-0 text-[10px] text-faint">key</span>}</button>)}
                     {!connections.length && <p className="px-2 py-3 text-xs leading-relaxed text-faint">{t("No connections yet. Choose a preset to get started.")}</p>}
                   </div>
                 )}
+                </div>
               </div>
 
               <div className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4 sm:p-5">
-                {showPresets ? <div className="flex h-full items-center justify-center text-center text-xs text-faint">{t("Choose a preset on the left.")}</div> : (
+                {selectedRuntimeDetection ? (
+                  <div className="max-w-md space-y-3">
+                    <p className="text-xs leading-relaxed text-faint">
+                      {t("Detected on this machine. A runtime needs its CLI installed and signed in, not an API key.")}
+                    </p>
+                    {runtimeDiscovery.error && (
+                      <div className="flex items-start gap-2 rounded-lg border border-danger/30 bg-danger-soft p-3 text-xs text-danger-ink" role="alert">
+                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                        <span>{runtimeDiscovery.error}</span>
+                      </div>
+                    )}
+                    <RuntimeCard
+                      detection={selectedRuntimeDetection}
+                      preference={runtimeDiscovery.preferences.find((item) => (
+                        item.runtime === selectedRuntimeDetection.runtime
+                        && item.connectionId === selectedRuntimeDetection.catalog?.connectionId
+                        && item.scope === "global"
+                        && item.scopeKey === null
+                      ))}
+                      onRefresh={async () => { await runtimeDiscovery.refresh(); }}
+                      onSavePreference={runtimeDiscovery.savePreference}
+                      onSaveBinaryPath={runtimeDiscovery.saveBinaryPath}
+                      refreshing={runtimeDiscovery.loading}
+                    />
+                  </div>
+                ) : showPresets ? <div className="flex h-full items-center justify-center text-center text-xs text-faint">{t("Choose a preset on the left.")}</div> : (
                   <div className="space-y-5">
                     <div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><h4 className="text-sm font-semibold text-ink">{active?.name || name || t("New connection")}</h4><p className="mt-1 text-xs text-faint">{active?.hasKey ? t("API key is stored securely on the server.") : t("API key is optional for this connection.")}</p></div>{active && <button type="button" onClick={() => void handleDelete()} disabled={deleting} className="btn-ghost shrink-0 text-danger-ink"><Trash2 className="h-3.5 w-3.5" />{deleting ? t("Deleting...") : t("Delete")}</button>}</div>
                     <div><label htmlFor="connection-name" className={labelClass}>{t("Connection name")}</label><input id="connection-name" className={inputClass} value={name} onChange={(event) => setName(event.target.value)} placeholder="Ollama" /></div>
@@ -327,7 +425,6 @@ export const ConnectionsModal: React.FC<ConnectionsModalProps> = ({ isOpen, onCl
             <div id="roles-tabpanel" role="tabpanel" aria-labelledby="tab-roles" className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4 sm:p-5"><div className="max-w-xl space-y-5"><div><h4 className="text-sm font-semibold text-ink">{t("Role bindings")}</h4><p className="mt-1 text-xs leading-relaxed text-faint">{t("Choose which connection and model each workflow role uses.")}</p></div><div className="grid grid-cols-2 gap-2">{ROLES.map((item) => <button key={item} type="button" aria-pressed={selectedRole === item} onClick={() => setSelectedRole(item)} className={`rounded-lg border px-3 py-2 text-left text-xs ${selectedRole === item ? "border-accent bg-accent-soft text-accent-ink" : "border-line text-muted hover:bg-subtle"}`}>{roleLabel(item, t)}<span className="mt-1 block truncate text-[11px] opacity-70">{roles[item]?.model || t("Not bound")}</span></button>)}</div><div><label htmlFor="role-connection" className={labelClass}>{t("Connection")}</label><select id="role-connection" className={inputClass} value={roleConnectionId} onChange={(event) => setRoleConnectionId(event.target.value)}><option value="">{t("Choose connection")}</option>{connections.filter((connection) => connection.enabled).map((connection) => <option key={connection.id} value={connection.id}>{connection.name}</option>)}</select></div><div><label htmlFor="role-model" className={labelClass}>{t("Model")}</label><input id="role-model" className={`${inputClass} font-mono text-xs`} value={roleModel} onChange={(event) => setRoleModel(event.target.value)} placeholder="model-name" /></div>{selectedRole === "agent" && roleConnectionId && !connections.find((connection) => connection.id === roleConnectionId)?.lastCheck?.toolsSupported && <p className="rounded-lg border border-warn/30 bg-warn-soft p-3 text-xs text-warn-ink">{t("This connection has not passed the tools probe; agent tools may not work.")}</p>}<button type="button" onClick={() => void handleBindRole()} disabled={!roleConnectionId || !roleModel.trim()} className="btn-primary"><Check className="h-4 w-4" />{t("Save role binding")}</button></div></div>
           )}
 
-          {tab === "runtimes" && <div id="runtimes-tabpanel" role="tabpanel" aria-labelledby="tab-runtimes" className="flex min-h-0 min-w-0 flex-1"><RuntimePanel {...runtimeDiscovery} /></div>}
 
           {tab === "mcp" && (
             <div id="mcp-tabpanel" role="tabpanel" aria-labelledby="tab-mcp" className="flex min-h-0 min-w-0 flex-1"><McpPanel /></div>
