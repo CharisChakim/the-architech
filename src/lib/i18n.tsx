@@ -183,6 +183,7 @@ const ID: Record<string, string> = {
   "Roles": "Peran",
   "MCP": "MCP",
   "Switch model": "Ganti model",
+  "This looks for the agy CLI. The Antigravity desktop app does not include it, so having the app installed is not enough.": "Yang dicari di sini adalah CLI `agy`. Aplikasi desktop Antigravity tidak menyertakannya, jadi aplikasinya terpasang saja belum cukup.",
   "Choose a model": "Pilih model",
   "Search models": "Cari model",
   "No enabled connections": "Tidak ada koneksi aktif",

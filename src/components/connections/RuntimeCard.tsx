@@ -42,8 +42,9 @@ const DIAGNOSTIC_HINTS: Record<string, string> = {
 const windows = /windows/i.test(navigator.userAgent);
 
 // Shown when the binary is missing, so "not installed" comes with the one
-// command that fixes it rather than a dead end.
-const SETUP_GUIDE: Record<RuntimeDetection["runtime"], { command: string | null; docsUrl: string }> = {
+// command that fixes it rather than a dead end. `note` covers the case where
+// "not installed" contradicts what the user can see on their own machine.
+const SETUP_GUIDE: Record<RuntimeDetection["runtime"], { command: string | null; docsUrl: string; note?: string }> = {
   claude: { command: "npm install -g @anthropic-ai/claude-code", docsUrl: "https://docs.claude.com/en/docs/claude-code" },
   codex: { command: "npm install -g @openai/codex", docsUrl: "https://github.com/openai/codex" },
   antigravity: {
@@ -51,6 +52,7 @@ const SETUP_GUIDE: Record<RuntimeDetection["runtime"], { command: string | null;
       ? "irm https://antigravity.google/cli/install.ps1 | iex"
       : "curl -fsSL https://antigravity.google/cli/install.sh | bash",
     docsUrl: "https://antigravity.google/docs/cli/install/",
+    note: "This looks for the agy CLI. The Antigravity desktop app does not include it, so having the app installed is not enough.",
   },
 };
 
@@ -241,6 +243,7 @@ export const RuntimeCard: React.FC<RuntimeCardProps> = ({ detection, preference,
 
           {detection.status === "not_installed" && (
             <div className="mt-2 space-y-2 pl-5">
+              {setup.note && <p className="text-muted">{t(setup.note)}</p>}
               {/* Full width and wrapping at word boundaries: these cards sit in a
                   narrow three-column grid, and "npm install …" is not guidance. */}
               {setup.command && (
