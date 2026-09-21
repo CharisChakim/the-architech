@@ -77,20 +77,20 @@ export const AgentSettingsModal: React.FC<AgentSettingsModalProps> = ({ isOpen, 
           <p className="px-1 text-[11px] font-medium tracking-wide text-faint uppercase">{t("Efficiency stack")}</p>
           <Toggle
             checked={settings.compactTerminal}
-            title={t("Compact terminal")}
-            description={t("Targeted commands, rg-first search, capped output, and summarized logs instead of raw dumps. Inspired by RTK/chop.")}
+            title={t("RTK · Compact terminal")}
+            description={t("Targeted commands, rg-first search, capped output, and summarized logs instead of raw dumps.")}
             onChange={(compactTerminal) => onChange({ ...settings, compactTerminal })}
           />
           <Toggle
             checked={settings.conciseAnswers}
-            title={t("Concise answers")}
-            description={t("Answers only what was asked: no preambles, repetition, or unsolicited alternatives. Code, paths, numbers, and warnings stay verbatim. Inspired by Caveman.")}
+            title={t("Caveman · Concise answers")}
+            description={t("Answers only what was asked: no preambles, repetition, or unsolicited alternatives. Code, paths, numbers, and warnings stay verbatim.")}
             onChange={(conciseAnswers) => onChange({ ...settings, conciseAnswers })}
           />
           <Toggle
             checked={settings.minimalCode}
-            title={t("Minimal code")}
-            description={t("Implements the minimum correct change. No speculative abstractions, dependencies, or rewrites. Inspired by Ponytail.")}
+            title={t("Ponytail · Minimal code")}
+            description={t("Implements the minimum correct change. No speculative abstractions, dependencies, or rewrites.")}
             onChange={(minimalCode) => onChange({ ...settings, minimalCode })}
           />
           <Toggle
