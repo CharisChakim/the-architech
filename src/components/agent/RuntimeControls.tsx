@@ -238,9 +238,12 @@ export const RuntimeControls: React.FC<RuntimeControlsProps> = ({
             {effortOptions.length > 0 && (
               <>
                 <label htmlFor="agent-runtime-effort" className="sr-only">{t("Effort")}</label>
+                {/* Opsi bawaannya berbentuk "Default · <effort>", dan yang
+                    terpanjang yang bisa dihasilkan butuh ~121px — cap 96px
+                    memotongnya di tengah kata. */}
                 <select
                   id="agent-runtime-effort"
-                  className="h-8 max-w-24 rounded-lg border-0 bg-transparent px-2 text-[11px] text-ink outline-hidden hover:bg-subtle focus:bg-subtle"
+                  className="h-8 max-w-32 rounded-lg border-0 bg-transparent px-2 text-[11px] text-ink outline-hidden hover:bg-subtle focus:bg-subtle"
                   value={selection.effort}
                   onChange={(event) => onChange({ ...selection, effort: event.target.value })}
                   disabled={disabled || selectedRuntimeUnavailable}
