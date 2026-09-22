@@ -16,6 +16,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js release",
     "lint": "tsc --noEmit",
+    "test": "tsx --test \"src/**/*.test.ts\" \"server/**/*.test.ts\"",
     "electron": "electron .",
     "dist": "npm run build && electron-builder",
     "dist:win": "npm run build && electron-builder --win",
