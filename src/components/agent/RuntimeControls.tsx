@@ -208,7 +208,7 @@ export const RuntimeControls: React.FC<RuntimeControlsProps> = ({
 
   if (compact) {
     return (
-      <div className="flex min-w-0 max-w-full items-center gap-1" aria-label={t("Agent runtime controls")}>
+      <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1" aria-label={t("Agent runtime controls")}>
         <label htmlFor="agent-runtime" className="sr-only">{t("Runtime")}</label>
         <select
           id="agent-runtime"

@@ -1,8 +1,9 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import { ProjectSession } from "../types";
 import { Check, ChevronDown, Download, Folder, Layers, Menu, MessageSquare, Moon, Plug, Settings2, Sun } from "lucide-react";
 import { useT, type Language } from "../lib/i18n";
 import { useConnections } from "../lib/connections";
+import { useDismissable } from "../lib/dismissable";
 import { SAMPLE_PROJECTS, sampleText, type SampleProject } from "../lib/sampleData";
 import { projectNameFromWorkspaceRoot } from "../lib/workspace";
 import type { Theme } from "../lib/theme";
@@ -46,27 +47,6 @@ const FLAGS: Record<Language, React.ReactNode> = {
 
 const LANGUAGE_NAMES: Record<Language, string> = { en: "English", id: "Bahasa Indonesia" };
 
-// A menu that closes when the next click lands anywhere else, so two of these
-// are never open at once and Escape always gets you out.
-function useDismissable(onDismiss: () => void) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const onPointerDown = (event: MouseEvent) => {
-      if (!ref.current?.contains(event.target as Node)) onDismiss();
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onDismiss();
-    };
-    document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [onDismiss]);
-  return ref;
-}
-
 export const Topbar: React.FC<TopbarProps> = ({
   session,
   onOpenMenu,
@@ -86,7 +66,19 @@ export const Topbar: React.FC<TopbarProps> = ({
   const { lang, t } = useT();
   const { connections } = useConnections();
   const [openMenu, setOpenMenu] = useState<"templates" | "language" | null>(null);
-  const menuRef = useDismissable(() => setOpenMenu(null));
+  // Tombol yang membuka menu, supaya Escape mengembalikan fokus ke sana.
+  const menuTrigger = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useDismissable<HTMLDivElement>((reason) => {
+    setOpenMenu((open) => {
+      if (open && reason === "escape") menuTrigger.current?.focus();
+      return null;
+    });
+  });
+
+  const toggleMenu = (menu: "templates" | "language", trigger: HTMLButtonElement) => {
+    menuTrigger.current = trigger;
+    setOpenMenu((open) => (open === menu ? null : menu));
+  };
 
   const activeTitle = session.input.title || session.title;
   const folderName = projectNameFromWorkspaceRoot(session.workspaceRoot || "");
@@ -136,7 +128,7 @@ export const Topbar: React.FC<TopbarProps> = ({
 
         <span className="hidden flex-1 sm:block" />
 
-        <div className="flex w-full items-center gap-2 sm:w-auto sm:gap-2.5">
+        <div className="flex w-full flex-wrap items-center gap-x-2 gap-y-1.5 sm:w-auto sm:flex-nowrap sm:gap-2.5">
         {onLayoutModeChange && (
           <div
             role="group"
@@ -184,7 +176,7 @@ export const Topbar: React.FC<TopbarProps> = ({
           <div className="relative">
             <button
               type="button"
-              onClick={() => setOpenMenu((open) => (open === "templates" ? null : "templates"))}
+              onClick={(event) => toggleMenu("templates", event.currentTarget)}
               aria-expanded={openMenu === "templates"}
               className="shell-icon-button"
               title={t("Templates")}
@@ -220,7 +212,7 @@ export const Topbar: React.FC<TopbarProps> = ({
           <div className="relative">
             <button
               type="button"
-              onClick={() => setOpenMenu((open) => (open === "language" ? null : "language"))}
+              onClick={(event) => toggleMenu("language", event.currentTarget)}
               aria-expanded={openMenu === "language"}
               className="flex items-center gap-1.5 rounded-lg border border-line bg-subtle px-1.5 py-1.5"
               aria-label={t("Language: {name}", { name: LANGUAGE_NAMES[lang] })}

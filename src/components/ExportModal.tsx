@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { ProjectSession } from "../types";
 import { X, Download, FileText, Compass, Bot, FileCode, CheckCircle2 } from "lucide-react";
 import { useT } from "../lib/i18n";
@@ -21,6 +21,25 @@ interface ExportModalProps {
 export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, session }) => {
   const { t } = useT();
   const [showHandoffPreview, setShowHandoffPreview] = React.useState(false);
+  const closeButton = useRef<HTMLButtonElement>(null);
+
+  // Dialog lain di aplikasi ini sudah begini: fokus masuk ke tombol tutup,
+  // Escape menutup, dan fokus kembali ke tempat asalnya saat dialog hilang.
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const frame = window.requestAnimationFrame(() => closeButton.current?.focus());
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      document.removeEventListener("keydown", closeOnEscape);
+      previousFocus?.focus();
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const projectTitle = session.input.title || session.title || "Project";
@@ -81,13 +100,14 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, sessi
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="card shadow-elev-3 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div role="dialog" aria-modal="true" aria-labelledby="export-modal-title" className="card shadow-elev-3 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         <div className="px-6 py-4 border-b border-line flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <Download className="w-4 h-4 text-faint" />
-            <h3 className="font-semibold text-ink">{t("Export project document bundle")}</h3>
+            <h3 id="export-modal-title" className="font-semibold text-ink">{t("Export project document bundle")}</h3>
           </div>
           <button
+            ref={closeButton}
             onClick={onClose}
             className="p-1.5 text-faint hover:text-ink hover:bg-subtle rounded-lg transition-colors"
             aria-label={t("Close")}

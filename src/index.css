@@ -30,8 +30,12 @@
   --app-strong: #a4a7bd;
 
   --app-ink: #292a3a;
-  --app-muted: #6c6e80;
-  --app-faint: #717387;
+  /* Teks 10–12 px di sidebar tidak mencapai 4.5:1 dengan nilai sebelumnya
+     (#6c6e80 dan #717387 hanya 4.49 dan 4.17 di atas --app-sidebar). Kedua
+     warna digelapkan sampai lolos, dan muted tetap lebih gelap dari faint
+     supaya tingkatannya masih terbaca. */
+  --app-muted: #616374;
+  --app-faint: #6a6c7f;
 
   --app-accent: #713dd4;
   --app-accent-fg: #ffffff;

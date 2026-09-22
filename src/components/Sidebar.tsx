@@ -1,8 +1,9 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, DraftingCompass, Folder, FolderKanban, ListTree, PanelLeftClose, PanelLeftOpen, Plus, Search, Trash2, X } from "lucide-react";
 import type { ProjectSession, SessionSummary } from "../types";
 import { projectNameFromWorkspaceRoot } from "../lib/workspace";
 import { useT } from "../lib/i18n";
+import { useDismissable } from "../lib/dismissable";
 
 type ChatSort = "recent" | "name";
 
@@ -92,11 +93,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [sortOpen, setSortOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
+  const sortTrigger = useRef<HTMLButtonElement | null>(null);
+  const sortRef = useDismissable<HTMLDivElement>((reason) => {
+    setSortOpen((open) => {
+      if (open && reason === "escape") sortTrigger.current?.focus();
+      return false;
+    });
+  });
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [expandedChats, setExpandedChats] = useState<Set<string>>(new Set());
 
   const isRail = collapsed && !isOpen;
   const search = query.trim().toLowerCase();
+  const closeButton = useRef<HTMLButtonElement>(null);
+
+  // Di ponsel sidebar menutupi halaman seperti dialog, jadi ia berperilaku
+  // seperti dialog: fokus masuk ke tombol tutup, Escape menutup, dan fokus
+  // kembali ke tombol yang membukanya. Escape diserahkan lebih dulu ke menu
+  // urutan kalau menu itu yang sedang terbuka.
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const frame = window.requestAnimationFrame(() => closeButton.current?.focus());
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !sortOpen) onClose();
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      document.removeEventListener("keydown", closeOnEscape);
+      previousFocus?.focus();
+    };
+  }, [isOpen, sortOpen, onClose]);
 
   const groups = useMemo(() => {
     const matching = search
@@ -150,7 +178,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </span>
           {!isRail && <span className="min-w-0 flex-1 truncate text-[12px] font-semibold text-ink">The Architech</span>}
           {!isRail && (
-            <button type="button" onClick={onClose} className="rounded-md p-1.5 text-faint hover:bg-subtle hover:text-ink md:hidden" aria-label={t("Close menu")}>
+            <button type="button" ref={closeButton} onClick={onClose} className="rounded-md p-1.5 text-faint hover:bg-subtle hover:text-ink md:hidden" aria-label={t("Close menu")}>
               <X className="h-4 w-4" aria-hidden />
             </button>
           )}
@@ -183,9 +211,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-2.5 pb-3">
             <div className="flex shrink-0 items-center gap-1.5 px-2 py-1.5">
               <span className="flex-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-faint">{t("Chats")}</span>
-              <div className="relative">
+              <div ref={sortRef} className="relative">
                 <button
                   type="button"
+                  ref={sortTrigger}
                   onClick={() => setSortOpen((open) => !open)}
                   aria-expanded={sortOpen}
                   className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted hover:bg-subtle hover:text-ink"
@@ -199,7 +228,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <button
                         key={value}
                         type="button"
-                        onClick={() => { setSort(value); setSortOpen(false); }}
+                        onClick={() => { setSort(value); setSortOpen(false); sortTrigger.current?.focus(); }}
                         aria-pressed={sort === value}
                         className={`block w-full rounded px-2 py-1.5 text-left text-[11px] ${sort === value ? "bg-accent-soft text-accent-ink" : "text-muted hover:bg-subtle hover:text-ink"}`}
                       >
@@ -296,7 +325,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                   type="button"
                                   onClick={() => onDeleteHistory(chat.id)}
                                   title={t("Remove from history")}
-                                  className="mr-1 rounded p-1 text-transparent group-hover:text-faint hover:!text-danger"
+                                  className="mr-1 rounded p-1 text-transparent group-hover:text-faint hover:!text-danger focus-visible:text-faint"
                                   aria-label={t("Remove from history")}
                                 >
                                   <Trash2 className="h-3.5 w-3.5" aria-hidden />
@@ -311,7 +340,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                   <button type="button" onClick={() => openStep(chat.id, 2)} className={`shell-step ${activeStep === 2 ? "is-active" : ""}`}>
                                     <DraftingCompass className="h-3.5 w-3.5 shrink-0" aria-hidden /><span className="flex-1 truncate">{t("PRD")}</span>
                                   </button>
-                                  <button type="button" onClick={() => openStep(chat.id, 3)} className={`shell-step ${activeStep === 3 ? "is-active" : ""}`}>
+                                  <button
+                                    type="button"
+                                    onClick={() => openStep(chat.id, 3)}
+                                    aria-label={chat.taskCount ? undefined : `${t("Kanban")} — ${t("empty")}`}
+                                    className={`shell-step ${activeStep === 3 ? "is-active" : ""}`}
+                                  >
                                     <FolderKanban className="h-3.5 w-3.5 shrink-0" aria-hidden /><span className="flex-1 truncate">{t("Kanban")}</span>
                                     {!chat.taskCount && <span className="shrink-0 text-[10px] text-faint">{t("empty")}</span>}
                                   </button>
