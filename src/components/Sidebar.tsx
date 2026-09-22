@@ -1,85 +1,139 @@
-import React, { useState } from "react";
-import { Bot, Check, ChevronRight, DraftingCompass, FolderKanban, Languages, Layers, MessageCircle, Moon, PanelLeftClose, PanelLeftOpen, Plug, Plus, Settings2, Sun, Trash2, X } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import { ChevronDown, DraftingCompass, Folder, FolderKanban, ListTree, PanelLeftClose, PanelLeftOpen, Plus, Search, Trash2, X } from "lucide-react";
 import type { ProjectSession, SessionSummary } from "../types";
-import { SAMPLE_PROJECTS, sampleText, type SampleProject } from "../lib/sampleData";
-import type { Theme } from "../lib/theme";
+import { projectNameFromWorkspaceRoot } from "../lib/workspace";
 import { useT } from "../lib/i18n";
+
+type ChatSort = "recent" | "name";
 
 interface SidebarProps {
   session: ProjectSession;
   historySessions: SessionSummary[];
-  onSelectStep: (step: 1 | 2 | 3) => void;
   onNewProject: () => void;
-  onSelectSample: (sample: SampleProject) => void;
   onSelectHistorySession: (id: string) => void;
+  onOpenChatStep: (id: string, step: 1 | 2 | 3) => void;
   onDeleteHistory: (id: string) => void;
-  onOpenConnections: () => void;
-  onOpenAgents: () => void;
-  onOpenSettings: () => void;
-  theme: Theme;
-  onToggleTheme: () => void;
-  onToggleLanguage: () => void;
   isOpen: boolean;
   onClose: () => void;
   collapsed: boolean;
   onToggleCollapsed: () => void;
-  layoutMode?: "agent" | "split" | "board";
   onSelectAgent?: () => void;
 }
 
-const sectionLabel = "px-2.5 pb-2 text-[10px] font-medium uppercase tracking-[0.12em] text-faint";
+interface ChatGroup {
+  key: string;
+  name: string;
+  chats: SessionSummary[];
+  latest: number;
+}
+
+const DAY_MS = 86_400_000;
+
+// Group headers carry their own last activity, which is what explains the
+// order. Anything inside the last week reads better as an age than as a date.
+function activityLabel(iso: string, lang: string): string {
+  const then = new Date(iso);
+  if (Number.isNaN(then.getTime())) return "";
+  const elapsed = Date.now() - then.getTime();
+  if (elapsed < 3_600_000) return `${Math.max(1, Math.round(elapsed / 60_000))}m`;
+  if (elapsed < DAY_MS) return `${Math.round(elapsed / 3_600_000)}h`;
+  if (elapsed < 7 * DAY_MS) return `${Math.round(elapsed / DAY_MS)}d`;
+  return then.toLocaleDateString(lang, { month: "numeric", day: "2-digit" });
+}
+
+function groupChats(sessions: SessionSummary[], sort: ChatSort, unfiledName: string): ChatGroup[] {
+  const groups = new Map<string, ChatGroup>();
+  for (const chat of sessions) {
+    const key = chat.workspaceRoot?.trim() || "";
+    const existing = groups.get(key);
+    const at = new Date(chat.updatedAt).getTime() || 0;
+    if (existing) {
+      existing.chats.push(chat);
+      existing.latest = Math.max(existing.latest, at);
+    } else {
+      groups.set(key, {
+        key,
+        name: key ? projectNameFromWorkspaceRoot(key) || key : unfiledName,
+        chats: [chat],
+        latest: at,
+      });
+    }
+  }
+
+  const byChat = sort === "name"
+    ? (a: SessionSummary, b: SessionSummary) => a.title.localeCompare(b.title)
+    : (a: SessionSummary, b: SessionSummary) => (new Date(b.updatedAt).getTime() || 0) - (new Date(a.updatedAt).getTime() || 0);
+
+  return [...groups.values()]
+    .map((group) => ({ ...group, chats: [...group.chats].sort(byChat) }))
+    .sort((a, b) => {
+      // Chats without a folder are the leftovers, so they stay at the bottom
+      // whichever way the rest is sorted.
+      if (!a.key !== !b.key) return a.key ? -1 : 1;
+      return sort === "name" ? a.name.localeCompare(b.name) : b.latest - a.latest;
+    });
+}
 
 export const Sidebar: React.FC<SidebarProps> = ({
   session,
   historySessions,
-  onSelectStep,
   onNewProject,
-  onSelectSample,
   onSelectHistorySession,
+  onOpenChatStep,
   onDeleteHistory,
-  onOpenConnections,
-  onOpenAgents,
-  onOpenSettings,
-  theme,
-  onToggleTheme,
-  onToggleLanguage,
   isOpen,
   onClose,
   collapsed,
   onToggleCollapsed,
-  layoutMode,
   onSelectAgent,
 }) => {
   const { lang, t } = useT();
-  const [showSamples, setShowSamples] = useState(false);
+  const [sort, setSort] = useState<ChatSort>("recent");
+  const [sortOpen, setSortOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [expandedChats, setExpandedChats] = useState<Set<string>>(new Set());
 
-  const hasPlan = Boolean(session.plan);
-  const hasPrd = Boolean(session.prd);
-  const hasTasks = Boolean(session.tasks?.length);
-  const activeTitle = session.input.title || session.title;
-  const projectStep: 1 | 2 | 3 = hasTasks ? 3 : hasPrd ? 2 : 1;
   const isRail = collapsed && !isOpen;
-  const otherLanguageName = lang === "en" ? "Bahasa Indonesia" : "English";
-  const railButton = isRail ? "mx-auto h-9 w-9 justify-center px-0" : "w-full justify-start px-2.5";
+  const search = query.trim().toLowerCase();
 
-  const steps = [
-    { num: 1 as const, label: t("Plan"), complete: hasPlan, available: true },
-    { num: 2 as const, label: t("PRD"), complete: hasPrd, available: true },
-    { num: 3 as const, label: t("Kanban"), complete: hasTasks, available: true },
-  ];
+  const groups = useMemo(() => {
+    const matching = search
+      ? historySessions.filter((chat) => (chat.title || "").toLowerCase().includes(search))
+      : historySessions;
+    return groupChats(matching, sort, t("No folder"));
+  }, [historySessions, search, sort, t]);
 
-  const selectAgent = () => {
+  const toggleGroup = (key: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  const toggleChat = (id: string) => {
+    setExpandedChats((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const openChat = (id: string) => {
+    onSelectHistorySession(id);
+    onClose();
+  };
+
+  const openStep = (id: string, step: 1 | 2 | 3) => {
+    onOpenChatStep(id, step);
+    onClose();
+  };
+
+  const startNewChat = () => {
+    onNewProject();
     onSelectAgent?.();
-    onClose();
-  };
-
-  const selectProject = () => {
-    onSelectStep(projectStep);
-    onClose();
-  };
-
-  const handleStepClick = (step: (typeof steps)[number]) => {
-    onSelectStep(step.num);
     onClose();
   };
 
@@ -87,100 +141,193 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <>
       {isOpen && <div onClick={onClose} className="fixed inset-0 z-40 bg-black/40 md:hidden" aria-hidden />}
       <aside
-        className={`shell-sidebar fixed inset-y-0 left-0 z-50 flex h-screen shrink-0 flex-col overflow-hidden border-r border-line bg-sidebar transition-[transform,width] duration-200 md:sticky md:top-0 md:translate-x-0 ${isRail ? "w-14" : "w-[13.5rem]"} ${isOpen ? "translate-x-0" : "-translate-x-full"}`}
+        className={`shell-sidebar fixed inset-y-0 left-0 z-50 flex h-screen shrink-0 flex-col overflow-hidden border-r border-line bg-sidebar transition-[transform,width] duration-200 md:sticky md:top-0 md:translate-x-0 ${isRail ? "w-14" : "w-[15.5rem]"} ${isOpen ? "translate-x-0" : "-translate-x-full"}`}
         aria-label={t("Main navigation")}
       >
-        <div className={`flex h-16 shrink-0 items-center gap-2.5 border-b border-line ${isRail ? "justify-center px-0" : "px-4"}`}>
-          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] bg-accent text-accent-fg shadow-elev-1">
-            <DraftingCompass className="h-4 w-4" strokeWidth={2} aria-hidden />
+        <div className={`flex shrink-0 items-center gap-2 py-3 ${isRail ? "justify-center px-0" : "px-3"}`}>
+          <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-accent text-accent-fg">
+            <DraftingCompass className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
           </span>
-          {!isRail && <span className="truncate text-[13px] font-medium tracking-[-0.02em] text-ink">The Architech</span>}
-          {!isRail && <button type="button" onClick={onClose} className="ml-auto rounded-md p-1.5 text-faint hover:bg-subtle hover:text-ink md:hidden" aria-label={t("Close menu")}><X className="h-4 w-4" /></button>}
+          {!isRail && <span className="min-w-0 flex-1 truncate text-[12px] font-semibold text-ink">The Architech</span>}
+          {!isRail && (
+            <button type="button" onClick={onClose} className="rounded-md p-1.5 text-faint hover:bg-subtle hover:text-ink md:hidden" aria-label={t("Close menu")}>
+              <X className="h-4 w-4" aria-hidden />
+            </button>
+          )}
+          {!isOpen && (
+            <button
+              type="button"
+              onClick={onToggleCollapsed}
+              className={`rounded-md p-1.5 text-faint hover:bg-subtle hover:text-ink ${isRail ? "hidden" : "hidden md:block"}`}
+              aria-label={t("Collapse sidebar")}
+            >
+              <PanelLeftClose className="h-3.5 w-3.5" aria-hidden />
+            </button>
+          )}
         </div>
 
-        <div className={`min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-4 ${isRail ? "px-2" : "px-3"}`}>
-          <nav className="space-y-1" aria-label={t("Main navigation")}>
-            <button type="button" onClick={selectAgent} aria-current={layoutMode === "agent" ? "page" : undefined} title={t("Chat")} className={`shell-nav-item ${railButton} ${layoutMode === "agent" ? "is-active" : ""}`}>
-              <MessageCircle className="h-4 w-4 shrink-0" aria-hidden />
-              {!isRail && <span>{t("Chat")}</span>}
-            </button>
-            <button type="button" onClick={selectProject} aria-current={layoutMode !== "agent" ? "page" : undefined} title={t("Projects")} className={`shell-nav-item ${railButton} ${layoutMode !== "agent" ? "is-active" : ""}`}>
-              <FolderKanban className="h-4 w-4 shrink-0" aria-hidden />
-              {!isRail && <span>{t("Projects")}</span>}
-            </button>
-            <button type="button" onClick={() => { onOpenAgents(); onClose(); }} title={t("Agents")} className={`shell-nav-item ${railButton}`}>
-              <Bot className="h-4 w-4 shrink-0" aria-hidden />
-              {!isRail && <span>{t("Agents")}</span>}
-            </button>
-            <button type="button" onClick={() => { onOpenConnections(); onClose(); }} title={t("Connections")} className={`shell-nav-item ${railButton}`}>
-              <Plug className="h-4 w-4 shrink-0" aria-hidden />
-              {!isRail && <span>{t("Connections")}</span>}
-            </button>
-          </nav>
+        <div className={`shrink-0 pb-2 ${isRail ? "px-2" : "px-2.5"}`}>
+          <button type="button" onClick={startNewChat} title={t("New chat")} className={`shell-new-chat ${isRail ? "mx-auto h-9 w-9 justify-center px-0" : "w-full justify-center px-2"}`}>
+            <Plus className="h-4 w-4 shrink-0" aria-hidden />
+            {!isRail && <span>{t("New chat")}</span>}
+          </button>
+        </div>
 
-          <div className="mt-7">
-            {!isRail && <p className={sectionLabel}>{t("Conversation")}</p>}
-            <button type="button" onClick={() => { onNewProject(); selectAgent(); }} title={t("New chat")} className={`shell-new-chat ${railButton}`}>
-              <Plus className="h-4 w-4 shrink-0" aria-hidden />
-              {!isRail && <span>{t("New chat")}</span>}
+        {isRail ? (
+          <div className="mt-auto shrink-0 px-2 pb-3">
+            <button type="button" onClick={onToggleCollapsed} className="shell-settings-button mx-auto" aria-label={t("Expand sidebar")}>
+              <PanelLeftOpen className="h-3.5 w-3.5" aria-hidden />
             </button>
+          </div>
+        ) : (
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-2.5 pb-3">
+            <div className="flex shrink-0 items-center gap-1.5 px-2 py-1.5">
+              <span className="flex-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-faint">{t("Chats")}</span>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setSortOpen((open) => !open)}
+                  aria-expanded={sortOpen}
+                  className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted hover:bg-subtle hover:text-ink"
+                >
+                  {sort === "recent" ? t("Recent") : t("Name")}
+                  <ChevronDown className="h-3 w-3" aria-hidden />
+                </button>
+                {sortOpen && (
+                  <div className="absolute right-0 top-full z-10 mt-1 w-32 rounded-lg border border-line bg-surface p-1 shadow-elev-2">
+                    {([["recent", t("Recent")], ["name", t("Name")]] as const).map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => { setSort(value); setSortOpen(false); }}
+                        aria-pressed={sort === value}
+                        className={`block w-full rounded px-2 py-1.5 text-left text-[11px] ${sort === value ? "bg-accent-soft text-accent-ink" : "text-muted hover:bg-subtle hover:text-ink"}`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => { setSearchOpen((open) => !open); if (searchOpen) setQuery(""); }}
+                aria-expanded={searchOpen}
+                className="rounded p-1 text-faint hover:bg-subtle hover:text-ink"
+                aria-label={t("Search chats")}
+              >
+                <Search className="h-3.5 w-3.5" aria-hidden />
+              </button>
+            </div>
 
-            {!isRail && historySessions.length > 0 && (
-              <div className="mt-2 space-y-0.5" aria-label={t("Recent chats")}>
-                {historySessions.slice(0, 8).map((hist) => {
-                  const isActive = hist.id === session.id;
-                  return (
-                    <div key={hist.id} className={`shell-history-row group ${isActive ? "is-active" : ""}`}>
-                      <button type="button" onClick={() => { onSelectHistorySession(hist.id); onClose(); }} className="min-w-0 flex-1 truncate px-2.5 py-2 text-left" aria-current={isActive ? "page" : undefined}>
-                        <span className="block truncate text-[11px]">{hist.title || t("Untitled project")}</span>
-                        <span className="mt-0.5 block text-[10px] text-faint">{new Date(hist.updatedAt).toLocaleDateString(lang)}</span>
-                      </button>
-                      <button type="button" onClick={() => onDeleteHistory(hist.id)} title={t("Remove from history")} className="mr-1 rounded p-1 text-transparent group-hover:text-faint hover:!text-danger" aria-label={t("Remove from history")}>
-                        <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                      </button>
-                    </div>
-                  );
-                })}
+            {searchOpen && (
+              <div className="shrink-0 px-1 pb-2">
+                <label htmlFor="sidebar-search" className="sr-only">{t("Search chats")}</label>
+                <input
+                  id="sidebar-search"
+                  type="search"
+                  autoFocus
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  onKeyDown={(event) => { if (event.key === "Escape") { setQuery(""); setSearchOpen(false); } }}
+                  placeholder={t("Search chats")}
+                  className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-[11px] text-ink outline-none placeholder:text-faint focus:border-accent"
+                />
               </div>
             )}
-            {!isRail && historySessions.length === 0 && <p className="px-2.5 pt-2 text-[11px] leading-relaxed text-faint">{t("No chats yet")}</p>}
-          </div>
 
-          <div className="mt-7">
-            {!isRail && <p className={sectionLabel}>{t("Current project")}</p>}
-            <button type="button" onClick={selectProject} title={activeTitle || t("Untitled project")} className={`shell-project ${railButton}`}>
-              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent-ink"><FolderKanban className="h-3.5 w-3.5" aria-hidden /></span>
-              {!isRail && <span className="min-w-0 flex-1 text-left"><span className="block truncate text-[11px] font-medium">{activeTitle || t("Untitled project")}</span><span className="mt-0.5 block text-[10px] text-faint">{t("Chat · PRD · Kanban")}</span></span>}
-            </button>
-            {!isRail && <div className="mt-2 space-y-0.5 pl-2">
-              {steps.map((step) => (
-                <button key={step.num} type="button" onClick={() => handleStepClick(step)} className={`shell-step ${session.currentStep === step.num ? "is-active" : ""}`} title={step.label}>
-                  <span className="grid h-4 w-4 shrink-0 place-items-center rounded-full border border-line text-[9px]">{step.complete ? <Check className="h-2.5 w-2.5 text-ok" /> : step.num}</span><span className="truncate">{step.label}</span>
-                </button>
-              ))}
-            </div>}
-          </div>
+            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+              {groups.length === 0 && (
+                <p className="px-2 pt-2 text-[11px] leading-relaxed text-faint">
+                  {search ? t("No chat matches that search.") : t("No chats yet")}
+                </p>
+              )}
 
-          {!isRail && <div className="mt-6">
-            <button type="button" onClick={() => setShowSamples((open) => !open)} className="shell-nav-item w-full justify-start px-2.5" aria-expanded={showSamples}>
-              <Layers className="h-4 w-4 text-faint" aria-hidden /><span>{t("Templates")}</span><ChevronRight className={`ml-auto h-3.5 w-3.5 text-faint transition-transform ${showSamples ? "rotate-90" : ""}`} />
-            </button>
-            {showSamples && <div className="mt-1 space-y-0.5 pl-8">{SAMPLE_PROJECTS.map((sample) => <button key={sample.id} type="button" onClick={() => { onSelectSample(sample); setShowSamples(false); onClose(); }} className="block w-full truncate rounded-md px-2 py-1.5 text-left text-[11px] text-muted hover:bg-subtle hover:text-ink" title={sampleText(sample, lang).tagline}>{sampleText(sample, lang).name}</button>)}</div>}
-          </div>}
-        </div>
+              {groups.map((group) => {
+                const isCollapsed = collapsedGroups.has(group.key) && !search;
+                return (
+                  <div key={group.key || "unfiled"} className="mt-2 first:mt-0">
+                    <button
+                      type="button"
+                      onClick={() => toggleGroup(group.key)}
+                      aria-expanded={!isCollapsed}
+                      aria-label={`${group.name} — ${activityLabel(new Date(group.latest).toISOString(), lang)}`}
+                      className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left hover:bg-subtle"
+                    >
+                      <ChevronDown className={`h-3 w-3 shrink-0 text-faint transition-transform ${isCollapsed ? "-rotate-90" : ""}`} aria-hidden />
+                      <Folder className={`h-3.5 w-3.5 shrink-0 ${group.key ? "text-accent" : "text-faint"}`} aria-hidden />
+                      <span className="min-w-0 flex-1 truncate text-[11px] font-bold text-ink">{group.name}</span>
+                      <span className="shrink-0 text-[10px] text-faint">{activityLabel(new Date(group.latest).toISOString(), lang)}</span>
+                    </button>
 
-        <div className={`shrink-0 border-t border-line py-3 ${isRail ? "px-2" : "px-3"}`}>
-          <div className={`mb-2 flex items-center gap-2.5 ${isRail ? "justify-center" : "px-2"}`}>
-            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-line bg-surface text-[10px] font-medium text-muted">L</span>
-            {!isRail && <span className="min-w-0"><span className="block truncate text-[11px] font-medium text-ink">{t("Workspace local")}</span><span className="block truncate text-[10px] text-faint">{t("Ready to work")}</span></span>}
+                    {!isCollapsed && (
+                      <div className="space-y-px pl-3">
+                        {group.chats.map((chat) => {
+                          const isActive = chat.id === session.id;
+                          const isExpanded = expandedChats.has(chat.id) || (isActive && chat.hasPlan);
+                          const activeStep = isActive ? session.currentStep : 0;
+                          return (
+                            <div key={chat.id}>
+                              <div className={`shell-history-row group ${isActive ? "is-active" : ""}`}>
+                                {chat.hasPlan ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleChat(chat.id)}
+                                    aria-expanded={isExpanded}
+                                    aria-label={isExpanded ? t("Collapse chat") : t("Expand chat")}
+                                    className="flex h-[30px] w-5 shrink-0 items-center justify-center text-faint hover:text-ink"
+                                  >
+                                    <ChevronDown className={`h-3 w-3 transition-transform ${isExpanded ? "" : "-rotate-90"}`} aria-hidden />
+                                  </button>
+                                ) : (
+                                  <span className="h-[30px] w-5 shrink-0" aria-hidden />
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => openChat(chat.id)}
+                                  aria-current={isActive ? "page" : undefined}
+                                  aria-label={`${chat.title || t("Untitled project")} — ${activityLabel(chat.updatedAt, lang)}`}
+                                  className="flex min-w-0 flex-1 items-center gap-2 py-[7px] pr-1 text-left"
+                                >
+                                  <span className="min-w-0 flex-1 truncate text-[12px]">{chat.title || t("Untitled project")}</span>
+                                  <span className="shrink-0 text-[10px] text-faint">{activityLabel(chat.updatedAt, lang)}</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => onDeleteHistory(chat.id)}
+                                  title={t("Remove from history")}
+                                  className="mr-1 rounded p-1 text-transparent group-hover:text-faint hover:!text-danger"
+                                  aria-label={t("Remove from history")}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                                </button>
+                              </div>
+
+                              {chat.hasPlan && isExpanded && (
+                                <div className="space-y-px py-0.5 pl-5">
+                                  <button type="button" onClick={() => openStep(chat.id, 1)} className={`shell-step ${activeStep === 1 ? "is-active" : ""}`}>
+                                    <ListTree className="h-3.5 w-3.5 shrink-0" aria-hidden /><span className="flex-1 truncate">{t("Plan")}</span>
+                                  </button>
+                                  <button type="button" onClick={() => openStep(chat.id, 2)} className={`shell-step ${activeStep === 2 ? "is-active" : ""}`}>
+                                    <DraftingCompass className="h-3.5 w-3.5 shrink-0" aria-hidden /><span className="flex-1 truncate">{t("PRD")}</span>
+                                  </button>
+                                  <button type="button" onClick={() => openStep(chat.id, 3)} className={`shell-step ${activeStep === 3 ? "is-active" : ""}`}>
+                                    <FolderKanban className="h-3.5 w-3.5 shrink-0" aria-hidden /><span className="flex-1 truncate">{t("Kanban")}</span>
+                                    {!chat.taskCount && <span className="shrink-0 text-[10px] text-faint">{t("empty")}</span>}
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
-          <div className="flex items-center gap-0.5">
-            <button type="button" onClick={onOpenSettings} title={t("Agent settings")} className={`shell-settings-button ${isRail ? "mx-auto" : ""}`}><Settings2 className="h-3.5 w-3.5" aria-hidden /><span className="sr-only">{t("Agent settings")}</span></button>
-            <button type="button" onClick={onToggleLanguage} title={otherLanguageName} className={`shell-settings-button ${isRail ? "mx-auto" : ""}`}><Languages className="h-3.5 w-3.5" aria-hidden /><span className="sr-only">{otherLanguageName}</span></button>
-            <button type="button" onClick={onToggleTheme} title={theme === "dark" ? t("Light mode") : t("Dark mode")} className={`shell-settings-button ${isRail ? "mx-auto" : ""}`}>{theme === "dark" ? <Sun className="h-3.5 w-3.5" aria-hidden /> : <Moon className="h-3.5 w-3.5" aria-hidden />}<span className="sr-only">{theme === "dark" ? t("Light mode") : t("Dark mode")}</span></button>
-            {!isOpen && <button type="button" onClick={onToggleCollapsed} title={isRail ? t("Expand sidebar") : t("Collapse sidebar")} className={`shell-settings-button ${isRail ? "mx-auto" : "ml-auto"}`}>{isRail ? <PanelLeftOpen className="h-3.5 w-3.5" aria-hidden /> : <PanelLeftClose className="h-3.5 w-3.5" aria-hidden />}<span className="sr-only">{isRail ? t("Expand sidebar") : t("Collapse sidebar")}</span></button>}
-          </div>
-        </div>
+        )}
       </aside>
     </>
   );

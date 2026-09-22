@@ -380,4 +380,11 @@ export interface SessionSummary {
   title: string;
   updatedAt: string;
   currentStep: number;
+  // Folder tempat chat ini bekerja. Sidebar memakainya untuk mengelompokkan;
+  // kosong berarti chat belum menunjuk folder mana pun.
+  workspaceRoot?: string;
+  // Hanya chat berencana yang punya Plan/PRD/Kanban di bawahnya, dan Kanban
+  // ditandai kosong sampai task pertama ada.
+  hasPlan?: boolean;
+  taskCount?: number;
 }

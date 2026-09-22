@@ -326,6 +326,11 @@ export const AgentPane: React.FC<AgentPaneProps> = ({
   const contextControls = (
     <>
       {folderControl}
+      {/* Sidebar tidak lagi punya pemilih folder, jadi chat kosong menyebut
+          sendiri proyek mana yang akan menerimanya. */}
+      {entries.length === 0 && workspaceRoot.trim() && (
+        <span className="hidden whitespace-nowrap text-faint lg:inline">{t("New chats land in this project")}</span>
+      )}
       {workspaceRoot.trim() && <span className="inline-flex items-center gap-1.5 whitespace-nowrap"><Laptop className="h-3.5 w-3.5" aria-hidden />{t("Local environment")}</span>}
       {workspaceBranch && <span className="inline-flex min-w-0 items-center gap-1.5"><GitBranch className="h-3.5 w-3.5 shrink-0" aria-hidden /><span className="max-w-32 truncate">{workspaceBranch}</span></span>}
     </>

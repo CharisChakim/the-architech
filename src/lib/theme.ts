@@ -9,8 +9,9 @@ export function loadTheme(): Theme {
   } catch (e) {
     console.warn("Failed to load theme:", e);
   }
-  // Belum pernah memilih: ikut preferensi sistem.
-  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  // Belum pernah memilih: gelap. Aplikasi ini dipakai berjam-jam di samping
+  // terminal, dan tampilan gelap itu yang dirancang lebih dulu.
+  return "dark";
 }
 
 export function saveTheme(theme: Theme): void {

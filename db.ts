@@ -30,10 +30,23 @@ export interface SessionSummaryRow {
   title: string;
   updatedAt: string;
   currentStep: number;
+  workspaceRoot: string;
+  hasPlan: boolean;
+  taskCount: number;
 }
 
+// The sidebar groups chats by their workspace folder and only unfolds the ones
+// that carry a plan, so the list query reads those few fields out of the payload
+// rather than making every row load its whole session.
 const listStmt = db.prepare(
-  `SELECT id, title, updated_at, current_step FROM sessions ORDER BY updated_at DESC`
+  `SELECT id, title, updated_at, current_step,
+          json_extract(payload, '$.workspaceRoot') AS workspace_root,
+          (json_type(payload, '$.plan') IS NOT NULL) AS has_plan,
+          CASE WHEN json_type(payload, '$.tasks') = 'array'
+               THEN json_array_length(payload, '$.tasks')
+               ELSE 0 END AS task_count
+     FROM sessions
+    ORDER BY updated_at DESC`
 );
 const getStmt = db.prepare(`SELECT payload FROM sessions WHERE id = ?`);
 const upsertStmt = db.prepare(
@@ -53,6 +66,9 @@ export function listSessions(): SessionSummaryRow[] {
     title: row.title as string,
     updatedAt: row.updated_at as string,
     currentStep: Number(row.current_step),
+    workspaceRoot: typeof row.workspace_root === "string" ? row.workspace_root : "",
+    hasPlan: Number(row.has_plan) === 1,
+    taskCount: Number(row.task_count),
   }));
 }
 

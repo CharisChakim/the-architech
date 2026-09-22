@@ -59,12 +59,9 @@ export default function App() {
     });
   };
 
-  const toggleLanguage = () => {
-    setLang((prev) => {
-      const next = prev === "en" ? "id" : "en";
-      saveLanguage(next);
-      return next;
-    });
+  const selectLanguage = (next: Language) => {
+    setLang(next);
+    saveLanguage(next);
   };
 
   const updateAgentHarnessSettings = (settings: AgentHarnessSettings) => {
@@ -237,6 +234,11 @@ export default function App() {
   };
 
 
+  const handleOpenChatStep = async (id: string, step: Step) => {
+    if (session?.id !== id) await handleSelectHistorySession(id);
+    handleSelectStep(step);
+  };
+
   const handleNewProject = () => {
     if (!session) return;
     applySession(createEmptySession(session.llmConfig), false);
@@ -336,19 +338,11 @@ export default function App() {
       <Sidebar
         session={session}
         historySessions={historySessions}
-        onSelectStep={handleSelectStep}
-        layoutMode={effectiveLayoutMode}
         onSelectAgent={() => handleLayoutModeChange("agent")}
         onNewProject={handleNewProject}
-        onSelectSample={handleSelectSample}
         onSelectHistorySession={handleSelectHistorySession}
+        onOpenChatStep={handleOpenChatStep}
         onDeleteHistory={handleDeleteHistory}
-        onOpenConnections={() => { setConnectionsInitialTab("connections"); setIsConnectionsModalOpen(true); }}
-        onOpenAgents={() => { setConnectionsInitialTab("runtimes"); setIsConnectionsModalOpen(true); }}
-        onOpenSettings={() => setIsAgentSettingsOpen(true)}
-        theme={theme}
-        onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
-        onToggleLanguage={toggleLanguage}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         collapsed={isSidebarCollapsed}
@@ -365,6 +359,12 @@ export default function App() {
           layoutMode={effectiveLayoutMode}
           onLayoutModeChange={handleLayoutModeChange}
           isNarrow={isNarrow}
+          onOpenConnections={() => { setConnectionsInitialTab("connections"); setIsConnectionsModalOpen(true); }}
+          onOpenSettings={() => setIsAgentSettingsOpen(true)}
+          onSelectSample={handleSelectSample}
+          theme={theme}
+          onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
+          onSelectLanguage={selectLanguage}
         />
 
         <Workbench

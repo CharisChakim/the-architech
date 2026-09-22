@@ -609,15 +609,17 @@ html.dark {
   color: var(--app-accent);
 }
 
+/* Memulai chat adalah satu-satunya tindakan utama di sidebar, jadi tombolnya
+   memakai aksen penuh dan bukan versi lembutnya. */
 .shell-new-chat {
-  background: var(--app-accent-soft);
-  color: var(--app-accent-ink);
-  font-weight: 500;
+  background: var(--app-accent);
+  color: var(--app-accent-fg);
+  font-weight: 600;
 }
 
 .shell-new-chat:hover {
-  background: var(--app-accent-soft);
-  color: var(--app-accent-ink);
+  background: var(--app-accent);
+  color: var(--app-accent-fg);
 }
 
 .shell-history-row {
