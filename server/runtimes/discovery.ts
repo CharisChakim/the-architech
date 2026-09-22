@@ -15,6 +15,14 @@ const BINARY_CANDIDATES: Record<RuntimeId, readonly string[]> = {
   antigravity: ["agy"],
 };
 
+// `agy models` menanyakan katalog ke layanan Antigravity, bukan membaca berkas
+// lokal seperti dua runtime lain, jadi ia diukur 2,6–4,6 detik pada koneksi yang
+// sehat. Anggaran 5 detik yang cukup untuk metadata lokal membuat runtime ini
+// gagal sebagai timeout setiap kali jaringan sedang lambat.
+const METADATA_TIMEOUT_OVERRIDES: Partial<Record<RuntimeId, number>> = {
+  antigravity: 20_000,
+};
+
 const CATALOG_SOURCES: Record<RuntimeId, CatalogSource> = {
   codex: "codex-app-server:model/list",
   claude: "claude-agent-sdk:supportedModels",
@@ -164,7 +172,7 @@ async function discoverOne(
       metadata = await queryAntigravityCli(binaryPath, {
         cwd: options.cwd,
         env: options.env,
-        timeoutMs: options.timeoutMs,
+        timeoutMs: options.timeoutMs ?? METADATA_TIMEOUT_OVERRIDES.antigravity,
       });
     }
   } catch {

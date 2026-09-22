@@ -200,7 +200,9 @@ export function parseAntigravityModels(input: unknown): ParsedRuntimeModel[] {
     const line = sourceLine.replace(/^\s*[|│•✓✔]\s*/, "").trim();
     if (!line || /^[-=+|]+$/.test(line)) continue;
     if (/^(model|model id|id|name)(\s|\||$)/i.test(line)) continue;
-    const match = line.match(/^([A-Za-z0-9][A-Za-z0-9._:/@-]*)(?:\s{2,}|\s*\|\s*|$)(.*)$/);
+    // `agy models` 1.2.8 memisahkan id dan label dengan satu TAB, jadi satu
+    // karakter pemisah harus diterima — bukan hanya dua spasi atau pipa.
+    const match = line.match(/^([A-Za-z0-9][A-Za-z0-9._:/@-]*)(?:\t+|\s{2,}|\s*\|\s*|$)(.*)$/);
     if (!match) continue;
     const id = match[1];
     if (seen.has(id)) continue;

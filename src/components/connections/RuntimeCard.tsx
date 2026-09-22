@@ -30,10 +30,22 @@ const STATUS_LABELS: Record<RuntimeDetection["status"], string> = {
 const DIAGNOSTIC_HINTS: Record<string, string> = {
   NOT_INSTALLED: "This runtime is not installed on this machine.",
   AUTH_REQUIRED: "The runtime is installed but not signed in. Authenticate it in its own CLI, then re-check.",
-  MODEL_CATALOG_EMPTY: "The runtime answered, but offered no models. Signing in again usually restores the list.",
+  MODEL_CATALOG_EMPTY: "The runtime answered, but listed no models. That is usually a sign-in that has lapsed.",
   PROCESS_ERROR: "The runtime binary was found but did not respond. Try running it once in a terminal.",
   SDK_METADATA_ERROR: "The runtime failed to report its models. Re-check after updating it.",
   CLAUDE_SDK_NOT_CONFIGURED: "Claude Code is installed but the agent SDK could not read it.",
+  METADATA_TIMEOUT: "The runtime did not finish listing its models in time. A slow network or a runtime still starting up will do this.",
+  METADATA_ERROR: "The runtime replied with something this app could not read.",
+  COMMAND_FAILED: "The command that lists models exited with an error.",
+  PROCESS_EXITED: "The runtime stopped before it answered.",
+  PROTOCOL_ERROR: "The runtime replied in a format this app does not understand. It may be a newer version than this release supports.",
+  PROTOCOL_LINE_TOO_LARGE: "The runtime sent a reply too large to read safely.",
+  SIGKILL: "The runtime was killed before it answered.",
+  SIGTERM: "The runtime was stopped before it answered.",
+  VERSION_TIMEOUT: "The runtime did not report its version in time.",
+  VERSION_PROCESS_ERROR: "The runtime binary was found but could not be started.",
+  VERSION_UNREADABLE: "The binary answered, but not with a version this app recognises. It may be a different program with the same name.",
+  PATH_NOT_EXECUTABLE: "The path set below does not point at something this machine can run.",
 };
 
 // Antigravity CLI ships as a vendor install script rather than an npm package,
@@ -44,13 +56,29 @@ const windows = /windows/i.test(navigator.userAgent);
 // Shown when the binary is missing, so "not installed" comes with the one
 // command that fixes it rather than a dead end. `note` covers the case where
 // "not installed" contradicts what the user can see on their own machine.
-const SETUP_GUIDE: Record<RuntimeDetection["runtime"], { command: string | null; docsUrl: string; note?: string }> = {
-  claude: { command: "npm install -g @anthropic-ai/claude-code", docsUrl: "https://docs.claude.com/en/docs/claude-code" },
-  codex: { command: "npm install -g @openai/codex", docsUrl: "https://github.com/openai/codex" },
+// `checkCommand` adalah perintah yang dipakai discovery untuk memuat daftar
+// model. Ketika discovery gagal karena alasan selain binary yang hilang, pesan
+// asli runtime hanya terlihat dengan menjalankannya sendiri — itu yang membuat
+// "Unavailable" bisa ditindaklanjuti, bukan sekadar diketahui.
+const SETUP_GUIDE: Record<
+  RuntimeDetection["runtime"],
+  { command: string | null; checkCommand: string; docsUrl: string; note?: string }
+> = {
+  claude: {
+    command: "npm install -g @anthropic-ai/claude-code",
+    checkCommand: "claude --version",
+    docsUrl: "https://docs.claude.com/en/docs/claude-code",
+  },
+  codex: {
+    command: "npm install -g @openai/codex",
+    checkCommand: "codex --version",
+    docsUrl: "https://github.com/openai/codex",
+  },
   antigravity: {
     command: windows
       ? "irm https://antigravity.google/cli/install.ps1 | iex"
       : "curl -fsSL https://antigravity.google/cli/install.sh | bash",
+    checkCommand: "agy models",
     docsUrl: "https://antigravity.google/docs/cli/install/",
     note: "This looks for the agy CLI. The Antigravity desktop app does not include it, so having the app installed is not enough.",
   },
@@ -123,16 +151,26 @@ export const RuntimeCard: React.FC<RuntimeCardProps> = ({ detection, preference,
     }
   };
 
-  const copyCommand = async () => {
-    if (!setup.command) return;
+  const copyCommand = async (command: string) => {
     try {
-      await navigator.clipboard.writeText(setup.command);
+      await navigator.clipboard.writeText(command);
       setCopied(true);
       setTimeout(() => setCopied(false), 1600);
     } catch {
       // Clipboard can be refused; the command stays selectable either way.
     }
   };
+  // "Binary tidak ditemukan" dan "binary ada tapi gagal" butuh saran berbeda,
+  // dan status not_installed saja tidak cukup: path override yang salah juga
+  // membuat binary tidak terpakai.
+  const missingBinary = detection.status === "not_installed" || !detection.binaryFound;
+  // Dengan path override, menyuruh pengguna menjalankan nama di PATH akan
+  // menguji binary yang berbeda dari yang dipakai discovery — dan justru
+  // menyembunyikan bahwa override itu penyebabnya.
+  const checkCommand = detection.binaryPathOverride
+    ? `${detection.binaryPathOverride} ${setup.checkCommand.split(" ").slice(1).join(" ")}`.trim()
+    : setup.checkCommand;
+  const shownCommand = missingBinary ? (setup.command ?? checkCommand) : checkCommand;
   const models = detection.catalog?.models ?? [];
   const activeModel = useMemo(() => selectedModel(models, modelId), [models, modelId]);
   const effortOptions = activeModel?.effortOptions ?? [];
@@ -241,16 +279,20 @@ export const RuntimeCard: React.FC<RuntimeCardProps> = ({ detection, preference,
             <span>{t(DIAGNOSTIC_HINTS[detection.diagnostic] ?? detection.diagnostic)}</span>
           </p>
 
-          {detection.status === "not_installed" && (
+          {/* Binary yang hilang perlu perintah pasang; kegagalan lain berarti
+              runtime-nya ada tapi tidak menjawab, dan yang menolong di situ
+              adalah menjalankan perintahnya sendiri untuk melihat pesan asli. */}
+          {detection.status !== "ready" && (
             <div className="mt-2 space-y-2 pl-5">
-              {setup.note && <p className="text-muted">{t(setup.note)}</p>}
+              {missingBinary && setup.note && <p className="text-muted">{t(setup.note)}</p>}
+              <p className="text-muted">
+                {missingBinary ? t("Install it with:") : t("Run this in a terminal to see what the runtime itself reports:")}
+              </p>
               {/* Full width and wrapping at word boundaries: these cards sit in a
                   narrow three-column grid, and "npm install …" is not guidance. */}
-              {setup.command && (
-                <code className="block break-words rounded-md border border-line bg-surface px-2 py-1 font-mono text-[11px] leading-relaxed text-ink">
-                  {setup.command}
-                </code>
-              )}
+              <code className="block break-words rounded-md border border-line bg-surface px-2 py-1 font-mono text-[11px] leading-relaxed text-ink">
+                {shownCommand}
+              </code>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <a
                   href={setup.docsUrl}
@@ -258,22 +300,24 @@ export const RuntimeCard: React.FC<RuntimeCardProps> = ({ detection, preference,
                   rel="noreferrer noopener"
                   className="inline-flex items-center gap-1 text-accent-ink hover:underline"
                 >
-                  {t("Installation guide")}
+                  {missingBinary ? t("Installation guide") : t("Runtime documentation")}
                   <ExternalLink className="h-3 w-3" aria-hidden />
                 </a>
-                {setup.command && (
-                  <button
-                    type="button"
-                    onClick={copyCommand}
-                    className="inline-flex items-center gap-1 text-muted hover:text-ink"
-                  >
-                    {copied
-                      ? <><Check className="h-3 w-3 text-ok" aria-hidden />{t("Copied")}</>
-                      : <><Copy className="h-3 w-3" aria-hidden />{t("Copy install command")}</>}
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => copyCommand(shownCommand)}
+                  className="inline-flex items-center gap-1 text-muted hover:text-ink"
+                >
+                  {copied
+                    ? <><Check className="h-3 w-3 text-ok" aria-hidden />{t("Copied")}</>
+                    : <><Copy className="h-3 w-3" aria-hidden />{t("Copy command")}</>}
+                </button>
               </div>
-              <p className="text-faint">{t("Once it is installed, re-check to pick it up.")}</p>
+              <p className="text-faint">
+                {missingBinary
+                  ? t("Once it is installed, re-check to pick it up.")
+                  : t("Fix what that command reports, then re-check.")}
+              </p>
             </div>
           )}
         </div>
