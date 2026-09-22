@@ -8,19 +8,35 @@ browser.
 
 ## Observed installation
 
-The following checks were run on 15 September 2026:
+The following checks were re-run on 22 September 2026, after the AGY CLI was
+installed. All three runtimes now reach `ready` with a populated catalog.
 
 | Runtime | Installed command | Version observed | Discovery interface | Current result |
 | --- | --- | --- | --- | --- |
-| Codex | `codex` (`/usr/lib/chatgpt/resources/codex`) | `0.154.0-alpha.6.2` | `codex app-server --stdio`; JSON-RPC `model/list` and `config/read` | Version is detectable; model/auth result depends on the local app-server session |
-| Claude Code | `claude` (`/home/ai/.local/bin/claude`) | `2.1.263` | Claude Agent SDK TypeScript `Query.supportedModels()` | Ready; metadata-only discovery returned the current model catalog and native effort levels |
-| Antigravity | `agy` | — | `agy models` | Not found on PATH |
-| Antigravity desktop | `antigravity` | No version returned; process exits with a desktop sandbox error | Not an AGY CLI contract | Reported as `unsupported_version`; it is not treated as a ready AGY runtime |
+| Codex | `codex` (`@openai/codex` via npm) | `0.155.1` | `codex app-server --stdio`; JSON-RPC `model/list` and `config/read` | Ready; 5 models |
+| Claude Code | `claude` (`/home/ai/.local/share/claude/versions/2.1.276`) | `2.1.276` | Claude Agent SDK TypeScript `Query.supportedModels()` | Ready; 5 models with native effort levels |
+| Antigravity | `agy` (`/home/ai/.local/bin/agy`) | `1.2.8` | `agy models` | Ready; 14 models |
+| Antigravity desktop | `antigravity` | No version returned; process exits with a desktop sandbox error | Not an AGY CLI contract | Deliberately not matched as an AGY runtime |
+
+Two findings from that run shape the adapter, and both are now covered by tests:
+
+- `agy models` prints `<id>\t<label>` — a **single tab**, not aligned columns.
+  The earlier table reader only accepted two or more spaces or a pipe, so every
+  row was dropped and the catalog came back empty while the binary and version
+  read fine.
+- `agy models` queries a service rather than reading local metadata. It measured
+  2.6-4.6s on a healthy connection, against the 5s budget that suits the two
+  runtimes reading files on disk, so Antigravity gets its own larger budget.
+  A slow network still surfaces as `METADATA_TIMEOUT` rather than a wrong answer.
 
 Version checks use `--version` with a five-second timeout. The command runner
 uses `spawn` with `shell: false`, ignores stdin, caps metadata output, and kills
 timed-out processes. A configured binary path can be supplied per runtime and
 takes precedence over PATH when it resolves.
+
+Neither runtime reports an auth status this discovery slice can read, so `Auth`
+stays `unknown` for all three. A populated catalog is the practical signal that
+a login is still valid.
 
 ## Normalized contract
 

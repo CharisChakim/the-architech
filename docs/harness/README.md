@@ -7,6 +7,10 @@ Mulai dari dokumen berikut untuk pekerjaan baru:
   dan default effort.
 - [`runtime-compatibility.md`](runtime-compatibility.md) — hasil uji dan batas
   kapabilitas runtime untuk fase V2-0.
+- [`connections.md`](connections.md) — cara runtime ditemukan, apa yang harus
+  dipasang, dan cara membaca kartu koneksi yang gagal.
+- [`rollback.md`](rollback.md) — lokasi state, migrasi yang berjalan sendiri,
+  dan prosedur mundur ke versi sebelumnya.
 
 ## Arsip
 

@@ -61,7 +61,7 @@ Generate a ready-to-run task board. Each task includes a stable ID, priority, ta
 
 ## Connect a model
 
-Open **Connections** in the sidebar and add a provider preset or a custom connection. The connection editor supports:
+Open **Connections** in the header and add a provider preset or a custom connection. The connection editor supports:
 
 - `Anthropic Messages` and `OpenAI compatible` wire formats;
 - base URL, model list, optional API key, and custom headers;
@@ -73,6 +73,8 @@ Included presets cover local routers, Ollama, LM Studio, OpenRouter, Anthropic, 
 ### API keys
 
 Keys saved through the UI are stored server-side in `data/architech.db`; protect that file and its backups. To keep a key out of the database, put the variable name in **API key environment variable** and define the value in `.env`.
+
+For the agent runtimes — Codex, Claude Code, and Antigravity — see [docs/harness/connections.md](docs/harness/connections.md): what each one needs installed, and how to read a runtime card that fails. Backups, the automatic migration, and how to go back a version are in [docs/harness/rollback.md](docs/harness/rollback.md).
 
 ```bash
 cp .env.example .env
