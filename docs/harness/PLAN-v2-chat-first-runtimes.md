@@ -297,11 +297,11 @@ checklist smoke test live ada di [`runtime-compatibility.md`](runtime-compatibil
 | PRD diedit → disetujui → task; PRD berubah → task ditandai | Belum diuji ulang | — |
 | Task manual tanpa PRD dieksekusi; dependensi memblokir | Belum diuji ulang | — |
 | Ketiga koneksi terdeteksi atau diberi tindakan pemulihan | Terverifikasi 22 September | `runtime-compatibility.md` |
-| Picker memuat model; ganti akun/workspace menginvalidasi cache | Belum dicek | — |
-| Ikuti default; override effort terkirim; opsi tak didukung tak bisa dipilih | Belum dicek | — |
-| Default tak terbaca tidak dipalsukan; katalog offline menampilkan cache dan umurnya | Belum dicek | — |
+| Picker memuat model; ganti akun/workspace menginvalidasi cache | Sebagian: Refresh dan simpan path/preferensi di Connections kini sampai ke picker. **Batasan:** runtime tidak melaporkan identitas akun (`connectionId` statis), jadi ganti akun hanya terbaca lewat TTL 15 menit atau Refresh; run tetap memakai discovery baru per request | `503212e` |
+| Ikuti default; override effort terkirim; opsi tak didukung tak bisa dipilih | Opsi effort hanya dari model aktif (dicek); pengiriman override belum diuji ulang | — |
+| Default tak terbaca tidak dipalsukan; katalog offline menampilkan cache dan umurnya | Selesai: default yang tidak dilaporkan tampil "Use runtime default"; refresh yang gagal sementara menampilkan katalog terakhir, ditandai "Cached" beserta tanggalnya | `503212e` |
 | Ganti provider di chat: konteks netral, sesi baru | Belum dicek | — |
-| Approve/reject, interrupt, login kedaluwarsa, kuota habis, error protokol, restart → status yang bisa ditindaklanjuti | Sebagian: approval, restart, error protokol, dan run gagal teruji dengan fixture; interrupt dari UI belum dicek; pesan AGY belum menyebut langkah perbaikan | `1d09539`, `a9123bb`, `06d7ae2`, `53d41fc`, tes restart sebelumnya |
+| Approve/reject, interrupt, login kedaluwarsa, kuota habis, error protokol, restart → status yang bisa ditindaklanjuti | Sebagian: approval, restart, error protokol, run gagal, dan Stop dari UI teruji; pesan AGY belum menyebut langkah perbaikan | `1d09539`, `a9123bb`, `06d7ae2`, `53d41fc`, `207f656`, tes restart sebelumnya |
 | Reconnect dan double-click tidak menggandakan eksekusi | Selesai (fixture) | `1d09539`, `983c0ab` |
 | Command sukses/gagal, tool ditolak, verifikasi belum jalan dibedakan; Done tidak dari klaim teks | Selesai untuk pemetaan event dan evidence (fixture) | `1ae00c3`, `91d9e3f`, `94ebaac` |
 | Handoff cukup konteks, tanpa credential; hasil eksternal lewat Review | Ada tes redaksi (`src/lib/handoff.test.ts`); tidak diuji ulang | — |
@@ -326,9 +326,9 @@ checklist smoke test live ada di [`runtime-compatibility.md`](runtime-compatibil
 2. **Tes end-to-end** untuk Chat → proyek → PRD → Kanban → Review dan
    picker/default per provider. Perlu keputusan framework (mis. Playwright)
    karena menambah dependency.
-3. **Kriteria yang belum dicek** di tabel atas: invalidasi cache picker,
-   default dan effort, katalog offline, ganti provider di chat, interrupt dari
-   UI, serta alur PRD/Kanban/proyek yang belum diuji ulang.
+3. **Kriteria yang belum dicek** di tabel atas: ganti provider di chat,
+   pengiriman override model/effort, serta alur instalasi baru, proyek, PRD,
+   dan Kanban yang belum diuji ulang.
 4. **Celah kecil yang tercatat:**
    - Chat tanpa workspace menjalankan runtime tanpa `cwd`; dua chat seperti itu
      bisa menulis ke direktori yang sama.

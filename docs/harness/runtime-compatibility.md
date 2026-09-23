@@ -15,7 +15,7 @@ installed. All three runtimes now reach `ready` with a populated catalog.
 | --- | --- | --- | --- | --- |
 | Codex | `codex` (`@openai/codex` via npm) | `0.155.1` | `codex app-server --stdio`; JSON-RPC `model/list` and `config/read` | Ready; 5 models |
 | Claude Code | `claude` (`/home/ai/.local/share/claude/versions/2.1.276`) | `2.1.276` | Claude Agent SDK TypeScript `Query.supportedModels()` | Ready; 5 models with native effort levels |
-| Antigravity | `agy` (`/home/ai/.local/bin/agy`) | `1.2.8` | `agy models` | Ready; 14 models |
+| Antigravity | `agy` (`/home/ai/.local/bin/agy`) | `1.2.8` (`1.2.9` read on 23 Sep) | `agy models` | Ready; 14 models |
 | Antigravity desktop | `antigravity` | No version returned; process exits with a desktop sandbox error | Not an AGY CLI contract | Deliberately not matched as an AGY runtime |
 
 Two findings from that run shape the adapter, and both are now covered by tests:
@@ -54,8 +54,19 @@ a login is still valid.
 - Capability fields are `supported`, `unsupported`, or `unknown`. Discovery
   only changes `unknown` when the provider metadata explicitly reports a
   capability.
-- Catalog entries expire after the initial 15-minute TTL. The current slice
-  returns the expiry so a later store can cache and refresh stale entries.
+- Catalog entries expire after the initial 15-minute TTL. When a refresh
+  fails for a transient reason (`METADATA_TIMEOUT`, `METADATA_ERROR`,
+  `PROCESS_ERROR`) and the runtime version is unchanged, the server keeps the
+  last good catalog, marks it `stale`, and the UI shows it as "Cached" with
+  the time it was read. A login problem, an empty list or a new version
+  replaces it. The kept catalog lives in server memory only.
+- No runtime reports which account it is signed in to, and `connectionId` is
+  a fixed `runtime:<id>`. A switch of account is therefore only noticed on the
+  next discovery (TTL or Refresh); each run repeats discovery for its own
+  workspace, so a run never relies on the cached catalog.
+- When a runtime does not report its default model, the picker shows "Use
+  runtime default" rather than the first listed model, and offers no effort
+  options until a model is chosen.
 
 ## Capability matrix
 
