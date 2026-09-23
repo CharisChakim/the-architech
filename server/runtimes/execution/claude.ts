@@ -415,29 +415,8 @@ export function normalizeClaudeSdkMessage(value: unknown): ClaudeExecutionEvent[
         delta: delta.text,
       }];
     }
-    if (stream.type === "content_block_start") {
-      const block = record(stream.content_block);
-      const blockType = nonEmptyString(block?.type);
-      if (blockType === "tool_use" || blockType === "server_tool_use") {
-        return [{
-          type: "tool",
-          phase: "start",
-          toolUseId: block ? nonEmptyString(block.id) : null,
-          toolName: block ? nonEmptyString(block.name) : null,
-          ...(block?.input !== undefined ? { input: block.input } : {}),
-          parentToolUseId: nonEmptyString(item.parent_tool_use_id ?? item.parentToolUseId),
-        }];
-      }
-    }
-    if (stream.type === "content_block_delta" && delta?.type === "input_json_delta" && typeof delta.partial_json === "string") {
-      return [{
-        type: "tool",
-        phase: "update",
-        toolUseId: nonEmptyString(stream.index) ?? null,
-        toolName: null,
-        inputDelta: delta.partial_json,
-      }];
-    }
+    // Tool calls are taken from the complete assistant message instead: a
+    // streamed block has no input yet and its deltas carry no tool id.
     return [];
   }
 
@@ -475,6 +454,27 @@ export function normalizeClaudeSdkMessage(value: unknown): ClaudeExecutionEvent[
       input: item.input ?? {},
       parentToolUseId: nonEmptyString(item.parent_tool_use_id ?? item.parentToolUseId),
     }];
+  }
+
+  // The SDK returns tool results inside the next user message.
+  if (type === "user") {
+    const message = record(item.message) ?? item;
+    const blocks = Array.isArray(message.content) ? message.content : [];
+    const events: ClaudeExecutionEvent[] = [];
+    for (const value of blocks) {
+      const block = record(value);
+      if (block?.type !== "tool_result") continue;
+      events.push({
+        type: "tool",
+        phase: "result",
+        toolUseId: nonEmptyString(block.tool_use_id),
+        toolName: null,
+        result: block.content,
+        isError: block.is_error === true,
+        parentToolUseId: nonEmptyString(item.parent_tool_use_id ?? item.parentToolUseId),
+      });
+    }
+    return events;
   }
 
   if (type === "tool_result" || type === "server_tool_result") {

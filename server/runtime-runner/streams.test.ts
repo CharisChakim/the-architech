@@ -158,6 +158,43 @@ test("claude: a repeated result produces one done", async () => {
   assert.equal(events.filter((event) => event.type === "text").length, 1);
 });
 
+test("claude: one tool call is one start and one result, whatever the SDK repeats", async () => {
+  const stream = (event: unknown) => ({ type: "stream_event", session_id: SESSION, event });
+  const toolUse = { type: "tool_use", id: "toolu_1", name: "Bash", input: { command: "npm test" } };
+  const events = await claudeTurn(async function* () {
+    // The order the SDK sends with partial messages on: the streamed block,
+    // its input deltas, the complete message, progress, then the result in
+    // the next user message.
+    yield stream({ type: "content_block_start", index: 1, content_block: { ...toolUse, input: {} } });
+    yield stream({ type: "content_block_delta", index: 1, delta: { type: "input_json_delta", partial_json: "{\"command\":" } });
+    yield stream({ type: "content_block_delta", index: 1, delta: { type: "input_json_delta", partial_json: "\"npm test\"}" } });
+    yield { type: "assistant", session_id: SESSION, message: { id: "msg_1", content: [toolUse] } };
+    yield { type: "tool_progress", tool_use_id: "toolu_1", tool_name: "Bash", elapsed_time_seconds: 3, session_id: SESSION };
+    yield { type: "user", session_id: SESSION, message: { role: "user", content: [{ type: "tool_result", tool_use_id: "toolu_1", content: "76 pass", is_error: false }] } };
+    yield success;
+  });
+
+  const tools = events.filter((event): event is Extract<RuntimeEvent, { type: "tool" }> => event.type === "tool" && event.tool !== "progress");
+  assert.deepEqual(tools.map((event) => [event.tool, event.status, event.itemId]), [
+    ["Bash", "start", "toolu_1"],
+    ["Bash", "completed", "toolu_1"],
+  ]);
+  assert.deepEqual(tools[0]?.data, { command: "npm test" });
+  // Evidence reads the command from the result, which alone does not name it.
+  assert.deepEqual(tools[1]?.data, { input: { command: "npm test" }, output: "76 pass" });
+});
+
+test("claude: a failed tool result is reported as failed", async () => {
+  const events = await claudeTurn(async function* () {
+    yield { type: "assistant", session_id: SESSION, message: { id: "msg_1", content: [{ type: "tool_use", id: "toolu_2", name: "Bash", input: { command: "false" } }] } };
+    yield { type: "user", session_id: SESSION, message: { role: "user", content: [{ type: "tool_result", tool_use_id: "toolu_2", content: "exit 1", is_error: true }] } };
+    yield success;
+  });
+
+  const result = events.find((event) => event.type === "tool" && event.status !== "start");
+  assert.equal(result?.type === "tool" && result.status, "failed");
+});
+
 // --- Antigravity ---------------------------------------------------------------
 
 class AgyChild {

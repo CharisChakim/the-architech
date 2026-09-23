@@ -207,6 +207,7 @@ async function* mapClaudeEvents(run: ClaudeExecutionRun, signal: AbortSignal): A
   let sawText = false;
   let sawResult = false;
   let sawFatal = false;
+  const startedTools = new Map<string, { name: string; input: unknown }>();
   for await (const event of run) {
     if (event.type === "assistant") {
       const text = event.delta ?? (sawPartialText ? "" : event.text ?? "");
@@ -226,7 +227,24 @@ async function* mapClaudeEvents(run: ClaudeExecutionRun, signal: AbortSignal): A
     }
     if (event.type === "tool") {
       const threadId = sessionThreadId(run.sessionId);
-      const data = event.phase === "result" ? event.result : (event.inputDelta ?? event.input ?? {});
+      if (event.phase === "result") {
+        // A result names neither the tool nor its input; the start did.
+        const started = event.toolUseId ? startedTools.get(event.toolUseId) : undefined;
+        yield {
+          type: "tool",
+          tool: event.toolName ?? started?.name ?? "tool",
+          status: event.isError ? "failed" : "completed",
+          threadId,
+          turnId: sessionTurnId(run.sessionId),
+          itemId: event.toolUseId,
+          data: { input: started?.input ?? null, output: event.result ?? null },
+        } satisfies RuntimeToolEvent;
+        continue;
+      }
+      if (event.phase === "start" && event.toolUseId) {
+        if (startedTools.has(event.toolUseId)) continue;
+        startedTools.set(event.toolUseId, { name: event.toolName ?? "tool", input: event.input ?? {} });
+      }
       yield {
         type: "tool",
         tool: event.toolName ?? "tool",
@@ -234,14 +252,15 @@ async function* mapClaudeEvents(run: ClaudeExecutionRun, signal: AbortSignal): A
         threadId,
         turnId: sessionTurnId(run.sessionId),
         itemId: event.toolUseId,
-        data,
+        data: event.inputDelta ?? event.input ?? {},
       } satisfies RuntimeToolEvent;
       continue;
     }
     if (event.type === "progress") {
+      // Progress on a running tool is not a new tool call.
       yield {
         type: "tool",
-        tool: event.toolName ?? "progress",
+        tool: "progress",
         status: event.phase,
         threadId: sessionThreadId(run.sessionId),
         turnId: sessionTurnId(run.sessionId),
