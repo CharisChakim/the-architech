@@ -38,22 +38,40 @@ export function loadDraft<T>(scope: DraftScope, fallback: T): T {
   }
 }
 
-export function saveDraft<T>(scope: DraftScope, value: T): void {
+// Two components can hold the same draft: the home composer hands over to
+// the chat composer as the first message is sent. Each change is announced
+// so the other copy does not keep showing text that was already sent.
+const DRAFT_CHANGE_EVENT = "architech:draft-change";
+
+interface DraftChange {
+  key: string;
+  present: boolean;
+  value?: unknown;
+  source?: unknown;
+}
+
+function announce(change: DraftChange): void {
+  window.dispatchEvent(new CustomEvent<DraftChange>(DRAFT_CHANGE_EVENT, { detail: change }));
+}
+
+export function saveDraft<T>(scope: DraftScope, value: T, source?: unknown): void {
   if (!storageAvailable()) return;
 
   try {
     window.localStorage.setItem(keyFor(scope), JSON.stringify(value));
+    announce({ key: keyFor(scope), present: true, value, source });
   } catch {
     // Draft persistence is best effort. Quota/private mode failures must not
     // interrupt typing or generation.
   }
 }
 
-export function clearDraft(scope: DraftScope): void {
+export function clearDraft(scope: DraftScope, source?: unknown): void {
   if (!storageAvailable()) return;
 
   try {
     window.localStorage.removeItem(keyFor(scope));
+    announce({ key: keyFor(scope), present: false, source });
   } catch {
     // See saveDraft: local storage availability must not affect the UI.
   }
@@ -72,6 +90,7 @@ export function useDraft<T>(
   const [value, setValue] = useState<T>(() => loadDraft(scope, fallback));
   const valueRef = useRef(value);
   const activeKeyRef = useRef(storageKey);
+  const instance = useRef({});
 
   useEffect(() => {
     if (activeKeyRef.current === storageKey) return;
@@ -82,17 +101,30 @@ export function useDraft<T>(
     setValue(restored);
   }, [fallback, scope, storageKey]);
 
+  useEffect(() => {
+    const onChange = (event: Event) => {
+      const change = (event as CustomEvent<DraftChange>).detail;
+      if (change.source === instance.current || change.key !== `${DRAFT_STORAGE_PREFIX}:${storageKey}`) return;
+      const next = change.present ? change.value as T : fallbackRef.current;
+      if (Object.is(valueRef.current, next)) return;
+      valueRef.current = next;
+      setValue(next);
+    };
+    window.addEventListener(DRAFT_CHANGE_EVENT, onChange);
+    return () => window.removeEventListener(DRAFT_CHANGE_EVENT, onChange);
+  }, [storageKey]);
+
   const update = useCallback<Dispatch<SetStateAction<T>>>((next) => {
     const nextValue = typeof next === "function"
       ? (next as (previous: T) => T)(valueRef.current)
       : next;
     valueRef.current = nextValue;
     setValue(nextValue);
-    saveDraft(scope, nextValue);
+    saveDraft(scope, nextValue, instance.current);
   }, [scope, storageKey]);
 
   const clear = useCallback((resetTo?: T) => {
-    clearDraft(scope);
+    clearDraft(scope, instance.current);
     if (resetTo === undefined) return;
     valueRef.current = resetTo;
     setValue(resetTo);
