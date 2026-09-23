@@ -240,6 +240,35 @@ test("a second run in a conversation without a workspace fails without reaching 
   });
 });
 
+test("a tool's in-progress updates show one tool, not one per update", async () => {
+  // Codex sends a status-less event for every chunk of command output, and
+  // Antigravity repeats a step while it is active.
+  const tool = (status: string | null, data: unknown): RuntimeEvent => ({
+    type: "tool",
+    tool: "commandExecution",
+    status,
+    threadId: "thread_fixture",
+    turnId: "turn_fixture",
+    itemId: "cmd_1",
+    data,
+  });
+  const provider = new ProviderFixture(async function* () {
+    yield tool("inProgress", { command: "npm test" });
+    yield tool(null, "76 ");
+    yield tool(null, "pass\n");
+    yield tool("completed", { command: "npm test", exitCode: 0 });
+    yield done;
+  });
+  const { sessionId, taskId } = project();
+
+  await withServer(provider, async (url) => {
+    const events = await chat(url, { sessionId, taskId, idempotencyKey: "streamed-output" });
+
+    assert.equal(events.filter((event) => event.type === "tool_start").length, 1);
+    assert.equal(events.filter((event) => event.type === "tool_done").length, 1);
+  });
+});
+
 test("runtime progress is neither shown as a tool nor recorded as evidence", async () => {
   // What the runner hands over for Claude's system and rate-limit messages
   // and for Antigravity's step updates.

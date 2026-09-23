@@ -385,9 +385,18 @@ function antigravityErrorEvent(event: Extract<AntigravityEvent, { type: "error" 
   };
 }
 
+function antigravityToolResult(input: unknown, output: unknown): Record<string, unknown> {
+  const params = input && typeof input === "object" ? input as Record<string, unknown> : null;
+  const command = typeof params?.CommandLine === "string" ? params.CommandLine : typeof params?.command === "string" ? params.command : null;
+  return { input: input ?? null, output: output ?? null, ...(command ? { command } : {}) };
+}
+
 async function* mapAntigravityEvents(run: AntigravityExecutionHandle): AsyncIterable<RuntimeEvent> {
   let denied = false;
   let sawAssistant = false;
+  // A finished step reports only its output; the command it ran came with
+  // the step when it started, and evidence needs it.
+  const toolInputs = new Map<string, unknown>();
   for await (const event of run) {
     if (event.type === "session_started") {
       const threadId = sessionThreadId(event.conversationId);
@@ -410,6 +419,7 @@ async function* mapAntigravityEvents(run: AntigravityExecutionHandle): AsyncIter
         itemId: null,
       };
     } else if (event.type === "tool_start") {
+      if (!toolInputs.has(event.id)) toolInputs.set(event.id, event.input);
       yield {
         type: "tool",
         tool: event.tool,
@@ -428,7 +438,7 @@ async function* mapAntigravityEvents(run: AntigravityExecutionHandle): AsyncIter
         threadId: sessionThreadId(event.conversationId),
         turnId: sessionTurnId(event.conversationId),
         itemId: event.id,
-        data: event.result,
+        data: antigravityToolResult(toolInputs.get(event.id), event.result),
       };
     } else if (event.type === "progress") {
       yield {

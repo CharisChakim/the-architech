@@ -562,6 +562,9 @@ async function chat(req: Request, res: Response, options: RuntimeAgentRouterOpti
   // A provider stream that reconnects can deliver a finished item again; the
   // item already has its evidence and its tool_done event.
   const finishedToolItems = new Set<string>();
+  // Codex sends an event per chunk of command output and Antigravity repeats
+  // an active step; the chat shows the tool once and then its result.
+  const startedToolItems = new Set<string>();
   let providerDoneError: { code: string; message: string } | null = null;
   let finalStatus: "completed" | "failed" | "interrupted" = "failed";
   let finalError: string | null = null;
@@ -602,6 +605,9 @@ async function chat(req: Request, res: Response, options: RuntimeAgentRouterOpti
       if (runtimeEvent.type === "tool" && runtimeEvent.itemId && terminalToolStatus(runtimeEvent.status)) {
         if (finishedToolItems.has(runtimeEvent.itemId)) continue;
         finishedToolItems.add(runtimeEvent.itemId);
+      } else if (runtimeEvent.type === "tool" && runtimeEvent.itemId) {
+        if (startedToolItems.has(runtimeEvent.itemId) || finishedToolItems.has(runtimeEvent.itemId)) continue;
+        startedToolItems.add(runtimeEvent.itemId);
       }
       if (runtimeEvent.type === "tool") recordToolEvidence(run, runtimeEvent);
       for (const event of normalizeRuntimeEvent(runtimeEvent)) send(event);

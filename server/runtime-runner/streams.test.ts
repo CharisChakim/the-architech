@@ -318,3 +318,19 @@ test("antigravity: a repeated result produces one done", async () => {
   assert.equal(events.filter((event) => event.type === "done").length, 1);
   assert.equal(doneOf(events)?.status, "completed");
 });
+
+test("antigravity: a finished tool step keeps the command it started with", async () => {
+  const step = (state: string, info: Record<string, unknown>) => ({
+    event: "step_update",
+    step_update: { conversation_id: "agy_c1", step_index: 2, state, step_type: "tool", tool_name: "run_command", tool_info: { name: "run_command", ...info } },
+  });
+  const { events } = await agyTurn((child) => {
+    child.line(init);
+    child.line(step("ACTIVE", { parameters: { CommandLine: "pwd" } }));
+    child.line(step("DONE", { output: "/workspace\n" }));
+    child.line(agyResult);
+  });
+
+  const finished = events.find((event) => event.type === "tool" && event.tool === "run_command" && event.status === "completed");
+  assert.deepEqual(finished?.type === "tool" && finished.data, { input: { CommandLine: "pwd" }, output: "/workspace\n", command: "pwd" });
+});
