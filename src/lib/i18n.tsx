@@ -492,6 +492,8 @@ const ID: Record<string, string> = {
   "Turn complete": "Giliran selesai",
   "Turn failed": "Giliran gagal",
   "Stopped": "Dihentikan",
+  "Cached": "Tersimpan",
+  "Could not refresh the model list. Showing the one read {date}.": "Daftar model tidak bisa diperbarui. Menampilkan daftar yang dibaca {date}.",
   "The turn ended before this tool reported a result.": "Giliran berakhir sebelum tool ini melaporkan hasil.",
   "Split": "Split",
   "Seven specification points and a flow diagram": "Tujuh poin spesifikasi dan diagram alur",

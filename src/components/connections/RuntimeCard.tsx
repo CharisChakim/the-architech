@@ -107,9 +107,12 @@ export interface RuntimeCardProps {
   refreshing?: boolean;
 }
 
+// See RuntimeControls: an unreported default is shown as unknown, not as
+// the first listed model.
 function selectedModel(models: readonly RuntimeModel[], modelId: string): RuntimeModel | null {
   if (modelId !== INHERIT) return models.find((model) => model.modelId === modelId) ?? null;
-  return models.find((model) => model.modelId === models[0]?.defaultModel) ?? models[0] ?? null;
+  const defaultModel = models[0]?.defaultModel;
+  return defaultModel ? models.find((model) => model.modelId === defaultModel) ?? null : null;
 }
 
 function effortLabel(option: RuntimeEffortOption): string {
@@ -415,6 +418,11 @@ export const RuntimeCard: React.FC<RuntimeCardProps> = ({ detection, preference,
         </p>
       )}
 
+      {detection.catalog?.stale && (
+        <p className="mt-4 rounded-lg border border-warn/30 bg-warn-soft px-2.5 py-2 text-xs text-warn-ink" role="status">
+          {t("Could not refresh the model list. Showing the one read {date}.", { date: checkedLabel(detection.catalog.discoveredAt, t("Unknown")) })}
+        </p>
+      )}
       {detection.catalog && (
         <p className="mt-4 text-[10px] leading-relaxed text-faint">
           {t("Source: {source} · refreshed {date}", { source: detection.catalog.source, date: checkedLabel(detection.catalog.discoveredAt, t("Unknown")) })}

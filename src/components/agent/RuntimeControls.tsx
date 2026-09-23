@@ -39,9 +39,13 @@ function preferredValue(
   return preferences.find((item) => item.runtime === detection.runtime && item.connectionId === connectionId)?.[key] ?? "inherit";
 }
 
+// "inherit" is whatever the runtime itself defaults to. When the runtime did
+// not report that default, no listed model may stand in for it: the first
+// model's name and effort options would claim something the run won't use.
 function selectedModel(models: RuntimeModel[], model: string): RuntimeModel | null {
   if (model !== "inherit") return models.find((item) => item.modelId === model) ?? null;
-  return models.find((item) => item.modelId === models[0]?.defaultModel) ?? models[0] ?? null;
+  const defaultModel = models[0]?.defaultModel;
+  return defaultModel ? models.find((item) => item.modelId === defaultModel) ?? null : null;
 }
 
 function effortLabel(value: string): string {
@@ -200,7 +204,7 @@ export const RuntimeControls: React.FC<RuntimeControlsProps> = ({
       )}
       {report?.runtimes.map((item) => (
         <option key={item.runtime} value={item.runtime} disabled={item.status !== "ready"}>
-          {RUNTIME_NAMES[item.runtime]} · {t(STATUS_LABELS[item.status])}
+          {RUNTIME_NAMES[item.runtime]} · {item.catalog?.stale ? t("Cached") : t(STATUS_LABELS[item.status])}
         </option>
       ))}
     </>

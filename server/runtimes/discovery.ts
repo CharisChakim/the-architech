@@ -198,6 +198,45 @@ async function discoverOne(
   return detection;
 }
 
+// A failed read that says nothing about the account or its entitlement.
+const TRANSIENT_DIAGNOSTICS = new Set(["METADATA_TIMEOUT", "METADATA_ERROR", "PROCESS_ERROR"]);
+
+/**
+ * Keep showing a runtime's last good catalog when a refresh fails for a
+ * transient reason, marked stale, instead of an empty model list. A login
+ * problem, an empty list, or a different runtime version is not transient
+ * and replaces it. `lastKnown` is updated with every good read.
+ */
+export function withLastKnownCatalogs(
+  report: RuntimeDiscoveryReport,
+  lastKnown: Map<RuntimeId, RuntimeDetection>,
+): RuntimeDiscoveryReport {
+  const runtimes = report.runtimes.map((detection) => {
+    if (detection.status === "ready" && detection.catalog?.models.length) {
+      lastKnown.set(detection.runtime, detection);
+      return detection;
+    }
+    const previous = lastKnown.get(detection.runtime);
+    if (
+      detection.status !== "error"
+      || !detection.diagnostic
+      || !TRANSIENT_DIAGNOSTICS.has(detection.diagnostic)
+      || !previous?.catalog
+      || previous.version !== detection.version
+    ) {
+      lastKnown.delete(detection.runtime);
+      return detection;
+    }
+    return {
+      ...detection,
+      status: previous.status,
+      capabilities: cloneCapabilities(previous.capabilities),
+      catalog: { ...previous.catalog, error: detection.diagnostic, stale: true },
+    };
+  });
+  return { ...report, runtimes };
+}
+
 /** Detect configured runtime binaries and perform metadata-only discovery. */
 export async function discoverRuntimes(options: RuntimeDiscoveryOptions = {}): Promise<RuntimeDiscoveryReport> {
   const now = options.now?.() ?? new Date();

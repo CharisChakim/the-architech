@@ -5,7 +5,7 @@ import {
   saveRuntimeBinaryPath,
   RuntimeBinaryPathError,
 } from "../runtimes/binary-paths.ts";
-import { discoverRuntimes } from "../runtimes/discovery.ts";
+import { discoverRuntimes, withLastKnownCatalogs } from "../runtimes/discovery.ts";
 import type { RuntimeDetection, RuntimeDiscoveryReport, RuntimeId } from "../runtimes/types.ts";
 import { loadClaudeSdkModule } from "../runtime-runner/index.ts";
 
@@ -30,6 +30,7 @@ function publicRuntime(
 
 let cachedReport: RuntimeDiscoveryReport | null = null;
 let inFlight: Promise<RuntimeDiscoveryReport> | null = null;
+const lastKnownCatalogs = new Map<RuntimeId, RuntimeDetection>();
 
 function cacheFresh(report: RuntimeDiscoveryReport): boolean {
   const checkedAt = Date.parse(report.checkedAt);
@@ -48,8 +49,8 @@ async function reportFor(force: boolean): Promise<RuntimeDiscoveryReport> {
         : {}),
     });
   })().then((report) => {
-    cachedReport = report;
-    return report;
+    cachedReport = withLastKnownCatalogs(report, lastKnownCatalogs);
+    return cachedReport;
   }).finally(() => {
     inFlight = null;
   });

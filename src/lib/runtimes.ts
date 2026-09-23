@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   RUNTIME_IDS,
   type CapabilitySupport,
@@ -154,6 +154,7 @@ function runtimeCatalog(value: unknown, detection: { runtime: RuntimeId; version
     expiresAt: stringValue(value.expiresAt) ?? discoveredAt,
     models,
     error: stringValue(value.error),
+    ...(value.stale === true ? { stale: true } : {}),
   };
 }
 
@@ -304,12 +305,55 @@ export interface RuntimeDiscoveryState {
   saveBinaryPath: (runtime: RuntimeId, path: string | null) => Promise<RuntimeDiscoveryReport>;
 }
 
+function upsertPreference(current: RuntimePreference[], next: RuntimePreference): RuntimePreference[] {
+  const same = (item: RuntimePreference) => (
+    item.runtime === next.runtime
+    && item.connectionId === next.connectionId
+    && item.scope === next.scope
+    && item.scopeKey === next.scopeKey
+  );
+  return current.some(same) ? current.map((item) => (same(item) ? next : item)) : [...current, next];
+}
+
+// The composer's picker and the Connections dialog each hold this state. A
+// refresh, a saved path or a saved preference in one is announced to the
+// other, so the picker does not keep a runtime's old status or models.
+const RUNTIME_REPORT_EVENT = "architech:runtime-report";
+const RUNTIME_PREFERENCE_EVENT = "architech:runtime-preference";
+
+interface RuntimeChange<T> {
+  value: T;
+  source: unknown;
+}
+
+function announce<T>(name: string, value: T, source: unknown): void {
+  window.dispatchEvent(new CustomEvent<RuntimeChange<T>>(name, { detail: { value, source } }));
+}
+
 /** Fetches metadata only while enabled, preserving the last report during refresh. */
 export function useRuntimeDiscovery(enabled = true): RuntimeDiscoveryState {
   const [report, setReport] = useState<RuntimeDiscoveryReport | null>(null);
   const [preferences, setPreferences] = useState<RuntimePreference[]>([]);
   const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
+  const instance = useRef({});
+
+  useEffect(() => {
+    const onReport = (event: Event) => {
+      const change = (event as CustomEvent<RuntimeChange<RuntimeDiscoveryReport>>).detail;
+      if (change.source !== instance.current) setReport(change.value);
+    };
+    const onPreference = (event: Event) => {
+      const change = (event as CustomEvent<RuntimeChange<RuntimePreference>>).detail;
+      if (change.source !== instance.current) setPreferences((current) => upsertPreference(current, change.value));
+    };
+    window.addEventListener(RUNTIME_REPORT_EVENT, onReport);
+    window.addEventListener(RUNTIME_PREFERENCE_EVENT, onPreference);
+    return () => {
+      window.removeEventListener(RUNTIME_REPORT_EVENT, onReport);
+      window.removeEventListener(RUNTIME_PREFERENCE_EVENT, onPreference);
+    };
+  }, []);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -317,6 +361,7 @@ export function useRuntimeDiscovery(enabled = true): RuntimeDiscoveryState {
     try {
       const next = await discoverRuntimes();
       setReport(next);
+      announce(RUNTIME_REPORT_EVENT, next, instance.current);
       return next;
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : String(cause);
@@ -329,30 +374,15 @@ export function useRuntimeDiscovery(enabled = true): RuntimeDiscoveryState {
 
   const savePreference = useCallback(async (input: RuntimePreferenceInput) => {
     const next = await saveRuntimePreference(input);
-    setPreferences((current) => {
-      const exists = current.some((item) => (
-        item.runtime === next.runtime
-        && item.connectionId === next.connectionId
-        && item.scope === next.scope
-        && item.scopeKey === next.scopeKey
-      ));
-      return exists
-        ? current.map((item) => (
-            item.runtime === next.runtime
-            && item.connectionId === next.connectionId
-            && item.scope === next.scope
-            && item.scopeKey === next.scopeKey
-              ? next
-              : item
-          ))
-        : [...current, next];
-    });
+    setPreferences((current) => upsertPreference(current, next));
+    announce(RUNTIME_PREFERENCE_EVENT, next, instance.current);
     return next;
   }, []);
 
   const saveBinaryPath = useCallback(async (runtime: RuntimeId, path: string | null) => {
     const next = await saveRuntimeBinaryPath(runtime, path);
     setReport(next);
+    announce(RUNTIME_REPORT_EVENT, next, instance.current);
     return next;
   }, []);
 
@@ -370,6 +400,7 @@ export function useRuntimeDiscovery(enabled = true): RuntimeDiscoveryState {
         setReport(next);
         setPreferences(nextPreferences);
         setLoading(false);
+        announce(RUNTIME_REPORT_EVENT, next, instance.current);
       },
       (cause) => {
         if (!active) return;

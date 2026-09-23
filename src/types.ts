@@ -100,6 +100,8 @@ export interface RuntimeCatalog {
   expiresAt: string;
   models: RuntimeModel[];
   error: string | null;
+  /** The last catalog read successfully, shown because the latest read failed. */
+  stale?: boolean;
 }
 
 /** `binaryPath` is intentionally replaced by the server's public `binaryFound` flag. */

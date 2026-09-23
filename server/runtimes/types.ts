@@ -87,6 +87,12 @@ export interface RuntimeCatalog {
   models: RuntimeModel[];
   /** Present when metadata could not be read; never contains command output. */
   error: string | null;
+  /**
+   * The last catalog read successfully, kept because the latest read failed
+   * for a reason that may pass (a timeout, the network). `discoveredAt` is
+   * when that older read happened.
+   */
+  stale?: boolean;
 }
 
 export interface RuntimeDetection {
