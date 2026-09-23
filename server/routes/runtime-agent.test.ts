@@ -240,6 +240,38 @@ test("a second run in a conversation without a workspace fails without reaching 
   });
 });
 
+test("runtime progress is neither shown as a tool nor recorded as evidence", async () => {
+  // What the runner hands over for Claude's system and rate-limit messages
+  // and for Antigravity's step updates.
+  const progress = (status: string): RuntimeEvent => ({
+    type: "tool",
+    tool: "progress",
+    status,
+    threadId: "thread_fixture",
+    turnId: "turn_fixture",
+    itemId: null,
+    data: { sessionId: "thread_fixture" },
+  });
+  const provider = new ProviderFixture(async function* () {
+    yield progress("system");
+    yield { type: "text", text: "answer", threadId: "thread_fixture", turnId: "turn_fixture", itemId: null };
+    yield progress("rate_limit_event");
+    yield progress("completed");
+    yield done;
+  });
+  const { sessionId, taskId } = project();
+
+  await withServer(provider, async (url) => {
+    const events = await chat(url, { sessionId, taskId, idempotencyKey: "progress-only" });
+
+    assert.equal(events.some((event) => event.type === "tool_start" || event.type === "tool_done"), false);
+    assert.equal(events.filter((event) => event.type === "text").length, 1);
+    assert.equal(events.at(-1)?.runStatus, "completed");
+    const [run] = listRuns({ taskId });
+    assert.deepEqual(listRunEvidence(run.id).filter((evidence) => evidence.kind !== "summary"), []);
+  });
+});
+
 test("a tool result the provider repeats is recorded as evidence once", async () => {
   const tool: RuntimeEvent = {
     type: "tool",

@@ -191,8 +191,15 @@ function terminalToolStatus(status: string | null): boolean {
   return Boolean(status && /result|completed|complete|done|failed|error|cancelled|denied/i.test(status));
 }
 
+// The runner reports session and step progress as a tool named "progress".
+// It is not a tool call: shown as one it never finishes, and it is not
+// evidence that any work was done.
+function isProgress(event: RuntimeToolEvent): boolean {
+  return event.tool === "progress";
+}
+
 function recordToolEvidence(run: Run, event: RuntimeToolEvent): void {
-  if (!run.taskId || !terminalToolStatus(event.status)) return;
+  if (!run.taskId || isProgress(event) || !terminalToolStatus(event.status)) return;
   const name = event.tool.toLowerCase();
   const kind = /edit|write|patch|file/.test(name)
     ? "diff" as const
@@ -225,6 +232,7 @@ function normalizeRuntimeEvent(event: RuntimeEvent): NormalizedUiEvent[] {
     if (tool.tool === "runtime_session") {
       return [{ type: "runtime_session", ...(isRecord(tool.data) ? tool.data : {}) }];
     }
+    if (isProgress(tool)) return [];
     if (terminalToolStatus(tool.status)) {
       return [{
         type: "tool_done",
