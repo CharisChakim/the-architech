@@ -312,6 +312,39 @@ test("a chosen model and effort reach the provider and are recorded on the run",
   }, catalogued);
 });
 
+test("a task waits for the tasks it depends on before it can run", async () => {
+  const provider = new ProviderFixture(async function* () { yield done; });
+  const workspaceRoot = fs.mkdtempSync(path.join(dataDir, "workspace-"));
+  const sessionId = "session-dependencies";
+  const save = (firstStatus: string) => saveSession({
+    id: sessionId,
+    title: sessionId,
+    workspaceRoot,
+    tasks: [
+      { id: "TASK-01", title: "Schema", status: firstStatus, dependencies: [] },
+      { id: "TASK-02", title: "API", status: "todo", dependencies: ["TASK-01", "TASK-GONE"] },
+    ],
+  });
+
+  await withServer(provider, async (url) => {
+    save("in_progress");
+    const refused = await fetch(`${url}/api/runtime-agent/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ runtime: "codex", message: "x", sessionId, taskId: "TASK-02", idempotencyKey: "blocked" }),
+    });
+    assert.equal(refused.status, 409);
+    assert.match(String((await refused.json()).error), /waits on TASK-01, which is not done/);
+    assert.equal(provider.turns.length, 0);
+
+    // Once the dependency is done the task runs; an id naming no task does not hold it back.
+    save("done");
+    const events = await chat(url, { sessionId, taskId: "TASK-02", idempotencyKey: "unblocked" });
+    assert.equal(events.at(-1)?.runStatus, "completed");
+    assert.equal(provider.turns.length, 1);
+  });
+});
+
 test("a second run on a workspace that is still being written fails without reaching the provider", async () => {
   const provider = new ProviderFixture(async function* (fixture) {
     await fixture.waitUntilReleased();

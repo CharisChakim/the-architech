@@ -27,6 +27,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useT } from "../lib/i18n";
+import { openDependencies } from "../lib/taskDependencies";
 import {
   attachPrdVersionToPrd,
   attachPrdVersionToTasks,
@@ -85,6 +86,10 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
   const reviewAbort = useRef<AbortController | null>(null);
 
   const tasks = session.tasks || [];
+  const blockedTitle = (task: AgentTask): string | undefined => {
+    const open = openDependencies(task, tasks);
+    return open.length ? t("Waiting on {tasks}, which is not done yet.", { tasks: open.join(", ") }) : undefined;
+  };
   const currentVersion = currentPrdVersion(session.prdVersions);
   const tasksNeedingSync = tasks.filter((task) => taskNeedsPrdSync(task, currentVersion)).length;
 
@@ -250,6 +255,7 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
 
   const runTask = (task: AgentTask, event?: React.MouseEvent): void => {
     event?.stopPropagation();
+    if (openDependencies(task, tasks).length) return;
     if (task.status !== "in_progress") handleTaskStatusChange(task.id, "in_progress");
     onRunTask?.(task);
   };
@@ -414,7 +420,7 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
           <div className="card p-5 flex flex-wrap items-start justify-between gap-5">
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 text-ok text-xs font-medium mb-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5" /> {t("{count} tasks ready to run", { count: tasks.length })}
+                <CheckCircle2 className="w-3.5 h-3.5" /> {t("{count} tasks ready to run", { count: tasks.filter((task) => task.status !== "done" && openDependencies(task, tasks).length === 0).length })}
                 {currentVersion && <span className="text-faint">· PRD v{currentVersion.number}</span>}
               </div>
               <h3 className="text-base font-semibold text-ink">{t("Task board")}</h3>
@@ -561,6 +567,11 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
                                 {t("Needs sync")}
                               </span>
                             )}
+                            {openDependencies(task, tasks).length > 0 && column.status !== "done" && (
+                              <span className="text-[10px] font-semibold rounded bg-subtle px-1.5 py-0.5 text-muted" title={blockedTitle(task)}>
+                                {t("Waiting on {tasks}", { tasks: openDependencies(task, tasks).join(", ") })}
+                              </span>
+                            )}
                             {task.handoffStatus === "handed_off" && (
                               <span className="text-[10px] font-semibold rounded bg-accent-soft px-1.5 py-0.5 text-accent-ink">
                                 {t("Handed off")}
@@ -650,7 +661,8 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
                             <button
                               type="button"
                               onClick={(event) => runTask(task, event)}
-                              disabled={Boolean(runningTaskId) || task.status === "done"}
+                              disabled={Boolean(runningTaskId) || task.status === "done" || openDependencies(task, tasks).length > 0}
+                              title={blockedTitle(task)}
                               className="btn-primary !px-2 !py-1 text-[11px] disabled:opacity-50"
                             >
                               {t("Run")}
@@ -712,7 +724,8 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
                           <button
                             type="button"
                             onClick={(event) => runTask(task, event)}
-                            disabled={Boolean(runningTaskId)}
+                            disabled={Boolean(runningTaskId) || openDependencies(task, tasks).length > 0}
+                            title={blockedTitle(task)}
                             className="btn-primary !px-2 !py-1 text-[11px] disabled:opacity-50"
                           >
                             {t("Run")}
@@ -984,7 +997,7 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
 
           <div className="flex flex-wrap items-center justify-end gap-3 border-t border-line px-6 py-4">
             {onRunTask && selectedTask.status !== "done" && (
-              <button type="button" onClick={() => runTask(selectedTask)} disabled={Boolean(runningTaskId)} className="btn-primary disabled:opacity-50">
+              <button type="button" onClick={() => runTask(selectedTask)} disabled={Boolean(runningTaskId) || openDependencies(selectedTask, tasks).length > 0} title={blockedTitle(selectedTask)} className="btn-primary disabled:opacity-50">
                 {t("Run")}
               </button>
             )}

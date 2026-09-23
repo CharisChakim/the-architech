@@ -493,6 +493,8 @@ const ID: Record<string, string> = {
   "Turn failed": "Giliran gagal",
   "Stopped": "Dihentikan",
   "Cached": "Tersimpan",
+  "Waiting on {tasks}, which is not done yet.": "Menunggu {tasks}, yang belum selesai.",
+  "Waiting on {tasks}": "Menunggu {tasks}",
   "{runtime} was given {count} messages it missed while this chat used another runtime.": "{runtime} menerima {count} pesan yang terlewat selama chat ini memakai runtime lain.",
   "{runtime} started a new session and was given the last {count} messages of this chat as text. Tool results from earlier turns are not carried over.": "{runtime} memulai sesi baru dan menerima {count} pesan terakhir chat ini sebagai teks. Hasil tool dari giliran sebelumnya tidak ikut dibawa.",
   "{count} older messages were left out.": "{count} pesan yang lebih lama tidak disertakan.",

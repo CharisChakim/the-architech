@@ -437,6 +437,16 @@ async function chat(req: Request, res: Response, options: RuntimeAgentRouterOpti
     if (body.taskId && (!project || !project.tasks?.some((task) => task.id === body.taskId))) {
       throw new RequestError("taskId does not belong to the selected project.", 409);
     }
+    if (body.taskId && project) {
+      // A task waits for the tasks it depends on. An id that names no task
+      // cannot be satisfied and does not hold the task back.
+      const tasks = (project.tasks ?? []) as Array<{ id: string; status?: string; dependencies?: string[] }>;
+      const task = tasks.find((item) => item.id === body.taskId);
+      const open = (task?.dependencies ?? []).filter((id) => tasks.some((other) => other.id === id && other.status !== "done"));
+      if (open.length) {
+        throw new RequestError(`Task ${body.taskId} waits on ${open.join(", ")}, which ${open.length === 1 ? "is" : "are"} not done yet.`, 409);
+      }
+    }
     if (project?.workspaceRoot) {
       // Persisted project configuration is server-owned; do not let a tab
       // replace it with a different execution root for one request.
