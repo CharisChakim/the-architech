@@ -1,9 +1,11 @@
 # Plan v2 — Chat, PRD Builder, Kanban, dan runtime agent
 
-Status: **MVP V2-0–V2-6 terimplementasi**. Chat mandiri, discovery/picker runtime,
-run lifecycle, approval, versi PRD, sinkronisasi task, handoff, dan review evidence
-sudah terhubung. V2-7 masih memerlukan pengujian provider live serta hardening
-rilis. Tanggal: 15 September 2026.
+Status: **MVP V2-0–V2-6 terimplementasi; V2-7 sedang berjalan**. Chat mandiri,
+discovery/picker runtime, run lifecycle, approval, versi PRD, sinkronisasi task,
+handoff, dan review evidence sudah terhubung. Hardening V2-7 sebagian besar
+selesai dengan fixture test; smoke test provider live, tes end-to-end, dan
+beberapa kriteria penerimaan belum dikerjakan. Daftar sisa pekerjaan ada di
+[§10](#10-progres-v2-7). Tanggal: 23 September 2026.
 
 ## 1. Hasil yang dituju
 
@@ -278,3 +280,62 @@ Termasuk: UI baru, proyek opsional, PRD versi, Kanban eksekusi, tiga adapter, di
 Ditunda: marketplace agent, penagihan produk, kolaborasi multiuser, host remote, penjadwalan otonom, serta beberapa agent menulis workspace bersamaan. Fokus pertama adalah satu pekerjaan berjalan dengan konteks, konfigurasi, dan hasil yang dapat dipercaya.
 
 Dokumentasi provider bergerak cepat. Verifikasi ulang referensi dan versi saat memulai setiap fase integrasi; matriks V2-0 menjadi sumber kebenaran implementasi.
+
+## 10. Progres V2-7
+
+Diperbarui 23 September 2026. Bagian ini adalah daftar kerja aktif V2-7: mulai
+dari **Sisa pekerjaan** saat melanjutkan. Rincian pemetaan event per runtime dan
+checklist smoke test live ada di [`runtime-compatibility.md`](runtime-compatibility.md).
+
+### Kriteria penerimaan (§8)
+
+| Kriteria | Status | Bukti |
+|---|---|---|
+| Instalasi baru: Chat bisa dipakai tanpa proyek/PRD | Belum diuji ulang di V2-7 | — |
+| Riwayat lama terbuka; draft bertahan setelah reload/pindah tab/layout | Sebagian: draft pesan pertama kini terhapus setelah terkirim | `f6f82a9`; reload/layout belum diuji ulang |
+| Percakapan menjadi proyek dengan pesan utuh | Belum diuji ulang | — |
+| PRD diedit → disetujui → task; PRD berubah → task ditandai | Belum diuji ulang | — |
+| Task manual tanpa PRD dieksekusi; dependensi memblokir | Belum diuji ulang | — |
+| Ketiga koneksi terdeteksi atau diberi tindakan pemulihan | Terverifikasi 22 September | `runtime-compatibility.md` |
+| Picker memuat model; ganti akun/workspace menginvalidasi cache | Belum dicek | — |
+| Ikuti default; override effort terkirim; opsi tak didukung tak bisa dipilih | Belum dicek | — |
+| Default tak terbaca tidak dipalsukan; katalog offline menampilkan cache dan umurnya | Belum dicek | — |
+| Ganti provider di chat: konteks netral, sesi baru | Belum dicek | — |
+| Approve/reject, interrupt, login kedaluwarsa, kuota habis, error protokol, restart → status yang bisa ditindaklanjuti | Sebagian: approval, restart, error protokol, dan run gagal teruji dengan fixture; interrupt dari UI belum dicek; pesan AGY belum menyebut langkah perbaikan | `1d09539`, `a9123bb`, `06d7ae2`, `53d41fc`, tes restart sebelumnya |
+| Reconnect dan double-click tidak menggandakan eksekusi | Selesai (fixture) | `1d09539`, `983c0ab` |
+| Command sukses/gagal, tool ditolak, verifikasi belum jalan dibedakan; Done tidak dari klaim teks | Selesai untuk pemetaan event dan evidence (fixture) | `1ae00c3`, `91d9e3f`, `94ebaac` |
+| Handoff cukup konteks, tanpa credential; hasil eksternal lewat Review | Ada tes redaksi (`src/lib/handoff.test.ts`); tidak diuji ulang | — |
+| Keyboard, label, focus return, Escape; viewport 320/390/1440 px | Dicek dan diperbaiki; Enter/Space tidak bisa diuji dengan tool browser yang dipakai | `7ec0fc0`, `3cf73cf` |
+
+### Jenis pengujian (§8)
+
+- Contract tests adapter (event terpotong, duplikat, malformed, unknown): selesai
+  untuk ketiga runtime (`a9123bb`). Tes transport Codex lama yang tidak pernah
+  jalan kini ikut `npm test`.
+- Integration tests SQLite (migrasi, antrean, idempotency): ada; route run kini
+  punya tes sendiri (`server/routes/runtime-agent.test.ts`).
+- End-to-end: **belum ada**. Repo belum punya framework e2e.
+- Smoke test live per runtime: **belum ada**.
+
+### Sisa pekerjaan
+
+1. **Smoke test live** per runtime, mengikuti checklist di
+   `runtime-compatibility.md`. Memakai kuota; jalankan dengan pengawasan.
+   Banyak perbaikan V2-7 bergantung pada bentuk event yang baru diuji dengan
+   fixture.
+2. **Tes end-to-end** untuk Chat → proyek → PRD → Kanban → Review dan
+   picker/default per provider. Perlu keputusan framework (mis. Playwright)
+   karena menambah dependency.
+3. **Kriteria yang belum dicek** di tabel atas: invalidasi cache picker,
+   default dan effort, katalog offline, ganti provider di chat, interrupt dari
+   UI, serta alur PRD/Kanban/proyek yang belum diuji ulang.
+4. **Celah kecil yang tercatat:**
+   - Chat tanpa workspace menjalankan runtime tanpa `cwd`; dua chat seperti itu
+     bisa menulis ke direktori yang sama.
+   - `exitCode` Bash dari Claude selalu kosong di evidence.
+   - Pesan kegagalan AGY belum menyebut langkah perbaikan.
+   - Pesan error server hanya berbahasa Inggris.
+   - `tool_progress` Claude tidak ditampilkan, termasuk durasi tool yang
+     berjalan lama.
+5. Setelah butir 1–3 lolos: perbarui status di awal dokumen ini menjadi V2-7
+   selesai.

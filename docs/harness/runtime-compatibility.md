@@ -64,26 +64,100 @@ this phase has verified without a billable prompt.
 
 | Capability | Codex app-server | Claude Agent SDK | AGY CLI |
 | --- | --- | --- | --- |
-| Version probe | verified (`--version`) | verified (`--version`) | pending (`agy` absent) |
-| Model catalog | protocol parser + metadata request | verified through pinned SDK `0.3.272` without a user prompt | `agy models` parser; CLI pending |
+| Version probe | verified (`--version`) | verified (`--version`) | verified (`--version`, 22 Sep) |
+| Model catalog | verified (`model/list`, 5 models) | verified through pinned SDK `0.3.272` without a user prompt | verified (`agy models`, 14 models) |
 | Effort options | parsed only when `supportedReasoningEfforts` is reported | parsed only when SDK reports options | parsed only when `agy models` reports options |
 | Runtime default | `config/read` parser | SDK/default resolver pending | CLI metadata/default resolver pending |
 | Streaming events | fixture-verified normalized adapter | fixture-verified normalized adapter | fixture-verified JSONL adapter |
-| Tool execution | owned by app-server; live test pending | owned by Agent SDK; live test pending | owned by AGY; live test pending |
-| Approval/permission | request translated; current route declines safely | callback translated; current route declines safely | headless soft denial maps the run to failed |
+| Tool execution | owned by app-server; event mapping fixture-verified, live test pending | owned by Agent SDK; event mapping fixture-verified, live test pending | owned by AGY; event mapping fixture-verified, live test pending |
+| Approval/permission | request shown in chat; approve/decline, five-minute expiry | callback shown in chat; approve/decline, five-minute expiry | no interactive approval in headless mode; a soft denial fails the run |
 | Resume | fixture-verified thread resume | fixture-verified session resume | fixture-verified conversation resume |
 | Interrupt | fixture-verified RPC interrupt | fixture-verified SDK interrupt | fixture-verified process interrupt |
-| Usage/quota | unknown; metadata probe does not test quota | unknown; metadata probe does not test quota | unknown; metadata probe does not test quota |
+| Usage/quota | provider's message passed on at run time; not tested live | mapped to an actionable message at run time; not tested live | failure classified from the result or stderr; not tested live |
 
 `listed` means a provider metadata call returned a model. It does not imply
 quota, entitlement, or that a later run will succeed. `verified` is reserved
 for a later explicit run/test result.
 
+## Run-time event mapping
+
+Added during V2-7. Each runtime reports a tool call, its progress and its
+outcome differently; the runner and the chat route turn them into one start
+and one result per tool, and a failed run into a visible reason. All of this
+is covered by fixture tests (`server/runtimes/execution/codex.test.ts`,
+`server/runtime-runner/streams.test.ts`, `server/routes/runtime-agent.test.ts`),
+built from each provider's documented shapes. **None of it has been confirmed
+against a live provider yet.**
+
+| Concern | Codex app-server | Claude Agent SDK | AGY CLI |
+| --- | --- | --- | --- |
+| Tool start | `item/started` | the complete `assistant` message's `tool_use` block; streamed `content_block_start` and `input_json_delta` are ignored | `step_update` with state `ACTIVE` |
+| Tool result | `item/completed`, carrying `command` and `exitCode` | `tool_result` blocks inside the next `user` message; name and input are taken from the start | `step_update` with state `DONE`; input, and the command from `CommandLine`, taken from the start |
+| Repeated updates | `*/outputDelta` per output chunk; shown once | `tool_progress`; reported as progress, not shown | a repeated `ACTIVE` step; shown once |
+| Session/step progress | not emitted | `system`, `rate_limit_event`, `hook_response`, `task_started`: not shown, not evidence | step updates without a tool: not shown, not evidence |
+| Stream cut off | app-server exit ends the turn with `PROCESS_EXITED` | a stream with no result ends with `CLAUDE_RESULT_MISSING` | exit without a result: `AGY_PROCESS_EXITED`, or `AGY_RESULT_MISSING` on exit code 0 |
+| Malformed line | non-fatal error; the turn continues | non-fatal `MALFORMED_EVENT`; the turn continues | fails closed: the CLI is stopped and the run fails with `AGY_PROTOCOL_ERROR` |
+| Failed run | the provider's message on `turn/completed` | `assistant.error`, `api_error_status`, `error_*` subtype or `errors[]` mapped to `CLAUDE_AUTH_REQUIRED`, `CLAUDE_RATE_LIMITED`, `CLAUDE_BILLING`, …; a `success` result with `is_error` is a failure | `AGY_AUTH_REQUIRED`, `AGY_PERMISSION_DENIED`, … from the result or stderr |
+
+The chat route shows a failed run's reason as an error and ends the turn as
+"Turn failed", whichever runtime it came from.
+
+Known gaps:
+
+- Claude's Bash result carries no exit code, so its command evidence has
+  `exitCode` empty.
+- AGY failure messages name the problem but not the fix ("Antigravity CLI
+  authentication is required." does not say which command signs in).
+- Server error messages are English only.
+
+## Live smoke checklist
+
+A smoke run per runtime costs quota and needs someone watching it. Use a
+disposable workspace and one small prompt that runs one shell command (for
+example `pwd`) and edits one file. Each item below is an assumption the
+fixture tests rely on; record what was observed next to it.
+
+Codex:
+
+- [ ] Command output arrives as `item/commandExecution/outputDelta` and the
+  command finishes as `item/completed` with `command` and `exitCode`.
+- [ ] The chat shows one card per command, finished, with the exit code in the
+  task's evidence.
+- [ ] Approve and decline from the chat reach the app-server; a decline leaves
+  the run failed, not done.
+- [ ] A spent quota or signed-out account ends the run with a readable reason.
+
+Claude Code:
+
+- [ ] Tool results arrive as `tool_result` blocks inside `user` messages, and
+  the chat shows one card per tool call, finished.
+- [ ] Task evidence records the Bash command.
+- [ ] Signed out (or an invalid key), the run fails with `CLAUDE_AUTH_REQUIRED`
+  rather than completing, and no "Invalid API key" text appears as a reply.
+- [ ] Approve and decline reach the SDK's `canUseTool` callback.
+
+Antigravity:
+
+- [ ] A tool step's command is in `tool_info.parameters.CommandLine`, and the
+  task's evidence records it.
+- [ ] A repeated `ACTIVE` update for one step shows one card.
+- [ ] A soft permission denial ends the run failed with
+  `AGY_PERMISSION_DENIED`.
+- [ ] Signed out, the run fails with `AGY_AUTH_REQUIRED`.
+
+All runtimes:
+
+- [ ] Stop in the chat interrupts the provider turn and the run ends as
+  interrupted.
+- [ ] Sending again in the same chat resumes the provider session.
+
 ## Authentication and safety gaps
 
 - A successful binary version command is not authentication evidence. Codex
   and AGY metadata errors may map to `needs_login`; Claude remains `unknown`
-  until the SDK reports auth state.
+  until the SDK reports auth state. At run time an expired Claude login is
+  reported as `CLAUDE_AUTH_REQUIRED` with the steps to sign in again (see
+  below); the connection card itself does not change.
 - The repository pins Claude Agent SDK `0.3.272` through the lockfile. Discovery
   initializes its control channel with an empty streaming input, calls
   `supportedModels()`, and closes it without yielding a model prompt. It does

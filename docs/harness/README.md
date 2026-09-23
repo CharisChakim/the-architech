@@ -4,7 +4,7 @@ Mulai dari dokumen berikut untuk pekerjaan baru:
 
 - [`PLAN-v2-chat-first-runtimes.md`](PLAN-v2-chat-first-runtimes.md) — rencana aktif:
   UI chat/proyek, PRD–Kanban, Claude Code/Codex/Antigravity, discovery model,
-  dan default effort.
+  dan default effort. Status V2-7 dan sisa pekerjaannya ada di §10.
 - [`runtime-compatibility.md`](runtime-compatibility.md) — hasil uji dan batas
   kapabilitas runtime untuk fase V2-0.
 - [`connections.md`](connections.md) — cara runtime ditemukan, apa yang harus
