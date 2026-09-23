@@ -530,6 +530,9 @@ async function chat(req: Request, res: Response, options: RuntimeAgentRouterOpti
   let assistantText = "";
   let externalSessionId = body.externalSessionId ?? null;
   let approvalRejected = false;
+  // A provider stream that reconnects can deliver a finished item again; the
+  // item already has its evidence and its tool_done event.
+  const finishedToolItems = new Set<string>();
   let finalStatus: "completed" | "failed" | "interrupted" = "failed";
   let finalError: string | null = null;
   try {
@@ -566,6 +569,10 @@ async function chat(req: Request, res: Response, options: RuntimeAgentRouterOpti
         send({ type: "runtime_session", externalSessionId: ids });
       }
       if (runtimeEvent.type === "text") assistantText += runtimeEvent.text;
+      if (runtimeEvent.type === "tool" && runtimeEvent.itemId && terminalToolStatus(runtimeEvent.status)) {
+        if (finishedToolItems.has(runtimeEvent.itemId)) continue;
+        finishedToolItems.add(runtimeEvent.itemId);
+      }
       if (runtimeEvent.type === "tool") recordToolEvidence(run, runtimeEvent);
       for (const event of normalizeRuntimeEvent(runtimeEvent)) send(event);
       if (runtimeEvent.type === "error" && runtimeEvent.fatal) {

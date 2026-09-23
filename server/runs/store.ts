@@ -530,7 +530,9 @@ function sameCreateRequest(row: RunRow, input: ReturnType<typeof normalizeRunInp
     && row.effort_source === input.effortSource
     && row.runtime_version === input.runtimeVersion
     && row.workspace === input.workspace
-    && row.external_session_id === input.externalSessionId;
+    // A run records the provider's session id once the provider reports it, so
+    // a repeat of a request that started a new session no longer matches here.
+    && (input.externalSessionId === null || row.external_session_id === input.externalSessionId);
 }
 
 export function createRun(input: RunCreateInput): CreatedRun {
