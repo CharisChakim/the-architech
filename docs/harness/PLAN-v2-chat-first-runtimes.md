@@ -298,7 +298,7 @@ checklist smoke test live ada di [`runtime-compatibility.md`](runtime-compatibil
 | Task manual tanpa PRD dieksekusi; dependensi memblokir | Belum diuji ulang | — |
 | Ketiga koneksi terdeteksi atau diberi tindakan pemulihan | Terverifikasi 22 September | `runtime-compatibility.md` |
 | Picker memuat model; ganti akun/workspace menginvalidasi cache | Sebagian: Refresh dan simpan path/preferensi di Connections kini sampai ke picker. **Batasan:** runtime tidak melaporkan identitas akun (`connectionId` statis), jadi ganti akun hanya terbaca lewat TTL 15 menit atau Refresh; run tetap memakai discovery baru per request | `503212e` |
-| Ikuti default; override effort terkirim; opsi tak didukung tak bisa dipilih | Opsi effort hanya dari model aktif (dicek); pengiriman override belum diuji ulang | — |
+| Ikuti default; override effort terkirim; opsi tak didukung tak bisa dipilih | Selesai (fixture): `inherit` tidak dikirim; model/effort pilihan sampai ke Codex, Claude SDK, dan AGY CLI serta tercatat di snapshot run sebagai `user-override`; model di luar katalog ditolak (`MODEL_UNAVAILABLE`) sebelum sampai ke provider; picker hanya menawarkan effort model aktif | `06c2402` |
 | Default tak terbaca tidak dipalsukan; katalog offline menampilkan cache dan umurnya | Selesai: default yang tidak dilaporkan tampil "Use runtime default"; refresh yang gagal sementara menampilkan katalog terakhir, ditandai "Cached" beserta tanggalnya | `503212e` |
 | Ganti provider di chat: konteks netral, sesi baru | Selesai (fixture): tiap runtime memakai sesinya sendiri; pesan yang belum dilihat sesi itu dikirim sebagai teks (maks. 40 pesan / ±24.000 karakter) dan chat memberi catatan | `fdf68d7`, `7ae98c0` |
 | Approve/reject, interrupt, login kedaluwarsa, kuota habis, error protokol, restart → status yang bisa ditindaklanjuti | Sebagian: approval, restart, error protokol, run gagal, dan Stop dari UI teruji; pesan AGY belum menyebut langkah perbaikan | `1d09539`, `a9123bb`, `06d7ae2`, `53d41fc`, `207f656`, tes restart sebelumnya |
@@ -326,9 +326,8 @@ checklist smoke test live ada di [`runtime-compatibility.md`](runtime-compatibil
 2. **Tes end-to-end** untuk Chat → proyek → PRD → Kanban → Review dan
    picker/default per provider. Perlu keputusan framework (mis. Playwright)
    karena menambah dependency.
-3. **Kriteria yang belum dicek** di tabel atas: pengiriman override
-   model/effort, serta alur instalasi baru, proyek, PRD, dan Kanban yang belum
-   diuji ulang.
+3. **Kriteria yang belum dicek** di tabel atas: alur instalasi baru, proyek,
+   PRD, dan Kanban yang belum diuji ulang.
 4. **Celah kecil yang tercatat:**
    - Chat tanpa workspace menjalankan runtime tanpa `cwd`; dua chat seperti itu
      bisa menulis ke direktori yang sama.
