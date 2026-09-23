@@ -168,8 +168,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <>
       {isOpen && <div onClick={onClose} className="fixed inset-0 z-40 bg-black/40 md:hidden" aria-hidden />}
+      {/* Off screen is not enough: the closed drawer's links stayed in the Tab
+          order. Hiding waits for the slide-out; showing is immediate so the
+          close button can take focus as the drawer opens. */}
       <aside
-        className={`shell-sidebar fixed inset-y-0 left-0 z-50 flex h-screen shrink-0 flex-col overflow-hidden border-r border-line bg-sidebar transition-[transform,width] duration-200 md:sticky md:top-0 md:translate-x-0 ${isRail ? "w-14" : "w-[15.5rem]"} ${isOpen ? "translate-x-0" : "-translate-x-full"}`}
+        className={`shell-sidebar fixed inset-y-0 left-0 z-50 flex h-screen shrink-0 flex-col overflow-hidden border-r border-line bg-sidebar duration-200 md:sticky md:top-0 md:translate-x-0 ${isRail ? "w-14" : "w-[15.5rem]"} ${isOpen ? "translate-x-0 transition-[transform,width]" : "-translate-x-full transition-[transform,width,visibility] max-md:invisible"}`}
         aria-label={t("Main navigation")}
       >
         <div className={`flex shrink-0 items-center gap-2 py-3 ${isRail ? "justify-center px-0" : "px-3"}`}>

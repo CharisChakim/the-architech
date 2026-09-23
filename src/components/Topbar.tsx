@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useLayoutEffect, useRef, useState } from "react";
 import { ProjectSession } from "../types";
 import { Check, ChevronDown, Download, Folder, Layers, Menu, MessageSquare, Moon, Plug, Settings2, Sun } from "lucide-react";
 import { useT, type Language } from "../lib/i18n";
@@ -74,6 +74,22 @@ export const Topbar: React.FC<TopbarProps> = ({
       return null;
     });
   });
+
+  // Each menu hangs off its button's right edge. On a phone the header wraps
+  // and the buttons sit near the left, so that pushed the menu off screen.
+  const menuPopup = useRef<HTMLDivElement | null>(null);
+  useLayoutEffect(() => {
+    const popup = menuPopup.current;
+    if (!popup) return;
+    popup.style.translate = "";
+    const margin = 8;
+    const rect = popup.getBoundingClientRect();
+    const viewport = document.documentElement.clientWidth;
+    const shift = rect.left < margin
+      ? margin - rect.left
+      : rect.right > viewport - margin ? viewport - margin - rect.right : 0;
+    if (shift) popup.style.translate = `${shift}px 0`;
+  }, [openMenu]);
 
   const toggleMenu = (menu: "templates" | "language", trigger: HTMLButtonElement) => {
     menuTrigger.current = trigger;
@@ -185,7 +201,7 @@ export const Topbar: React.FC<TopbarProps> = ({
               <span className="hidden lg:inline">{t("Templates")}</span>
             </button>
             {openMenu === "templates" && (
-              <div className="absolute right-0 top-full z-40 mt-1.5 w-56 rounded-lg border border-line bg-surface p-1 shadow-elev-2">
+              <div ref={menuPopup} className="absolute right-0 top-full z-40 mt-1.5 w-56 rounded-lg border border-line bg-surface p-1 shadow-elev-2">
                 {SAMPLE_PROJECTS.map((sample) => (
                   <button
                     key={sample.id}
@@ -221,7 +237,7 @@ export const Topbar: React.FC<TopbarProps> = ({
               <ChevronDown className="h-3 w-3 text-faint" aria-hidden />
             </button>
             {openMenu === "language" && (
-              <div className="absolute right-0 top-full z-40 mt-1.5 w-44 rounded-lg border border-line bg-surface p-1 shadow-elev-2">
+              <div ref={menuPopup} className="absolute right-0 top-full z-40 mt-1.5 w-44 rounded-lg border border-line bg-surface p-1 shadow-elev-2">
                 {(["en", "id"] as const).map((code) => (
                   <button
                     key={code}
