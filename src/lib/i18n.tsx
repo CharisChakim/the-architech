@@ -490,6 +490,7 @@ const ID: Record<string, string> = {
   "Send to Agent": "Send to Agent",
   "Try again": "Coba lagi",
   "Turn complete": "Giliran selesai",
+  "Turn failed": "Giliran gagal",
   "Split": "Split",
   "Seven specification points and a flow diagram": "Tujuh poin spesifikasi dan diagram alur",
   "Seven standard points — Overview, Requirements, Core Features, User Flow, Architecture, Database Schema, Tech Stack — plus extra points when the analysis calls for them. Review and edit before it is broken into tasks.": "Tujuh poin baku — Overview, Requirements, Core Features, User Flow, Architecture, Database Schema, Tech Stack — dan poin tambahan bila analisis menuntutnya. Bisa Anda tinjau dan ubah sebelum dipecah jadi task.",

@@ -464,6 +464,7 @@ export function useAgentRun({ sessionId, workspaceRoot, allowShell, onToolApplie
                   id: event.id || nextEntryId(sequence),
                   toolCount: turnToolCount,
                   ms: Math.max(0, Date.now() - turnStartedAt),
+                  ...(event.runStatus === "failed" ? { failed: true } : {}),
                 },
               ];
             });

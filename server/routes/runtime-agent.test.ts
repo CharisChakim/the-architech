@@ -269,6 +269,39 @@ test("a tool's in-progress updates show one tool, not one per update", async () 
   });
 });
 
+test("a run the provider ends as failed tells the user why, once", async () => {
+  const provider = new ProviderFixture(async function* () {
+    yield { type: "text", text: "partial", threadId: "thread_fixture", turnId: "turn_fixture", itemId: null };
+    // An expired login or spent quota arrives only on the provider's result.
+    yield { ...done, status: "failed", error: { code: "usageLimitExceeded", message: "You've hit your usage limit." } } as RuntimeEvent;
+  });
+  const { sessionId, taskId } = project();
+
+  await withServer(provider, async (url) => {
+    const events = await chat(url, { sessionId, taskId, idempotencyKey: "provider-failed" });
+
+    const errors = events.filter((event) => event.type === "error");
+    assert.equal(errors.length, 1);
+    assert.equal(errors[0]?.message, "You've hit your usage limit.");
+    assert.equal(events.at(-1)?.type, "done");
+    assert.equal(events.at(-1)?.runStatus, "failed");
+  });
+});
+
+test("a fatal runtime error is not reported a second time when the run ends", async () => {
+  const provider = new ProviderFixture(async function* () {
+    yield { type: "error", error: { code: "PROCESS_EXITED", message: "Codex app-server process exited." }, threadId: "thread_fixture", turnId: "turn_fixture", fatal: true };
+  });
+  const { sessionId, taskId } = project();
+
+  await withServer(provider, async (url) => {
+    const events = await chat(url, { sessionId, taskId, idempotencyKey: "fatal-once" });
+
+    assert.equal(events.filter((event) => event.type === "error").length, 1);
+    assert.equal(events.at(-1)?.runStatus, "failed");
+  });
+});
+
 test("runtime progress is neither shown as a tool nor recorded as evidence", async () => {
   // What the runner hands over for Claude's system and rate-limit messages
   // and for Antigravity's step updates.

@@ -566,6 +566,8 @@ async function chat(req: Request, res: Response, options: RuntimeAgentRouterOpti
   // an active step; the chat shows the tool once and then its result.
   const startedToolItems = new Set<string>();
   let providerDoneError: { code: string; message: string } | null = null;
+  // Whether the user has already been shown why the run failed.
+  let failureShown = false;
   let finalStatus: "completed" | "failed" | "interrupted" = "failed";
   let finalError: string | null = null;
   try {
@@ -612,6 +614,7 @@ async function chat(req: Request, res: Response, options: RuntimeAgentRouterOpti
       if (runtimeEvent.type === "tool") recordToolEvidence(run, runtimeEvent);
       for (const event of normalizeRuntimeEvent(runtimeEvent)) send(event);
       if (runtimeEvent.type === "error" && runtimeEvent.fatal) {
+        failureShown = true;
         finalStatus = "failed";
         finalError = `${runtimeEvent.error.code}: ${runtimeEvent.error.message}`;
         break;
@@ -632,6 +635,7 @@ async function chat(req: Request, res: Response, options: RuntimeAgentRouterOpti
     finalStatus = ac.signal.aborted ? "interrupted" : "failed";
     finalError = `${info.code}: ${info.message}`;
     send({ type: "error", code: info.code, message: info.message, retryable: false });
+    failureShown = true;
   } finally {
     if (ac.signal.aborted && executor?.interrupt) await executor.interrupt().catch(() => undefined);
     ac.signal.removeEventListener("abort", interruptExecutor);
@@ -652,6 +656,16 @@ async function chat(req: Request, res: Response, options: RuntimeAgentRouterOpti
       result: { status, ...(externalSessionId ? { externalSessionId } : {}), ...(assistantText ? { response: assistantText } : {}) },
       ...(externalSessionId ? { externalSessionId } : {}),
     });
+    // A provider can end a turn as failed without a separate error event: an
+    // expired login or a spent quota arrives only on its result. The chat
+    // shows error events, not the reason carried on done.
+    if (status === "failed" && !failureShown) {
+      const reason = providerDoneError
+        ?? (approvalRejected
+          ? { code: "RUNTIME_APPROVAL_REJECTED", message: "A requested tool action was rejected, so the run did not finish." }
+          : { code: "RUNTIME_RUN_FAILED", message: "The runtime ended the run without saying why." });
+      send({ type: "error", code: reason.code, message: reason.message, retryable: true });
+    }
     send({
       type: "done",
       runStatus: status,

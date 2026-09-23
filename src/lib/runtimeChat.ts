@@ -162,7 +162,10 @@ export function normalizeRuntimeChatEvent(value: unknown): RuntimeChatEvent | nu
         retryable: false,
       };
     }
-    return { type: "done" };
+    // The chat route ends every run with done and says how it ended; the
+    // reason for a failure has already arrived as its own error event.
+    const runStatus = text(event.runStatus);
+    return runStatus ? { type: "done", runStatus } : { type: "done" };
   }
   return { ...event, type: kind };
 }

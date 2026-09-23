@@ -34,7 +34,7 @@ export type Entry =
       answered: boolean;
     }
   | { kind: "mcp_status"; id: string; server: string; state: string; tools: number; message: string }
-  | { kind: "turn_end"; id: string; toolCount: number; ms: number }
+  | { kind: "turn_end"; id: string; toolCount: number; ms: number; failed?: boolean }
   | { kind: "error"; id: string; message: string; retryable: boolean };
 
 export type AgentEvent = {
