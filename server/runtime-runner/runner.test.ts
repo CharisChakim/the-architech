@@ -198,3 +198,47 @@ test("runtime runner maps AGY soft permission denial to a failed completion", as
   assert.equal((fixture?.options).model, undefined);
   assert.equal((fixture?.options).effort, undefined);
 });
+
+test("runtime runner passes a chosen Claude model and effort to the SDK", async () => {
+  let query: ClaudeQueryFixture | null = null;
+  const sdk: ClaudeSdkModule = {
+    query: ({ options }) => {
+      query = new ClaudeQueryFixture(options as ClaudeSdkQueryOptions);
+      return query;
+    },
+  };
+  const result = await createRuntimeRunnerAsync({
+    runtime: "claude",
+    prompt: "hello Claude",
+    model: "claude-fixture",
+    effort: "high",
+    detection: detectionFor("claude"),
+    signal: new AbortController().signal,
+    dependencies: { createCodexExecutor: () => new FixtureExecutor(), loadClaudeSdk: () => sdk },
+  });
+  for await (const _event of result.events) { /* drain */ }
+  assert.equal(query?.options.model, "claude-fixture");
+  assert.equal(query?.options.effort, "high");
+});
+
+test("runtime runner passes a chosen Antigravity model and effort to the CLI", async () => {
+  let fixture: AntigravityFixture | null = null;
+  const result = createRuntimeRunner({
+    runtime: "antigravity",
+    prompt: "run fixture",
+    model: "gemini-fixture",
+    effort: "low",
+    detection: detectionFor("antigravity"),
+    signal: new AbortController().signal,
+    dependencies: {
+      createCodexExecutor: () => new FixtureExecutor(),
+      createAntigravityExecution: (options) => {
+        fixture = new AntigravityFixture(options as Record<string, unknown>);
+        return fixture;
+      },
+    },
+  });
+  for await (const _event of result.events) { /* drain */ }
+  assert.equal((fixture?.options).model, "gemini-fixture");
+  assert.equal((fixture?.options).effort, "low");
+});

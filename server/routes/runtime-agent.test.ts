@@ -93,11 +93,12 @@ class ProviderFixture {
 async function withServer(
   provider: ProviderFixture,
   body: (url: string) => Promise<void>,
+  discovered: RuntimeDetection = detection,
 ): Promise<void> {
   const app = express();
   app.use(express.json());
   app.use(createRuntimeAgentRouter({
-    discover: async () => detection,
+    discover: async () => discovered,
     runnerDependencies: {
       createCodexExecutor: (options) => {
         provider.approvalHandler = options.approvalHandler;
@@ -257,6 +258,58 @@ test("a runtime session that is new to a chat is told what was said before it", 
     assert.match(third!, /User: Add a users table\.\n\nAssistant: answer 2/);
     assert.doesNotMatch(third!, /Use Postgres/);
   });
+});
+
+test("a chosen model and effort reach the provider and are recorded on the run", async () => {
+  const provider = new ProviderFixture(async function* () { yield done; });
+  const catalogued: RuntimeDetection = {
+    ...detection,
+    catalog: {
+      connectionId: "runtime:codex",
+      runtime: "codex",
+      source: "codex-app-server:model/list",
+      discoveredAt: new Date(0).toISOString(),
+      expiresAt: new Date(0).toISOString(),
+      error: null,
+      models: [{
+        connectionId: "runtime:codex",
+        modelId: "gpt-fixture",
+        label: "GPT Fixture",
+        source: "codex-app-server:model/list",
+        discoveredAt: new Date(0).toISOString(),
+        runtimeVersion: "fixture",
+        authScope: null,
+        availability: "listed",
+        effortOptions: [{ value: "high", label: "High" }],
+        defaultModel: null,
+        defaultEffort: null,
+        defaultSource: "unknown",
+        capabilities: detection.capabilities,
+      }],
+    },
+  };
+  const { sessionId, taskId } = project();
+
+  await withServer(provider, async (url) => {
+    await chat(url, { sessionId, taskId, model: "gpt-fixture", effort: "high", idempotencyKey: "override" });
+    const refused = await fetch(`${url}/api/runtime-agent/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ runtime: "codex", message: "x", sessionId, taskId, model: "not-listed", idempotencyKey: "unlisted" }),
+    });
+    const refusedEvents = (await refused.text()).split("\n\n").filter((chunk) => chunk.startsWith("data: ")).map((chunk) => JSON.parse(chunk.slice(6)));
+
+    assert.equal(provider.turns.length, 1);
+    assert.equal(provider.turns[0]?.model, "gpt-fixture");
+    assert.equal(provider.turns[0]?.effort, "high");
+    const run = listRuns({ taskId }).find((item) => item.snapshot.requestedModel === "gpt-fixture");
+    assert.deepEqual(
+      [run?.snapshot.effectiveModel, run?.snapshot.modelSource, run?.snapshot.effectiveEffort, run?.snapshot.effortSource],
+      ["gpt-fixture", "user-override", "high", "user-override"],
+    );
+    // A model the runtime did not list never reaches it.
+    assert.equal(refusedEvents.find((event) => event.type === "error")?.code, "MODEL_UNAVAILABLE");
+  }, catalogued);
 });
 
 test("a second run on a workspace that is still being written fails without reaching the provider", async () => {
