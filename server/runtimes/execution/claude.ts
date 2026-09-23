@@ -149,6 +149,8 @@ export interface ClaudeAssistantEvent {
   text?: string;
   content?: ClaudeAssistantContent[];
   parentToolUseId?: string | null;
+  /** The SDK's reason when this message reports a failed API call. */
+  error?: string;
 }
 
 export interface ClaudeToolEvent {
@@ -180,6 +182,8 @@ export interface ClaudeResultEvent {
   sessionId: string | null;
   result?: unknown;
   isError: boolean;
+  /** HTTP status of the API call that failed, when the SDK reports one. */
+  apiErrorStatus?: number;
   usage?: unknown;
   errors?: unknown;
 }
@@ -369,6 +373,68 @@ function isInputTool(name: string): boolean {
  * SDK adds message types over time and they must not terminate a run.
  * Malformed objects become a stable error event instead.
  */
+const PROVIDER_TEXT_LIMIT = 500;
+
+function providerText(value: unknown): string | null {
+  const text = nonEmptyString(Array.isArray(value) ? value.find((item) => nonEmptyString(item)) : value);
+  if (!text) return null;
+  return text.length > PROVIDER_TEXT_LIMIT ? `${text.slice(0, PROVIDER_TEXT_LIMIT)}…` : text;
+}
+
+/**
+ * Why a Claude turn failed, worded so the user knows what to do next. The
+ * SDK says so on the failed assistant message (`error`), on the result
+ * (`api_error_status`, an `error_*` subtype, `errors`), or only in text.
+ */
+export function describeClaudeFailure(failure: {
+  assistantError?: string | null;
+  apiErrorStatus?: number | null;
+  subtype?: string | null;
+  errors?: unknown;
+  resultText?: unknown;
+}): { code: string; message: string } {
+  const reason = failure.assistantError ?? null;
+  const status = failure.apiErrorStatus ?? null;
+  const detail = providerText(failure.errors) ?? providerText(failure.resultText);
+  if (reason === "authentication_failed" || reason === "verification_required" || status === 401) {
+    return { code: "CLAUDE_AUTH_REQUIRED", message: "Claude Code is not signed in, or its login expired. Run `claude` in a terminal, sign in with /login, then try again." };
+  }
+  if (reason === "oauth_org_not_allowed" || status === 403) {
+    return { code: "CLAUDE_ACCESS_DENIED", message: "This Claude account is not allowed to use Claude Code. Sign in with another account (`claude`, then /login), then try again." };
+  }
+  if (reason === "account_on_hold") {
+    return { code: "CLAUDE_ACCOUNT_ON_HOLD", message: "The Claude account is on hold. Check the account at claude.ai, then try again." };
+  }
+  if (reason === "billing_error" || status === 402) {
+    return { code: "CLAUDE_BILLING", message: "Claude could not run because of a billing problem on the account. Check its plan or credits, then try again." };
+  }
+  if (reason === "rate_limit" || status === 429) {
+    return { code: "CLAUDE_RATE_LIMITED", message: "Claude's usage limit was reached. Wait for it to reset, or choose another model, then try again." };
+  }
+  if (reason === "overloaded" || reason === "server_error" || status === 529 || (status !== null && status >= 500)) {
+    return { code: "CLAUDE_UNAVAILABLE", message: "Claude is overloaded or failing right now. Try again in a moment." };
+  }
+  if (reason === "model_not_found" || status === 404) {
+    return { code: "CLAUDE_MODEL_UNAVAILABLE", message: "The selected model is not available to this Claude account. Choose another model, then try again." };
+  }
+  if (reason === "cloud_credential_error") {
+    return { code: "CLAUDE_CLOUD_CREDENTIALS", message: "Claude could not use its configured cloud credentials (Bedrock or Vertex). Check them, then try again." };
+  }
+  if (reason === "max_output_tokens") {
+    return { code: "CLAUDE_OUTPUT_LIMIT", message: "Claude's reply hit the output length limit before it finished." };
+  }
+  if (failure.subtype === "error_max_turns") {
+    return { code: "CLAUDE_MAX_TURNS", message: "Claude stopped after reaching its turn limit before finishing the task." };
+  }
+  if (failure.subtype === "error_max_budget_usd") {
+    return { code: "CLAUDE_MAX_BUDGET", message: "Claude stopped after reaching its spending limit for this run." };
+  }
+  return {
+    code: "CLAUDE_RESULT_ERROR",
+    message: detail ?? "Claude Agent SDK returned an unsuccessful result.",
+  };
+}
+
 export function normalizeClaudeSdkMessage(value: unknown): ClaudeExecutionEvent[] {
   const item = record(value);
   if (!item) return [errorEvent("MALFORMED_EVENT", "stream", value, "Claude SDK emitted a malformed event.")];
@@ -388,6 +454,7 @@ export function normalizeClaudeSdkMessage(value: unknown): ClaudeExecutionEvent[
       ...(nonEmptyString(item.parent_tool_use_id ?? item.parentToolUseId)
         ? { parentToolUseId: nonEmptyString(item.parent_tool_use_id ?? item.parentToolUseId) }
         : {}),
+      ...(nonEmptyString(item.error) ? { error: nonEmptyString(item.error)! } : {}),
     }];
     for (const block of content) {
       if (block.type !== "tool_use") continue;
@@ -433,13 +500,17 @@ export function normalizeClaudeSdkMessage(value: unknown): ClaudeExecutionEvent[
 
   if (type === "result") {
     const status = subtype(item) === "success" ? "success" : (item.is_error || item.isError ? "error" : "partial");
+    const apiErrorStatus = typeof item.api_error_status === "number" ? item.api_error_status : undefined;
     return [{
       type: "result",
       subtype: subtype(item),
       status,
       sessionId: sessionId(item),
       ...(item.result !== undefined ? { result: item.result } : {}),
-      isError: status === "error",
+      // A failed API call, such as an expired login, still arrives with
+      // subtype "success"; is_error is what says it failed.
+      isError: status === "error" || item.is_error === true || item.isError === true,
+      ...(apiErrorStatus !== undefined ? { apiErrorStatus } : {}),
       ...(item.usage !== undefined ? { usage: item.usage } : {}),
       ...(item.errors !== undefined ? { errors: item.errors } : {}),
     }];

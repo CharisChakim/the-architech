@@ -5,6 +5,7 @@ import {
 } from "../runtimes/execution/codex.ts";
 import {
   ClaudeExecutionAdapter,
+  describeClaudeFailure,
   type ClaudeExecutionEvent,
   type ClaudeExecutionRun,
   type ClaudeSdkQuery,
@@ -208,8 +209,15 @@ async function* mapClaudeEvents(run: ClaudeExecutionRun, signal: AbortSignal): A
   let sawResult = false;
   let sawFatal = false;
   const startedTools = new Map<string, { name: string; input: unknown }>();
+  let assistantError: string | null = null;
   for await (const event of run) {
     if (event.type === "assistant") {
+      // A failed API call arrives as an assistant message whose text is the
+      // SDK's own error ("Invalid API key · Please run /login"), not a reply.
+      if (event.error) {
+        assistantError = event.error;
+        if (!event.delta) continue;
+      }
       const text = event.delta ?? (sawPartialText ? "" : event.text ?? "");
       if (event.delta) sawPartialText = true;
       if (text) {
@@ -273,7 +281,8 @@ async function* mapClaudeEvents(run: ClaudeExecutionRun, signal: AbortSignal): A
       // A turn has one outcome; a repeated result would report it twice.
       if (sawResult) continue;
       sawResult = true;
-      if (!sawText && typeof event.result === "string" && event.result) {
+      const failed = event.status !== "success" || event.isError;
+      if (!failed && !sawText && typeof event.result === "string" && event.result) {
         sawText = true;
         yield {
           type: "text",
@@ -283,14 +292,19 @@ async function* mapClaudeEvents(run: ClaudeExecutionRun, signal: AbortSignal): A
           itemId: null,
         };
       }
-      const failed = event.status !== "success" || event.isError;
       yield {
         type: "done",
         status: failed ? "failed" : "completed",
         threadId: sessionThreadId(event.sessionId ?? run.sessionId),
         turnId: sessionTurnId(event.sessionId ?? run.sessionId),
         error: failed
-          ? { code: "CLAUDE_RESULT_ERROR", message: "Claude Agent SDK returned an unsuccessful result." }
+          ? describeClaudeFailure({
+            assistantError,
+            apiErrorStatus: event.apiErrorStatus,
+            subtype: event.subtype,
+            errors: event.errors,
+            resultText: event.result,
+          })
           : null,
       };
       continue;

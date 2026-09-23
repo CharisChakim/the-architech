@@ -195,6 +195,51 @@ test("claude: a failed tool result is reported as failed", async () => {
   assert.equal(result?.type === "tool" && result.status, "failed");
 });
 
+const claudeDone = (events: RuntimeEvent[]) => events.find((event) => event.type === "done") as Extract<RuntimeEvent, { type: "done" }> | undefined;
+
+test("claude: an expired login fails the run and says how to sign in again", async () => {
+  const sdkText = "Invalid API key · Please run /login";
+  const events = await claudeTurn(async function* () {
+    // What the SDK sends for a failed API call: an assistant message carrying
+    // the error, then a result that is subtype "success" but is_error.
+    yield { type: "assistant", session_id: SESSION, error: "authentication_failed", message: { id: "msg_1", content: [{ type: "text", text: sdkText }] } };
+    yield { type: "result", subtype: "success", is_error: true, api_error_status: 401, session_id: SESSION, result: sdkText };
+  });
+
+  assert.equal(claudeDone(events)?.status, "failed");
+  assert.equal(claudeDone(events)?.error?.code, "CLAUDE_AUTH_REQUIRED");
+  assert.match(claudeDone(events)?.error?.message ?? "", /\/login/);
+  // The SDK's error text is not shown as if Claude had replied with it.
+  assert.equal(events.some((event) => event.type === "text"), false);
+});
+
+test("claude: a result that is_error is never a completed run", async () => {
+  const events = await claudeTurn(async function* () {
+    yield { type: "result", subtype: "success", is_error: true, api_error_status: 429, session_id: SESSION, result: "Rate limited" };
+  });
+
+  assert.equal(claudeDone(events)?.status, "failed");
+  assert.equal(claudeDone(events)?.error?.code, "CLAUDE_RATE_LIMITED");
+});
+
+test("claude: a run stopped by its turn limit says so", async () => {
+  const events = await claudeTurn(async function* () {
+    yield delta("working");
+    yield { type: "result", subtype: "error_max_turns", is_error: true, errors: [], session_id: SESSION };
+  });
+
+  assert.equal(claudeDone(events)?.error?.code, "CLAUDE_MAX_TURNS");
+});
+
+test("claude: an unrecognised failure passes on the SDK's own reason", async () => {
+  const events = await claudeTurn(async function* () {
+    yield { type: "result", subtype: "error_during_execution", is_error: true, errors: ["Hook failed: pre-commit exited 1"], session_id: SESSION };
+  });
+
+  assert.equal(claudeDone(events)?.error?.code, "CLAUDE_RESULT_ERROR");
+  assert.equal(claudeDone(events)?.error?.message, "Hook failed: pre-commit exited 1");
+});
+
 // --- Antigravity ---------------------------------------------------------------
 
 class AgyChild {
