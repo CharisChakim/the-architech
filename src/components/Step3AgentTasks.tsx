@@ -88,6 +88,39 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
   const currentVersion = currentPrdVersion(session.prdVersions);
   const tasksNeedingSync = tasks.filter((task) => taskNeedsPrdSync(task, currentVersion)).length;
 
+  // The details panel opens beside the board, not over it, so keyboard users
+  // are taken to it and brought back to the card they came from.
+  const detailPanel = useRef<HTMLElement>(null);
+  const detailCloseButton = useRef<HTMLButtonElement>(null);
+  const detailOpener = useRef<HTMLElement | null>(null);
+  const selectedTaskId = selectedTask?.id ?? null;
+  useEffect(() => {
+    if (!selectedTaskId) {
+      // Only an actual close returns focus. Switching to another card while
+      // the panel is open keeps the newer card as the one to go back to.
+      const opener = detailOpener.current;
+      detailOpener.current = null;
+      if (opener?.isConnected) opener.focus();
+      return;
+    }
+    // A mouse click on the card body leaves focus on <body>: nothing to return to.
+    const active = document.activeElement;
+    if (!(active instanceof HTMLElement && detailPanel.current?.contains(active))) {
+      detailOpener.current = active instanceof HTMLElement && active !== document.body ? active : null;
+    }
+    const frame = window.requestAnimationFrame(() => detailCloseButton.current?.focus());
+    // Only from inside the panel: a dialog or menu opened over the board owns
+    // its own Escape, and one press should not close both.
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && detailPanel.current?.contains(event.target as Node)) setSelectedTask(null);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [selectedTaskId]);
+
   useEffect(() => {
     if (!selectedTask) return;
     const current = tasks.find((task) => task.id === selectedTask.id);
@@ -542,7 +575,15 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
                             column.status === "done" ? "text-muted line-through" : "text-ink"
                           }`}
                         >
-                          {task.title}
+                          {/* The card itself only takes a mouse click; this is the
+                              keyboard way in to the task's details. */}
+                          <button
+                            type="button"
+                            onClick={() => setSelectedTask(task)}
+                            className="rounded-sm text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                          >
+                            {task.title}
+                          </button>
                         </h5>
 
                         <div className="pt-2 border-t border-line flex flex-wrap items-center justify-between gap-2 text-xs">
@@ -754,7 +795,7 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
 
       {/* Panel tetap berada di dalam pipeline agar papan dan transcript tidak tertutup modal penuh. */}
       {selectedTask && (
-        <aside className="absolute inset-y-0 right-0 z-30 flex w-[min(100%,32rem)] flex-col border-l border-line bg-surface shadow-elev-3 animate-in slide-in-from-right duration-200" aria-label={t("Task details")}>
+        <aside ref={detailPanel} className="absolute inset-y-0 right-0 z-30 flex w-[min(100%,32rem)] flex-col border-l border-line bg-surface shadow-elev-3 animate-in slide-in-from-right duration-200" aria-label={t("Task details")}>
           <div className="sticky top-0 flex items-start justify-between gap-4 border-b border-line bg-surface px-6 py-4">
             <div className="min-w-0">
               <div className="flex items-center gap-2 mb-1">
@@ -777,6 +818,7 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
               </button>
               <button
                 type="button"
+                ref={detailCloseButton}
                 onClick={() => setSelectedTask(null)}
                 className="rounded-lg p-1.5 text-faint transition-colors hover:bg-subtle hover:text-ink"
                 aria-label={t("Close")}
