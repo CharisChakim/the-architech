@@ -115,9 +115,8 @@ async function withServer(
 }
 
 let counter = 0;
-function project(): { sessionId: string; taskId: string; workspaceRoot: string } {
+function project(workspaceRoot = fs.mkdtempSync(path.join(dataDir, "workspace-"))): { sessionId: string; taskId: string; workspaceRoot: string } {
   counter += 1;
-  const workspaceRoot = fs.mkdtempSync(path.join(dataDir, "workspace-"));
   const sessionId = `session-${counter}`;
   const taskId = `task-${counter}`;
   saveSession({ id: sessionId, title: sessionId, workspaceRoot, tasks: [{ id: taskId, title: "Fixture task" }] });
@@ -154,19 +153,42 @@ test("a repeated request with the same idempotency key does not start a second p
 
     // The duplicate arrives while the first turn is still streaming, which is
     // what a double-click or a client that re-sends after a reconnect does.
-    const whileRunning = await chat(url, request);
+    const whileRunning = chat(url, request);
+    await new Promise((resolve) => setTimeout(resolve, 100));
     provider.finish();
-    const original = await first;
+    const [original, followed] = await Promise.all([first, whileRunning]);
     const afterFinish = await chat(url, request);
 
     assert.equal(provider.turns.length, 1);
     assert.equal(listRuns({ taskId }).length, 1);
-    assert.equal(original.at(-1)?.type, "done");
-    assert.equal(original.at(-1)?.runStatus, "completed");
-    assert.equal(whileRunning.some((event) => event.type === "done"), false);
-    assert.equal(afterFinish.at(-1)?.type, "done");
-    assert.equal(afterFinish.at(-1)?.runStatus, "completed");
-    assert.equal(new Set([...whileRunning, ...original, ...afterFinish].map((event) => event.runId)).size, 1);
+    for (const events of [original, followed, afterFinish]) {
+      assert.equal(events.filter((event) => event.type === "done").length, 1);
+      assert.equal(events.at(-1)?.type, "done");
+      assert.equal(events.at(-1)?.runStatus, "completed");
+      assert.equal(events.filter((event) => event.type === "text").length, 1);
+    }
+    assert.equal(new Set([...original, ...followed, ...afterFinish].map((event) => event.runId)).size, 1);
+  });
+});
+
+test("replaying a finished run returns every stored event, not the first page", async () => {
+  const provider = new ProviderFixture(async function* () {
+    for (let index = 0; index < 150; index += 1) {
+      yield { type: "text", text: `${index} `, threadId: "thread_fixture", turnId: "turn_fixture", itemId: null };
+    }
+    yield done;
+  });
+  const { sessionId, taskId } = project();
+
+  await withServer(provider, async (url) => {
+    const request = { sessionId, taskId, idempotencyKey: "long-run" };
+    const original = await chat(url, request);
+    const replayed = await chat(url, request);
+
+    assert.equal(provider.turns.length, 1);
+    assert.equal(original.filter((event) => event.type === "text").length, 150);
+    assert.equal(replayed.filter((event) => event.type === "text").length, 150);
+    assert.equal(replayed.filter((event) => event.type === "done").length, 1);
   });
 });
 
@@ -175,19 +197,45 @@ test("a second run on a workspace that is still being written fails without reac
     await fixture.waitUntilReleased();
     yield done;
   });
-  const { sessionId, taskId } = project();
+  // Two projects on one folder: separate conversations, shared workspace.
+  const one = project();
+  const other = project(one.workspaceRoot);
 
   await withServer(provider, async (url) => {
-    const first = chat(url, { sessionId, taskId, idempotencyKey: "writer-1" });
+    const first = chat(url, { sessionId: one.sessionId, taskId: one.taskId, idempotencyKey: "writer-1" });
     await provider.firstTurnStarted;
 
-    const second = await chat(url, { sessionId, taskId, idempotencyKey: "writer-2" });
+    const second = await chat(url, { sessionId: other.sessionId, taskId: other.taskId, idempotencyKey: "writer-2" });
     provider.finish();
     await first;
 
     assert.equal(provider.turns.length, 1);
     assert.equal(second.at(-1)?.runStatus, "failed");
-    const statuses = listRuns({ taskId }).map((run) => run.status).sort();
+    assert.match(String(second.find((event) => event.type === "error")?.message), /Workspace is already being written/);
+    assert.equal(listRuns({ taskId: one.taskId })[0].status, "completed");
+  });
+});
+
+test("a second run in a conversation without a workspace fails without reaching the provider", async () => {
+  const provider = new ProviderFixture(async function* (fixture) {
+    await fixture.waitUntilReleased();
+    yield done;
+  });
+  const conversationId = "conversation-two-tabs";
+
+  await withServer(provider, async (url) => {
+    // Two tabs open on the same chat each send their own message.
+    const first = chat(url, { conversationId, idempotencyKey: "tab-1" });
+    await provider.firstTurnStarted;
+
+    const second = await chat(url, { conversationId, idempotencyKey: "tab-2" });
+    provider.finish();
+    await first;
+
+    assert.equal(provider.turns.length, 1);
+    assert.equal(second.at(-1)?.runStatus, "failed");
+    assert.match(String(second.find((event) => event.type === "error")?.message), /already has a run in progress/);
+    const statuses = listRuns({ conversationId }).map((run) => run.status).sort();
     assert.deepEqual(statuses, ["completed", "failed"]);
   });
 });

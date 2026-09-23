@@ -188,6 +188,14 @@ const activeWorkspaceStmt = db.prepare(`
    ORDER BY updated_at ASC, id ASC
    LIMIT 1
 `);
+const activeConversationStmt = db.prepare(`
+  SELECT id FROM runs
+   WHERE conversation_id = ?
+     AND status IN ('running', 'waiting_for_input', 'waiting_for_approval')
+     AND id <> ?
+   ORDER BY updated_at ASC, id ASC
+   LIMIT 1
+`);
 const maxEventSequenceStmt = db.prepare(
   `SELECT COALESCE(MAX(sequence), 0) AS sequence FROM run_events WHERE run_id = ?`
 );
@@ -336,8 +344,8 @@ export interface CreatedRun {
 export class RunConflictError extends Error {
   readonly statusCode = 409;
 
-  constructor(readonly activeRunId: string, workspace: string) {
-    super(`Workspace is already being written by run ${activeRunId}: ${workspace}`);
+  constructor(readonly activeRunId: string, message: string) {
+    super(message);
     this.name = "RunConflictError";
   }
 }
@@ -664,7 +672,13 @@ export function updateRunStatus(runId: string, input: RunStatusUpdateInput): Run
   const workspace = current.workspace;
   if (to === "running" && workspace) {
     const active = activeWorkspaceStmt.get(workspace, current.id) as { id?: string } | undefined;
-    if (active?.id) throw new RunConflictError(active.id, workspace);
+    if (active?.id) throw new RunConflictError(active.id, `Workspace is already being written by run ${active.id}: ${workspace}`);
+  }
+  // Two tabs on one conversation would otherwise run two turns against the
+  // same transcript, with or without a workspace.
+  if (to === "running" && current.conversation_id) {
+    const active = activeConversationStmt.get(current.conversation_id, current.id) as { id?: string } | undefined;
+    if (active?.id) throw new RunConflictError(active.id, `This conversation already has a run in progress: ${active.id}`);
   }
 
   const now = new Date().toISOString();

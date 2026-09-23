@@ -252,14 +252,9 @@ function normalizeRuntimeEvent(event: RuntimeEvent): NormalizedUiEvent[] {
       message: approval.reason ?? "Approval was declined because interactive approval is unavailable.",
     }];
   }
-  if (event.type === "done") {
-    return [{
-      type: "done",
-      stop: event.status === "completed" ? "other" : "stop",
-      runStatus: event.status,
-      ...(event.error ? { message: event.error.message, code: event.error.code } : {}),
-    }];
-  }
+  // The chat handler sends the one done event, with the status the run
+  // actually ends in; forwarding the provider's as well sent two.
+  if (event.type === "done") return [];
   return [{
     type: "error",
     message: event.error.message,
@@ -351,22 +346,48 @@ function appendTranscript(conversationId: string, userMessage: string, assistant
   if (assistantText) appendMessage(conversationId, { role: "assistant", content: [{ type: "text", text: assistantText }] });
 }
 
-function terminalRun(run: Run, _body: RuntimeAgentBody, res: Response, ac: AbortController): void {
+const FOLLOW_POLL_MS = 250;
+
+function isTerminalStatus(status: Run["status"]): boolean {
+  return status === "completed" || status === "failed" || status === "cancelled" || status === "interrupted";
+}
+
+/**
+ * A repeated idempotency request streams the run the first request started
+ * instead of starting a second provider turn. Events are read back from the
+ * store, so this follows a run that is still in progress until it ends.
+ */
+async function followRun(run: Run, res: Response, ac: AbortController): Promise<void> {
   const send = (event: NormalizedUiEvent): boolean => writeEvent(res, eventIds(run.id, run.conversationId ?? "", event));
   send({ type: "run", status: run.status });
   send({ type: "conversation" });
-  for (const stored of listRunEvents(run.id)) {
-    if (isRecord(stored.payload) && typeof stored.payload.type === "string") {
-      send(stored.payload as NormalizedUiEvent);
+  let afterSequence = 0;
+  let sawDone = false;
+  let status = run.status;
+  while (!ac.signal.aborted) {
+    // The owning request writes its terminal status and its done event in
+    // the same synchronous step, so events read after a terminal status
+    // include everything that run will ever persist.
+    status = getRun(run.id)?.status ?? status;
+    let page = listRunEvents(run.id, { afterSequence, limit: 500 });
+    while (page.length > 0) {
+      for (const stored of page) {
+        afterSequence = stored.sequence;
+        if (isRecord(stored.payload) && typeof stored.payload.type === "string") {
+          if (stored.payload.type === "done") sawDone = true;
+          send(stored.payload as NormalizedUiEvent);
+        }
+      }
+      page = listRunEvents(run.id, { afterSequence, limit: 500 });
     }
+    if (isTerminalStatus(status)) break;
+    await new Promise((resolve) => setTimeout(resolve, FOLLOW_POLL_MS));
   }
-  // A duplicate idempotency request gets the already-persisted state and does
-  // not create a second provider turn.
-  if (run.status === "completed" || run.status === "failed" || run.status === "cancelled" || run.status === "interrupted") {
-    send({ type: "done", runStatus: run.status, stop: run.status === "completed" ? "other" : "stop" });
+  // A run ended by restart reconciliation never persisted its own done event.
+  if (!ac.signal.aborted && isTerminalStatus(status) && !sawDone) {
+    send({ type: "done", runStatus: status, stop: status === "completed" ? "other" : "stop" });
   }
   if (!res.writableEnded) res.end();
-  ac.abort();
 }
 
 async function chat(req: Request, res: Response, options: RuntimeAgentRouterOptions): Promise<void> {
@@ -495,7 +516,7 @@ async function chat(req: Request, res: Response, options: RuntimeAgentRouterOpti
   res.on("close", onDisconnect);
 
   if (!created) {
-    terminalRun(createdRun, body, res, ac);
+    await followRun(createdRun, res, ac);
     res.off("close", onDisconnect);
     return;
   }
@@ -533,6 +554,7 @@ async function chat(req: Request, res: Response, options: RuntimeAgentRouterOpti
   // A provider stream that reconnects can deliver a finished item again; the
   // item already has its evidence and its tool_done event.
   const finishedToolItems = new Set<string>();
+  let providerDoneError: { code: string; message: string } | null = null;
   let finalStatus: "completed" | "failed" | "interrupted" = "failed";
   let finalError: string | null = null;
   try {
@@ -581,6 +603,7 @@ async function chat(req: Request, res: Response, options: RuntimeAgentRouterOpti
         break;
       }
       if (runtimeEvent.type === "done") {
+        providerDoneError = runtimeEvent.error;
         finalStatus = runtimeEvent.status;
         finalError = runtimeEvent.error ? `${runtimeEvent.error.code}: ${runtimeEvent.error.message}` : null;
       }
@@ -615,7 +638,12 @@ async function chat(req: Request, res: Response, options: RuntimeAgentRouterOpti
       result: { status, ...(externalSessionId ? { externalSessionId } : {}), ...(assistantText ? { response: assistantText } : {}) },
       ...(externalSessionId ? { externalSessionId } : {}),
     });
-    send({ type: "done", runStatus: status, stop: status === "completed" ? "other" : "stop" });
+    send({
+      type: "done",
+      runStatus: status,
+      stop: status === "completed" ? "other" : "stop",
+      ...(providerDoneError ? { message: providerDoneError.message, code: providerDoneError.code } : {}),
+    });
     if (!res.writableEnded) res.end();
     res.off("close", onDisconnect);
   }
