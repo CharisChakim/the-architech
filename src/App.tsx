@@ -203,13 +203,16 @@ export default function App() {
     };
   }, []);
 
-  // Persist every change back to SQLite. Untitled drafts stay out of history.
+  // Persist every change back to SQLite. An empty untitled draft stays out of
+  // history, but one that already holds work is kept: tasks added straight on
+  // the Kanban of a new chat used to vanish on reload.
   useEffect(() => {
     if (!session) return;
     const snapshot = JSON.stringify(session);
     if (snapshot === lastPersistedRef.current) return;
     lastPersistedRef.current = snapshot;
-    if (!session.input.title && !session.title) return;
+    const holdsWork = Boolean(session.tasks?.length || session.prd || session.plan);
+    if (!session.input.title && !session.title && !holdsWork) return;
 
     persistSession(session)
       .then(refreshHistory)
