@@ -300,7 +300,7 @@ checklist smoke test live ada di [`runtime-compatibility.md`](runtime-compatibil
 | Picker memuat model; ganti akun/workspace menginvalidasi cache | Sebagian: Refresh dan simpan path/preferensi di Connections kini sampai ke picker. **Batasan:** runtime tidak melaporkan identitas akun (`connectionId` statis), jadi ganti akun hanya terbaca lewat TTL 15 menit atau Refresh; run tetap memakai discovery baru per request | `503212e` |
 | Ikuti default; override effort terkirim; opsi tak didukung tak bisa dipilih | Opsi effort hanya dari model aktif (dicek); pengiriman override belum diuji ulang | — |
 | Default tak terbaca tidak dipalsukan; katalog offline menampilkan cache dan umurnya | Selesai: default yang tidak dilaporkan tampil "Use runtime default"; refresh yang gagal sementara menampilkan katalog terakhir, ditandai "Cached" beserta tanggalnya | `503212e` |
-| Ganti provider di chat: konteks netral, sesi baru | Belum dicek | — |
+| Ganti provider di chat: konteks netral, sesi baru | Selesai (fixture): tiap runtime memakai sesinya sendiri; pesan yang belum dilihat sesi itu dikirim sebagai teks (maks. 40 pesan / ±24.000 karakter) dan chat memberi catatan | `fdf68d7`, `7ae98c0` |
 | Approve/reject, interrupt, login kedaluwarsa, kuota habis, error protokol, restart → status yang bisa ditindaklanjuti | Sebagian: approval, restart, error protokol, run gagal, dan Stop dari UI teruji; pesan AGY belum menyebut langkah perbaikan | `1d09539`, `a9123bb`, `06d7ae2`, `53d41fc`, `207f656`, tes restart sebelumnya |
 | Reconnect dan double-click tidak menggandakan eksekusi | Selesai (fixture) | `1d09539`, `983c0ab` |
 | Command sukses/gagal, tool ditolak, verifikasi belum jalan dibedakan; Done tidak dari klaim teks | Selesai untuk pemetaan event dan evidence (fixture) | `1ae00c3`, `91d9e3f`, `94ebaac` |
@@ -326,9 +326,9 @@ checklist smoke test live ada di [`runtime-compatibility.md`](runtime-compatibil
 2. **Tes end-to-end** untuk Chat → proyek → PRD → Kanban → Review dan
    picker/default per provider. Perlu keputusan framework (mis. Playwright)
    karena menambah dependency.
-3. **Kriteria yang belum dicek** di tabel atas: ganti provider di chat,
-   pengiriman override model/effort, serta alur instalasi baru, proyek, PRD,
-   dan Kanban yang belum diuji ulang.
+3. **Kriteria yang belum dicek** di tabel atas: pengiriman override
+   model/effort, serta alur instalasi baru, proyek, PRD, dan Kanban yang belum
+   diuji ulang.
 4. **Celah kecil yang tercatat:**
    - Chat tanpa workspace menjalankan runtime tanpa `cwd`; dua chat seperti itu
      bisa menulis ke direktori yang sama.
@@ -337,5 +337,12 @@ checklist smoke test live ada di [`runtime-compatibility.md`](runtime-compatibil
    - Pesan error server hanya berbahasa Inggris.
    - `tool_progress` Claude tidak ditampilkan, termasuk durasi tool yang
      berjalan lama.
+   - Catatan "konteks dibawa" tidak disimpan di riwayat, jadi hilang setelah
+     reload.
+6. **Indikator context window** per sesi. Butuh data pemakaian token dari tiap
+   runtime (`usage`/`modelUsage` Claude, `thread/tokenUsage/updated` Codex,
+   `usage` AGY) yang belum dibaca dan belum diverifikasi live; kerjakan setelah
+   smoke test. Ganti model di runtime yang sama tidak memindahkan sesi, tapi
+   bisa melewati prompt cache atau melebihi context window model baru.
 5. Setelah butir 1–3 lolos: perbarui status di awal dokumen ini menjadi V2-7
    selesai.
