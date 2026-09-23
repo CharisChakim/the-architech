@@ -426,6 +426,18 @@ export function useAgentRun({ sessionId, workspaceRoot, allowShell, onToolApplie
                 answered: false,
               },
             ]);
+          } else if (event.type === "context_carried") {
+            setEntries((prev) => [
+              ...prev,
+              {
+                kind: "context_carried",
+                id: nextEntryId(sequence),
+                runtime: typeof event.runtime === "string" ? event.runtime : "",
+                included: Number(event.included) || 0,
+                omitted: Number(event.omitted) || 0,
+                resumed: event.resumed === true,
+              },
+            ]);
           } else if (event.type === "mcp_status") {
             setEntries((prev) => [
               ...prev,

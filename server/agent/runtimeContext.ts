@@ -34,8 +34,16 @@ export function unseenMessages(messages: StoredMessage[], sessionRunIds: Readonl
   return messages.slice(lastSeen + 1);
 }
 
+export interface ConversationContext {
+  prompt: string;
+  /** Messages placed in the context block. */
+  included: number;
+  /** Unseen messages left out to stay within the limits. */
+  omitted: number;
+}
+
 /** Prefix a runtime prompt with the part of the conversation it has not seen. */
-export function withConversationContext(prompt: string, unseen: Message[]): string {
+export function withConversationContext(prompt: string, unseen: Message[]): ConversationContext {
   const lines: string[] = [];
   let used = 0;
   // Newest first, so a long history keeps what was said most recently.
@@ -47,14 +55,19 @@ export function withConversationContext(prompt: string, unseen: Message[]): stri
     lines.unshift(line);
     used += line.length;
   }
-  if (!lines.length) return prompt;
-  return [
-    "<conversation_context>",
-    "Earlier in this conversation, before this session saw it (possibly with another assistant):",
-    "",
-    lines.join("\n\n"),
-    "</conversation_context>",
-    "",
-    prompt,
-  ].join("\n");
+  const withText = unseen.filter((message) => messageText(message)).length;
+  if (!lines.length) return { prompt, included: 0, omitted: withText };
+  return {
+    prompt: [
+      "<conversation_context>",
+      "Earlier in this conversation, before this session saw it (possibly with another assistant):",
+      "",
+      lines.join("\n\n"),
+      "</conversation_context>",
+      "",
+      prompt,
+    ].join("\n"),
+    included: lines.length,
+    omitted: withText - lines.length,
+  };
 }

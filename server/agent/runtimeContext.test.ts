@@ -19,20 +19,23 @@ test("a new session sees the whole conversation; a resumed one only what came af
 
 test("the context keeps text only, labels speakers, and leaves a prompt alone when there is nothing to add", () => {
   const withTool: StoredMessage = { role: "assistant", content: [{ type: "tool_call", id: "t", name: "read_file", input: {} }, { type: "text", text: "Read it." }], meta: {} };
-  const prompt = withConversationContext("Now fix it.", [say("user", "Look at a.ts"), withTool]);
+  const { prompt, included, omitted } = withConversationContext("Now fix it.", [say("user", "Look at a.ts"), withTool]);
 
   assert.match(prompt, /^<conversation_context>/);
   assert.match(prompt, /User: Look at a\.ts\n\nAssistant: Read it\./);
   assert.doesNotMatch(prompt, /read_file/);
   assert.ok(prompt.endsWith("Now fix it."));
-  assert.equal(withConversationContext("Now fix it.", []), "Now fix it.");
+  assert.deepEqual([included, omitted], [2, 0]);
+  assert.deepEqual(withConversationContext("Now fix it.", []), { prompt: "Now fix it.", included: 0, omitted: 0 });
 });
 
 test("a long history keeps its most recent messages", () => {
   const long = Array.from({ length: 60 }, (_, index) => say(index % 2 ? "assistant" : "user", `message ${index} ${"x".repeat(900)}`));
-  const prompt = withConversationContext("next", long);
+  const { prompt, included, omitted } = withConversationContext("next", long);
 
   assert.match(prompt, /message 59 /);
   assert.doesNotMatch(prompt, /message 0 /);
   assert.ok(prompt.length < 26_000);
+  assert.equal(included + omitted, 60);
+  assert.ok(omitted > 0);
 });

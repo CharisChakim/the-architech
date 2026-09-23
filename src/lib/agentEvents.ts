@@ -34,6 +34,7 @@ export type Entry =
       answered: boolean;
     }
   | { kind: "mcp_status"; id: string; server: string; state: string; tools: number; message: string }
+  | { kind: "context_carried"; id: string; runtime: string; included: number; omitted: number; resumed: boolean }
   | { kind: "turn_end"; id: string; toolCount: number; ms: number; failed?: boolean; stopped?: boolean }
   | { kind: "error"; id: string; message: string; retryable: boolean };
 
@@ -48,6 +49,7 @@ export type AgentEvent = {
     | "approval_resolved"
     | "questions"
     | "mcp_status"
+    | "context_carried"
     | "done"
     | "error"
     | "abort"

@@ -239,9 +239,15 @@ test("a runtime session that is new to a chat is told what was said before it", 
   await withServer(provider, async (url) => {
     // First runtime session, then a second one in the same chat (as when the
     // user switches runtime), then back to the first.
-    await chat(url, { conversationId, message: "Use Postgres for storage.", idempotencyKey: "switch-1" });
-    await chat(url, { conversationId, message: "Add a users table.", idempotencyKey: "switch-2" });
-    await chat(url, { conversationId, message: "Now add indexes.", externalSessionId: "thread_1", idempotencyKey: "switch-3" });
+    const firstEvents = await chat(url, { conversationId, message: "Use Postgres for storage.", idempotencyKey: "switch-1" });
+    const secondEvents = await chat(url, { conversationId, message: "Add a users table.", idempotencyKey: "switch-2" });
+    const thirdEvents = await chat(url, { conversationId, message: "Now add indexes.", externalSessionId: "thread_1", idempotencyKey: "switch-3" });
+
+    // The chat is told when, and how much, earlier conversation was handed over.
+    const carried = (events: SseEvent[]) => events.find((event) => event.type === "context_carried");
+    assert.equal(carried(firstEvents), undefined);
+    assert.deepEqual([carried(secondEvents)?.included, carried(secondEvents)?.omitted, carried(secondEvents)?.resumed], [2, 0, false]);
+    assert.deepEqual([carried(thirdEvents)?.included, carried(thirdEvents)?.resumed], [2, true]);
 
     const [first, second, third] = provider.turns.map((turn) => turn.prompt);
     assert.doesNotMatch(first!, /<conversation_context>/);

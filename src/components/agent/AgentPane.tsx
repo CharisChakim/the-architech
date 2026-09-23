@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { AlertTriangle, Bot, Check, ChevronDown, Circle, Clock3, Code2, FileText, Folder, GitBranch, Kanban, Laptop, ListChecks, PlugZap, ShieldCheck, Sparkles } from "lucide-react";
+import { AlertTriangle, Bot, Check, ChevronDown, Circle, Clock3, Code2, FileText, Folder, GitBranch, History, Kanban, Laptop, ListChecks, PlugZap, ShieldCheck, Sparkles } from "lucide-react";
 import type { ProjectSession, RuntimeDiscoveryReport, RuntimePreference } from "../../types";
 import type { RuntimeChatSelection } from "../../lib/runtimeChat";
 import type { Entry } from "../../lib/agentEvents";
@@ -11,6 +11,12 @@ import { Composer, type ComposerMode } from "./Composer";
 import { QuestionsCard } from "./QuestionsCard";
 import { ToolCallCard } from "./ToolCallCard";
 import { RuntimeControls } from "./RuntimeControls";
+
+const CONTEXT_RUNTIME_NAMES: Record<string, string> = {
+  codex: "Codex",
+  claude: "Claude Code",
+  antigravity: "Antigravity",
+};
 
 export type PipelineStep = 1 | 2 | 3;
 
@@ -229,6 +235,20 @@ export const AgentPane: React.FC<AgentPaneProps> = ({
         return <ApprovalCard key={entry.id} entry={entry} onRespond={onDecideApproval} />;
       case "questions":
         return <QuestionsCard key={entry.id} entry={entry} onRespond={onRespondQuestions} />;
+      case "context_carried": {
+        const runtime = CONTEXT_RUNTIME_NAMES[entry.runtime] ?? entry.runtime;
+        return (
+          <div key={entry.id} className="flex items-start gap-2 px-1 text-[11px] text-faint" role="note">
+            <History className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+            <span className="min-w-0 flex-1">
+              {entry.resumed
+                ? t("{runtime} was given {count} messages it missed while this chat used another runtime.", { runtime, count: entry.included })
+                : t("{runtime} started a new session and was given the last {count} messages of this chat as text. Tool results from earlier turns are not carried over.", { runtime, count: entry.included })}
+              {entry.omitted > 0 && ` ${t("{count} older messages were left out.", { count: entry.omitted })}`}
+            </span>
+          </div>
+        );
+      }
       case "mcp_status":
         return (
           <div key={entry.id} className="flex items-start gap-2 rounded-xl border border-warn/30 bg-warn-soft px-3 py-2 text-xs text-warn-ink">

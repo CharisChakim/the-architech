@@ -8,7 +8,7 @@ import {
   getConversation,
   loadMessagesWithMeta,
 } from "../agent/conversations.ts";
-import { unseenMessages, withConversationContext, type StoredMessage } from "../agent/runtimeContext.ts";
+import { unseenMessages, withConversationContext, type ConversationContext, type StoredMessage } from "../agent/runtimeContext.ts";
 import { validateTransientWorkspaceRoot } from "./agent.ts";
 import { discoverRuntime } from "../runtimes/discovery.ts";
 import type { RuntimeDetection, RuntimeId } from "../runtimes/types.ts";
@@ -362,7 +362,7 @@ function appendTranscript(conversationId: string, userMessage: string, assistant
  * the conversation that session has not seen, said with another runtime or
  * before it existed, goes ahead of the request.
  */
-function conversationPrompt(conversationId: string, runtime: string, externalSessionId: string | null, prompt: string): string {
+function conversationPrompt(conversationId: string, runtime: string, externalSessionId: string | null, prompt: string): ConversationContext {
   const stored: StoredMessage[] = loadMessagesWithMeta(conversationId).map((message) => ({
     ...message,
     meta: {
@@ -596,16 +596,27 @@ async function chat(req: Request, res: Response, options: RuntimeAgentRouterOpti
   let finalError: string | null = null;
   try {
     startRun(run.id);
-    const prompt = conversationPrompt(
+    const context = conversationPrompt(
       conversationId,
       body.runtime,
       body.externalSessionId ?? null,
       applyAgentHarness(body.message, body.harnessSettings),
     );
+    // The chat says so when a runtime is handed earlier messages: it gets
+    // their text, not the tool results or the state of the other session.
+    if (context.included > 0) {
+      send({
+        type: "context_carried",
+        runtime: body.runtime,
+        included: context.included,
+        omitted: context.omitted,
+        resumed: Boolean(body.externalSessionId),
+      });
+    }
     appendTranscript(conversationId, body.message, "", { runtime: body.runtime, runId: run.id });
     const runner = await createRuntimeRunnerAsync({
       runtime: body.runtime,
-      prompt,
+      prompt: context.prompt,
       model: body.model,
       effort: body.effort,
       cwd: body.workspaceRoot,
