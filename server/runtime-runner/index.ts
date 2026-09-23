@@ -202,9 +202,11 @@ async function claudeDecision(
   return decision === "accept" || decision === "acceptForSession" || typeof decision === "object";
 }
 
-async function* mapClaudeEvents(run: ClaudeExecutionRun): AsyncIterable<RuntimeEvent> {
+async function* mapClaudeEvents(run: ClaudeExecutionRun, signal: AbortSignal): AsyncIterable<RuntimeEvent> {
   let sawPartialText = false;
   let sawText = false;
+  let sawResult = false;
+  let sawFatal = false;
   for await (const event of run) {
     if (event.type === "assistant") {
       const text = event.delta ?? (sawPartialText ? "" : event.text ?? "");
@@ -249,6 +251,9 @@ async function* mapClaudeEvents(run: ClaudeExecutionRun): AsyncIterable<RuntimeE
       continue;
     }
     if (event.type === "result") {
+      // A turn has one outcome; a repeated result would report it twice.
+      if (sawResult) continue;
+      sawResult = true;
       if (!sawText && typeof event.result === "string" && event.result) {
         sawText = true;
         yield {
@@ -275,7 +280,22 @@ async function* mapClaudeEvents(run: ClaudeExecutionRun): AsyncIterable<RuntimeE
       yield claudeApprovalEvent(event);
       continue;
     }
-    if (event.type === "error") yield claudeErrorEvent(event);
+    if (event.type === "error") {
+      const error = claudeErrorEvent(event);
+      sawFatal = sawFatal || error.fatal;
+      yield error;
+    }
+  }
+  // Without this the run ends as failed with no reason given. A stopped run
+  // is reported by the caller as interrupted instead.
+  if (!sawResult && !sawFatal && !signal.aborted) {
+    yield {
+      type: "error",
+      error: { code: "CLAUDE_RESULT_MISSING", message: "Claude Agent SDK stream ended before it returned a result." },
+      threadId: run.sessionId,
+      turnId: null,
+      fatal: true,
+    };
   }
 }
 
@@ -307,7 +327,7 @@ class ClaudeRuntimeExecutor implements RuntimeExecutor {
         details: { toolName: approval.toolName, input: approval.input },
       }) : undefined,
     });
-    return mapClaudeEvents(this.current);
+    return mapClaudeEvents(this.current, this.signal);
   }
 
   resumeTurn(request: Parameters<RuntimeExecutor["resumeTurn"]>[0]): AsyncIterable<RuntimeEvent> {
@@ -329,7 +349,7 @@ class ClaudeRuntimeExecutor implements RuntimeExecutor {
         details: { toolName: approval.toolName, input: approval.input },
       }) : undefined,
     });
-    return mapClaudeEvents(this.current);
+    return mapClaudeEvents(this.current, this.signal);
   }
 
   async interrupt(): Promise<void> { await this.current?.interrupt(); }

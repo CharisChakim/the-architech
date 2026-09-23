@@ -253,6 +253,7 @@ export class CodexRuntimeExecutor implements RuntimeExecutor {
   private removeNotificationListener: (() => void) | null = null;
   private removeServerRequestListener: (() => void) | null = null;
   private removeMalformedListener: (() => void) | null = null;
+  private removeExitListener: (() => void) | null = null;
 
   constructor(options: CodexRuntimeExecutorOptions) {
     this.options = options;
@@ -260,6 +261,7 @@ export class CodexRuntimeExecutor implements RuntimeExecutor {
     this.removeNotificationListener = this.transport.onNotification((message) => this.onNotification(message));
     this.removeServerRequestListener = this.transport.onServerRequest((message) => this.onServerRequest(message));
     this.removeMalformedListener = this.transport.onMalformed((error) => this.onMalformed(error));
+    this.removeExitListener = this.transport.onExit((error) => this.onExit(error));
   }
 
   startTurn(request: RuntimeTurnRequest): AsyncIterable<RuntimeEvent> {
@@ -284,6 +286,7 @@ export class CodexRuntimeExecutor implements RuntimeExecutor {
     this.removeNotificationListener?.();
     this.removeServerRequestListener?.();
     this.removeMalformedListener?.();
+    this.removeExitListener?.();
     for (const state of this.turns.values()) {
       if (!state.finished) {
         state.finished = true;
@@ -423,6 +426,14 @@ export class CodexRuntimeExecutor implements RuntimeExecutor {
       false,
     );
     if (this.activeTurn && !this.activeTurn.finished) this.activeTurn.queue.push(runtimeError);
+  }
+
+  private onExit(error: RuntimeTransportError): void {
+    for (const state of this.turns.values()) {
+      if (state.finished) continue;
+      state.queue.push(errorEvent(error, state.threadId, state.turnId, true));
+      this.finishState(state);
+    }
   }
 
   private pushEvent(state: TurnState, event: RuntimeEvent): void {

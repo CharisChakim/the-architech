@@ -1,0 +1,209 @@
+import { strict as assert } from "node:assert";
+import { EventEmitter } from "node:events";
+import { PassThrough } from "node:stream";
+import test from "node:test";
+
+import { CodexRuntimeExecutor } from "./codex.ts";
+import { CodexAppServerTransport, type AppServerChild, type AppServerSpawn } from "./transport.ts";
+import type { RuntimeApprovalRequest, RuntimeEvent } from "./types.ts";
+
+// These drive the real transport and executor with bytes on a fake app-server
+// stdout, so a broken stream is exercised where it would actually arrive.
+
+class FixtureChild extends EventEmitter implements AppServerChild {
+  readonly stdin = new PassThrough();
+  readonly stdout = new PassThrough();
+  readonly stderr = new PassThrough();
+  killed = false;
+
+  kill(): boolean {
+    if (this.killed) return false;
+    this.killed = true;
+    this.exit();
+    return true;
+  }
+
+  /** The process going away on its own, as a crash or an OOM kill does. */
+  exit(): void {
+    // Like a real child, close follows the end of its output streams.
+    this.stdout.once("end", () => this.emit("close", 1, null));
+    this.stdout.end();
+  }
+
+  write(raw: string): void {
+    this.stdout.write(raw);
+  }
+
+  send(message: Record<string, unknown>): void {
+    this.write(`${JSON.stringify(message)}\n`);
+  }
+}
+
+const THREAD = "thread_fixture";
+const TURN = "turn_fixture";
+
+function notification(method: string, params: Record<string, unknown>): Record<string, unknown> {
+  return { method, params: { threadId: THREAD, turnId: TURN, ...params } };
+}
+
+const textDelta = (delta: string) => notification("item/agentMessage/delta", { itemId: "msg_1", delta });
+const turnCompleted = notification("turn/completed", { turn: { id: TURN, status: "completed" } });
+
+/** An app-server that answers the start handshake, then lets the test speak. */
+function appServer(): { child: FixtureChild; spawn: AppServerSpawn; requests: Record<string, unknown>[] } {
+  const child = new FixtureChild();
+  const requests: Record<string, unknown>[] = [];
+  child.stdin.on("data", (chunk: Buffer) => {
+    for (const line of chunk.toString("utf8").split("\n")) {
+      if (!line.trim()) continue;
+      const message = JSON.parse(line) as Record<string, unknown>;
+      requests.push(message);
+      if (message.method === "initialize") child.send({ id: message.id, result: {} });
+      if (message.method === "thread/start") child.send({ id: message.id, result: { thread: { id: THREAD } } });
+      if (message.method === "turn/start") child.send({ id: message.id, result: { turn: { id: TURN } } });
+      if (message.method === "turn/interrupt") child.send({ id: message.id, result: {} });
+    }
+  });
+  return { child, requests, spawn: (() => child) as AppServerSpawn };
+}
+
+function executorFor(
+  spawn: AppServerSpawn,
+  approvalHandler?: (request: RuntimeApprovalRequest) => "accept" | "decline",
+): CodexRuntimeExecutor {
+  return new CodexRuntimeExecutor({
+    executable: "codex",
+    transport: new CodexAppServerTransport({ executable: "codex", spawn }),
+    approvalHandler,
+    // Long enough that a test only passes when the stream ends for its own reason.
+    turnTimeoutMs: 10_000,
+  });
+}
+
+/** Collect a turn, failing instead of waiting out the turn timeout. */
+async function collect(stream: AsyncIterable<RuntimeEvent>, withinMs = 2_000): Promise<RuntimeEvent[]> {
+  const events: RuntimeEvent[] = [];
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`turn still open after ${withinMs}ms: ${JSON.stringify(events)}`)), withinMs);
+  });
+  const drain = (async () => {
+    for await (const event of stream) events.push(event);
+    return events;
+  })();
+  try {
+    return await Promise.race([drain, deadline]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Start a turn and wait until the app-server has been asked for it. */
+async function startedTurn(
+  server: ReturnType<typeof appServer>,
+  executor: CodexRuntimeExecutor,
+): Promise<{ events: Promise<RuntimeEvent[]> }> {
+  // Wrapped, because an async function returning a promise would wait for it.
+  const events = collect(executor.startTurn({ prompt: "fixture" }));
+  while (!server.requests.some((request) => request.method === "turn/start")) {
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+  await new Promise((resolve) => setImmediate(resolve));
+  return { events };
+}
+
+test("codex: a process that exits mid-turn ends the turn with a fatal error", async () => {
+  const server = appServer();
+  const executor = executorFor(server.spawn);
+  const { events } = await startedTurn(server, executor);
+
+  server.child.send(textDelta("partial"));
+  server.child.exit();
+
+  const received = await events;
+  assert.equal(received[0]?.type, "text");
+  const last = received.at(-1);
+  assert.equal(last?.type, "error");
+  assert.equal(last?.type === "error" && last.fatal, true);
+  assert.equal(last?.type === "error" && last.error.code, "PROCESS_EXITED");
+  await executor.close();
+});
+
+test("codex: a line cut off by the exit is reported, not parsed", async () => {
+  const server = appServer();
+  const executor = executorFor(server.spawn);
+  const { events } = await startedTurn(server, executor);
+
+  server.child.write(JSON.stringify(textDelta("never finished")).slice(0, 30));
+  server.child.exit();
+
+  const received = await events;
+  assert.equal(received.some((event) => event.type === "text"), false);
+  assert.equal(received.some((event) => event.type === "error" && event.error.code === "PROTOCOL_INCOMPLETE_LINE"), true);
+  assert.equal(received.at(-1)?.type === "error" && (received.at(-1) as { fatal: boolean }).fatal, true);
+  await executor.close();
+});
+
+test("codex: a malformed line mid-turn is a non-fatal error and the turn continues", async () => {
+  const server = appServer();
+  const executor = executorFor(server.spawn);
+  const { events } = await startedTurn(server, executor);
+
+  server.child.write("{not json\n");
+  server.child.send(textDelta("after"));
+  server.child.send(turnCompleted);
+
+  const received = await events;
+  assert.deepEqual(received.map((event) => event.type), ["error", "text", "done"]);
+  assert.equal(received[0]?.type === "error" && received[0].fatal, false);
+  assert.equal(received[0]?.type === "error" && received[0].error.code, "PROTOCOL_MALFORMED_JSON");
+  // The provider's bytes are never echoed back into the error.
+  assert.doesNotMatch(JSON.stringify(received[0]), /not json/);
+  await executor.close();
+});
+
+test("codex: unknown notifications and unknown item types are ignored", async () => {
+  const server = appServer();
+  const executor = executorFor(server.spawn);
+  const { events } = await startedTurn(server, executor);
+
+  server.child.send(notification("thread/tokenUsage/updated", { usage: { total: 12 } }));
+  server.child.send(notification("item/started", { item: { id: "item_x", type: "somethingNew", status: "inProgress" } }));
+  server.child.send({ method: "item/agentMessage/delta" });
+  server.child.send(textDelta("kept"));
+  server.child.send(turnCompleted);
+
+  const received = await events;
+  assert.deepEqual(received.map((event) => event.type), ["text", "done"]);
+  await executor.close();
+});
+
+test("codex: a repeated turn completion and repeated approval request each take effect once", async () => {
+  const server = appServer();
+  const approvals: RuntimeApprovalRequest[] = [];
+  const executor = executorFor(server.spawn, (request) => {
+    approvals.push(request);
+    return "accept";
+  });
+  const { events } = await startedTurn(server, executor);
+
+  const approval = {
+    id: 99,
+    method: "item/commandExecution/requestApproval",
+    params: { threadId: THREAD, turnId: TURN, itemId: "cmd_1", command: "npm test", cwd: "/workspace/fixture" },
+  };
+  server.child.send(approval);
+  server.child.send(approval);
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  server.child.send(turnCompleted);
+  server.child.send(turnCompleted);
+
+  const received = await events;
+  assert.equal(approvals.length, 1);
+  assert.equal(received.filter((event) => event.type === "approval").length, 1);
+  assert.equal(received.filter((event) => event.type === "done").length, 1);
+  const responses = server.requests.filter((request) => request.id === 99);
+  assert.equal(responses.length, 1);
+  assert.deepEqual(responses[0]?.result, { decision: "accept" });
+  await executor.close();
+});

@@ -71,6 +71,8 @@ export interface AppServerTransport {
   onNotification(listener: (message: JsonRpcNotification) => void): () => void;
   onServerRequest(listener: (message: JsonRpcRequest) => void): () => void;
   onMalformed(listener: (error: MalformedJsonLine) => void): () => void;
+  /** The app-server process went away without close() being called. */
+  onExit(listener: (error: RuntimeTransportError) => void): () => void;
   close(): Promise<void>;
 }
 
@@ -112,6 +114,7 @@ export class CodexAppServerTransport implements AppServerTransport {
   private readonly notificationListeners = new Set<(message: JsonRpcNotification) => void>();
   private readonly serverRequestListeners = new Set<(message: JsonRpcRequest) => void>();
   private readonly malformedListeners = new Set<(error: MalformedJsonLine) => void>();
+  private readonly exitListeners = new Set<(error: RuntimeTransportError) => void>();
   private readonly spawnProcess: AppServerSpawn;
   private readonly options: AppServerTransportOptions;
   private parser: JsonlParser | null = null;
@@ -188,6 +191,11 @@ export class CodexAppServerTransport implements AppServerTransport {
   onMalformed(listener: (error: MalformedJsonLine) => void): () => void {
     this.malformedListeners.add(listener);
     return () => this.malformedListeners.delete(listener);
+  }
+
+  onExit(listener: (error: RuntimeTransportError) => void): () => void {
+    this.exitListeners.add(listener);
+    return () => this.exitListeners.delete(listener);
   }
 
   async close(): Promise<void> {
@@ -359,8 +367,13 @@ export class CodexAppServerTransport implements AppServerTransport {
 
   private processClosed(): void {
     this.connected = false;
+    const unexpected = !this.closed;
     if (!this.closed) this.closed = true;
-    this.rejectPending(new RuntimeTransportError("PROCESS_EXITED", "Codex app-server process exited."));
+    const error = new RuntimeTransportError("PROCESS_EXITED", "Codex app-server process exited.");
+    this.rejectPending(error);
+    // A turn waits on notifications, not on a pending request, so it would
+    // otherwise stay open until the turn timeout.
+    if (unexpected) for (const listener of this.exitListeners) listener(error);
   }
 
   private rejectPending(error: RuntimeTransportError): void {

@@ -1,6 +1,7 @@
 import { strict as assert } from "node:assert";
 import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
+import test from "node:test";
 import { JsonlParser, parseJsonRpcLine } from "./protocol.ts";
 import {
   CodexAppServerTransport,
@@ -55,7 +56,7 @@ function emitLine(child: FixtureChild, line: string): void {
   child.stdout.write(`${line}\n`);
 }
 
-export async function runExecutionFixtures(): Promise<void> {
+test("JSONL parser separates messages, malformed lines, and split chunks", () => {
   const parser = new JsonlParser(64);
   const parsed = parser.push(`${JSON.stringify({ id: 7, result: { ok: true }})}\nnot-json\n`);
   assert.equal(parsed[0]?.type, "message");
@@ -65,7 +66,9 @@ export async function runExecutionFixtures(): Promise<void> {
   const splitResult = split.push(Buffer.from("\"result\":{}}\n"))[0];
   assert.deepEqual(splitResult, { type: "message", message: { id: 8, result: {} } });
   assert.equal(parseJsonRpcLine("[]").type, "malformed");
+});
 
+test("transport spawns without a shell and survives a malformed line during a request", async () => {
   const fixture = fixtureSpawn((message, child) => {
     const id = message.id;
     if (message.method === "initialize") emitLine(child, INITIALIZE_RESPONSE_FIXTURE);
@@ -90,7 +93,9 @@ export async function runExecutionFixtures(): Promise<void> {
   const turn = await transport.request("turn/start", { threadId: "thread_fixture", input: [] });
   assert.deepEqual((turn as { turn: { id: string }}).turn.id, "turn_fixture");
   await transport.close();
+});
 
+test("transport rejects connect when initialize never answers", async () => {
   const timeoutFixture = fixtureSpawn(() => undefined);
   const timeoutTransport = new CodexAppServerTransport({
     executable: "codex",
@@ -99,4 +104,4 @@ export async function runExecutionFixtures(): Promise<void> {
   });
   await assert.rejects(timeoutTransport.connect(), (error: unknown) =>
     error instanceof RuntimeTransportError && error.code === "RPC_TIMEOUT");
-}
+});
