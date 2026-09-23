@@ -203,6 +203,9 @@ const updateConversationProjectStmt = db.prepare(
 const listMessagesStmt = db.prepare(
   `SELECT role, content FROM messages WHERE conv_id = ? ORDER BY id ASC`
 );
+const listMessagesWithMetaStmt = db.prepare(
+  `SELECT role, content, meta FROM messages WHERE conv_id = ? ORDER BY id ASC`
+);
 const insertMessageStmt = db.prepare(
   `INSERT INTO messages (conv_id, role, content, meta, created_at)
    VALUES (?, ?, ?, ?, ?)`
@@ -460,6 +463,24 @@ export function loadMessages(convId: string): Message[] {
     } catch {
       // Satu baris rusak tidak boleh membuat percakapan lain atau pesan valid
       // sesudahnya ikut tidak dapat dipakai oleh provider.
+      return [];
+    }
+  });
+}
+
+/** Like loadMessages, with the meta each message was written with. */
+export function loadMessagesWithMeta(convId: string): Array<Message & { meta: Record<string, unknown> }> {
+  const id = requiredId(convId, "conversationId");
+  const rows = listMessagesWithMetaStmt.all(id) as unknown as Array<MessageRow & { meta: string }>;
+  return rows.flatMap((row) => {
+    if (!isRole(row.role)) return [];
+    try {
+      const content = JSON.parse(row.content);
+      const meta = JSON.parse(row.meta || "{}");
+      return Array.isArray(content)
+        ? [{ role: row.role, content, meta: meta && typeof meta === "object" && !Array.isArray(meta) ? meta : {} } as Message & { meta: Record<string, unknown> }]
+        : [];
+    } catch {
       return [];
     }
   });

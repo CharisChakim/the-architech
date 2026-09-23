@@ -226,6 +226,33 @@ test("stopping from the chat interrupts the provider turn and ends the run as in
   });
 });
 
+test("a runtime session that is new to a chat is told what was said before it", async () => {
+  let run = 0;
+  const provider = new ProviderFixture(async function* () {
+    run += 1;
+    const threadId = `thread_${run}`;
+    yield { type: "text", text: `answer ${run}`, threadId, turnId: `turn_${run}`, itemId: null };
+    yield { ...done, threadId, turnId: `turn_${run}` };
+  });
+  const conversationId = "conversation-switch";
+
+  await withServer(provider, async (url) => {
+    // First runtime session, then a second one in the same chat (as when the
+    // user switches runtime), then back to the first.
+    await chat(url, { conversationId, message: "Use Postgres for storage.", idempotencyKey: "switch-1" });
+    await chat(url, { conversationId, message: "Add a users table.", idempotencyKey: "switch-2" });
+    await chat(url, { conversationId, message: "Now add indexes.", externalSessionId: "thread_1", idempotencyKey: "switch-3" });
+
+    const [first, second, third] = provider.turns.map((turn) => turn.prompt);
+    assert.doesNotMatch(first!, /<conversation_context>/);
+    assert.match(second!, /User: Use Postgres for storage\.\n\nAssistant: answer 1/);
+    assert.match(second!, /<user_request>\nAdd a users table\.\n<\/user_request>$/);
+    // Back in the first session: only what it missed, not its own turn again.
+    assert.match(third!, /User: Add a users table\.\n\nAssistant: answer 2/);
+    assert.doesNotMatch(third!, /Use Postgres/);
+  });
+});
+
 test("a second run on a workspace that is still being written fails without reaching the provider", async () => {
   const provider = new ProviderFixture(async function* (fixture) {
     await fixture.waitUntilReleased();

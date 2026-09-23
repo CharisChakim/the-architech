@@ -6,7 +6,9 @@ import {
   appendMessage,
   ensureConversationFor,
   getConversation,
+  loadMessagesWithMeta,
 } from "../agent/conversations.ts";
+import { unseenMessages, withConversationContext, type StoredMessage } from "../agent/runtimeContext.ts";
 import { validateTransientWorkspaceRoot } from "./agent.ts";
 import { discoverRuntime } from "../runtimes/discovery.ts";
 import type { RuntimeDetection, RuntimeId } from "../runtimes/types.ts";
@@ -18,6 +20,7 @@ import {
   getRun,
   getRunByExternalSession,
   listRunEvents,
+  listRuns,
   resolveRunApproval,
   startRun,
   updateRunStatus,
@@ -349,9 +352,30 @@ function validateSelection(detection: RuntimeDetection, model: string, effort: s
   }
 }
 
-function appendTranscript(conversationId: string, userMessage: string, assistantText: string): void {
-  appendMessage(conversationId, { role: "user", content: [{ type: "text", text: userMessage }] });
-  if (assistantText) appendMessage(conversationId, { role: "assistant", content: [{ type: "text", text: assistantText }] });
+function appendTranscript(conversationId: string, userMessage: string, assistantText: string, meta: object): void {
+  appendMessage(conversationId, { role: "user", content: [{ type: "text", text: userMessage }] }, meta);
+  if (assistantText) appendMessage(conversationId, { role: "assistant", content: [{ type: "text", text: assistantText }] }, meta);
+}
+
+/**
+ * Each runtime keeps its own provider session per conversation. The part of
+ * the conversation that session has not seen, said with another runtime or
+ * before it existed, goes ahead of the request.
+ */
+function conversationPrompt(conversationId: string, runtime: string, externalSessionId: string | null, prompt: string): string {
+  const stored: StoredMessage[] = loadMessagesWithMeta(conversationId).map((message) => ({
+    ...message,
+    meta: {
+      ...(typeof message.meta.runtime === "string" ? { runtime: message.meta.runtime } : {}),
+      ...(typeof message.meta.runId === "string" ? { runId: message.meta.runId } : {}),
+    },
+  }));
+  const sessionRunIds = new Set(externalSessionId
+    ? listRuns({ conversationId, limit: 100 })
+      .filter((run) => run.snapshot.runtime === runtime && run.snapshot.externalSessionId === externalSessionId)
+      .map((run) => run.id)
+    : []);
+  return withConversationContext(prompt, unseenMessages(stored, sessionRunIds));
 }
 
 const FOLLOW_POLL_MS = 250;
@@ -572,10 +596,16 @@ async function chat(req: Request, res: Response, options: RuntimeAgentRouterOpti
   let finalError: string | null = null;
   try {
     startRun(run.id);
-    appendTranscript(conversationId, body.message, "");
+    const prompt = conversationPrompt(
+      conversationId,
+      body.runtime,
+      body.externalSessionId ?? null,
+      applyAgentHarness(body.message, body.harnessSettings),
+    );
+    appendTranscript(conversationId, body.message, "", { runtime: body.runtime, runId: run.id });
     const runner = await createRuntimeRunnerAsync({
       runtime: body.runtime,
-      prompt: applyAgentHarness(body.message, body.harnessSettings),
+      prompt,
       model: body.model,
       effort: body.effort,
       cwd: body.workspaceRoot,
@@ -640,7 +670,9 @@ async function chat(req: Request, res: Response, options: RuntimeAgentRouterOpti
     if (ac.signal.aborted && executor?.interrupt) await executor.interrupt().catch(() => undefined);
     ac.signal.removeEventListener("abort", interruptExecutor);
     await executor?.close().catch(() => undefined);
-    if (assistantText) appendMessage(conversationId, { role: "assistant", content: [{ type: "text", text: assistantText }] });
+    if (assistantText) {
+      appendMessage(conversationId, { role: "assistant", content: [{ type: "text", text: assistantText }] }, { runtime: body.runtime, runId: run.id });
+    }
     if (run.taskId && assistantText) {
       addRunEvidence({
         runId: run.id,
