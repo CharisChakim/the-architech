@@ -115,7 +115,7 @@ function resolveAgentConnection(body: Record<string, any>): { conn: Connection; 
   }
 
   throw new RequestError(
-    "Could not resolve the agent LLM connection. Provide connectionId and model, configure the agent role, or send agentConfig.",
+    "No LLM endpoint is set up for the agent. Pick a runtime such as Codex in the composer, or add an endpoint in Connections.",
   );
 }
 

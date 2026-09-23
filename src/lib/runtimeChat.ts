@@ -1,10 +1,11 @@
-import type { RuntimeId } from "../types";
+import type { RuntimeDiscoveryReport, RuntimeId } from "../types";
 
 export type RuntimeChatSelection =
   | { runtime: "legacy"; model: "inherit"; effort: "inherit" }
   | { runtime: RuntimeId; connectionId: string; model: string; effort: string };
 
 const SELECTION_PREFIX = "ai_plan_architect_runtime_selection_v1";
+const LAST_SELECTION_KEY = "ai_plan_architect_runtime_selection_last_v1";
 const EXTERNAL_SESSION_PREFIX = "ai_plan_architect_runtime_session_v1";
 
 const isRuntimeId = (value: unknown): value is RuntimeId =>
@@ -21,6 +22,64 @@ export const legacyRuntimeSelection = (): RuntimeChatSelection => ({
   model: "inherit",
   effort: "inherit",
 });
+
+function parseSelection(raw: string | null): RuntimeChatSelection | null {
+  if (!raw) return null;
+  const value = JSON.parse(raw) as Record<string, unknown>;
+  if (value.runtime === "legacy") return legacyRuntimeSelection();
+  if (!isRuntimeId(value.runtime) || !text(value.connectionId)) return null;
+  return {
+    runtime: value.runtime,
+    connectionId: value.connectionId as string,
+    model: text(value.model) ?? "inherit",
+    effort: text(value.effort) ?? "inherit",
+  };
+}
+
+/** Whether the user has picked a runtime for this chat. */
+export function hasRuntimeSelection(sessionId: string): boolean {
+  try {
+    return window.localStorage.getItem(storageKey(SELECTION_PREFIX, sessionId)) !== null;
+  } catch {
+    return false;
+  }
+}
+
+/** The runtime the user last picked in any chat, for a chat that has none yet. */
+export function loadLastRuntimeSelection(): RuntimeChatSelection | null {
+  try {
+    return parseSelection(window.localStorage.getItem(LAST_SELECTION_KEY));
+  } catch {
+    return null;
+  }
+}
+
+const RUNTIME_ORDER: RuntimeId[] = ["codex", "claude", "antigravity"];
+
+/**
+ * A new chat starts where the user last was, if that still works; otherwise
+ * on the Legacy API when it has an endpoint, otherwise on the first runtime
+ * that is ready. Starting every chat on a Legacy API with no endpoint made
+ * a fresh install fail its first message.
+ */
+export function defaultRuntimeSelection(input: {
+  last: RuntimeChatSelection | null;
+  legacyAvailable: boolean;
+  report: RuntimeDiscoveryReport | null;
+}): RuntimeChatSelection {
+  const ready = (runtime: RuntimeId) => input.report?.runtimes.find((item) => item.runtime === runtime && item.status === "ready");
+  const last = input.last;
+  if (last?.runtime === "legacy" && input.legacyAvailable) return last;
+  if (last && last.runtime !== "legacy" && ready(last.runtime)) return last;
+  if (input.legacyAvailable) return legacyRuntimeSelection();
+  for (const runtime of RUNTIME_ORDER) {
+    const detection = ready(runtime);
+    if (detection) {
+      return { runtime, connectionId: detection.catalog?.connectionId ?? `runtime:${runtime}`, model: "inherit", effort: "inherit" };
+    }
+  }
+  return legacyRuntimeSelection();
+}
 
 export function loadRuntimeSelection(sessionId: string): RuntimeChatSelection {
   try {
@@ -43,6 +102,7 @@ export function loadRuntimeSelection(sessionId: string): RuntimeChatSelection {
 export function saveRuntimeSelection(sessionId: string, selection: RuntimeChatSelection): void {
   try {
     window.localStorage.setItem(storageKey(SELECTION_PREFIX, sessionId), JSON.stringify(selection));
+    window.localStorage.setItem(LAST_SELECTION_KEY, JSON.stringify(selection));
   } catch {
     // Runtime selection is a convenience; a storage failure must not block chat.
   }

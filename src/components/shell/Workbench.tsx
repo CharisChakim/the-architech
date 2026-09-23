@@ -6,7 +6,15 @@ import { LayoutMode } from "../../lib/layout";
 import { useT } from "../../lib/i18n";
 import { useAgentRun } from "../../lib/useAgentRun";
 import { useRuntimeDiscovery } from "../../lib/runtimes";
-import { loadRuntimeSelection, saveRuntimeSelection, type RuntimeChatSelection } from "../../lib/runtimeChat";
+import {
+  defaultRuntimeSelection,
+  hasRuntimeSelection,
+  loadLastRuntimeSelection,
+  loadRuntimeSelection,
+  saveRuntimeSelection,
+  type RuntimeChatSelection,
+} from "../../lib/runtimeChat";
+import { useConnections } from "../../lib/connections";
 import { AgentPane } from "../agent/AgentPane";
 import type { AgentHarnessSettings } from "../../lib/agentHarness";
 import { PipelinePane } from "./PipelinePane";
@@ -58,14 +66,25 @@ export const Workbench: React.FC<WorkbenchProps> = ({
   const completedTasks = (session.tasks ?? []).filter((task) => task.status === "done").length;
   const [runningTaskId, setRunningTaskId] = React.useState<string | null>(null);
   const runtimeDiscovery = useRuntimeDiscovery(true);
-  const [runtimeState, setRuntimeState] = React.useState<{ sessionId: string; selection: RuntimeChatSelection }>(() => ({
+  const { roles } = useConnections();
+  // A chat the user has not picked a runtime for follows the default, which
+  // is worked out again as discovery and the Legacy API endpoint load.
+  const storedSelection = (sessionId: string) => (hasRuntimeSelection(sessionId) ? loadRuntimeSelection(sessionId) : null);
+  const [runtimeState, setRuntimeState] = React.useState<{ sessionId: string; selection: RuntimeChatSelection | null }>(() => ({
     sessionId: session.id,
-    selection: loadRuntimeSelection(session.id),
+    selection: storedSelection(session.id),
   }));
   React.useEffect(() => {
-    setRuntimeState({ sessionId: session.id, selection: loadRuntimeSelection(session.id) });
+    setRuntimeState({ sessionId: session.id, selection: storedSelection(session.id) });
   }, [session.id]);
-  const runtimeSelection = runtimeState.sessionId === session.id ? runtimeState.selection : loadRuntimeSelection(session.id);
+  const chosenSelection = runtimeState.sessionId === session.id ? runtimeState.selection : storedSelection(session.id);
+  const defaultSelection = React.useMemo(() => defaultRuntimeSelection({
+    last: loadLastRuntimeSelection(),
+    legacyAvailable: Boolean(roles.agent),
+    report: runtimeDiscovery.report,
+    // session.id: the last pick may have changed in the chat just left.
+  }), [roles.agent, runtimeDiscovery.report, session.id]);
+  const runtimeSelection = chosenSelection ?? defaultSelection;
   const handleRuntimeSelectionChange = React.useCallback((selection: RuntimeChatSelection) => {
     setRuntimeState({ sessionId: session.id, selection });
     saveRuntimeSelection(session.id, selection);

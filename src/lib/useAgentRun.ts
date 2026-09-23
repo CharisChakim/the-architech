@@ -299,7 +299,17 @@ export function useAgentRun({ sessionId, workspaceRoot, allowShell, onToolApplie
         }),
         signal: ac.signal,
       });
-      if (!res.ok || !res.body) throw new Error(t("The agent is unreachable."));
+      // The runtime route answers a runtime that is not ready with an event
+      // stream carrying the reason, so a stream is read whatever its status.
+      // Any other refusal is JSON with an error message worth showing.
+      const isStream = (res.headers.get("Content-Type") ?? "").includes("text/event-stream");
+      if (!res.body || (!res.ok && !isStream)) {
+        const reason = await res.json().then(
+          (body: { error?: unknown }) => (typeof body?.error === "string" && body.error ? body.error : null),
+          () => null,
+        );
+        throw new Error(reason ?? t("The agent is unreachable."));
+      }
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
