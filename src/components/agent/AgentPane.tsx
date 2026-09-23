@@ -241,8 +241,10 @@ export const AgentPane: React.FC<AgentPaneProps> = ({
           <div key={entry.id} className="flex items-center gap-2 px-1 text-[11px] text-faint">
             {entry.failed
               ? <AlertTriangle className="h-3.5 w-3.5 text-danger" />
-              : <Check className="h-3.5 w-3.5 text-ok" />}
-            <span>{entry.failed ? t("Turn failed") : t("Turn complete")}</span><span>·</span>
+              : entry.stopped
+                ? <Circle className="h-3.5 w-3.5 text-faint" />
+                : <Check className="h-3.5 w-3.5 text-ok" />}
+            <span>{entry.failed ? t("Turn failed") : entry.stopped ? t("Stopped") : t("Turn complete")}</span><span>·</span>
             <span>{t("{count} tools", { count: entry.toolCount })}</span><span>·</span>
             <Clock3 className="h-3 w-3" /><span>{formatDuration(entry.ms)}</span>
           </div>

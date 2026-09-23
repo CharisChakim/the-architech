@@ -1,6 +1,6 @@
 import type { FollowUpQuestion } from "../types";
 
-export type ToolState = "running" | "ok" | "error" | "denied";
+export type ToolState = "running" | "ok" | "error" | "denied" | "stopped";
 
 export type Entry =
   | { kind: "user"; id: string; text: string }
@@ -34,7 +34,7 @@ export type Entry =
       answered: boolean;
     }
   | { kind: "mcp_status"; id: string; server: string; state: string; tools: number; message: string }
-  | { kind: "turn_end"; id: string; toolCount: number; ms: number; failed?: boolean }
+  | { kind: "turn_end"; id: string; toolCount: number; ms: number; failed?: boolean; stopped?: boolean }
   | { kind: "error"; id: string; message: string; retryable: boolean };
 
 export type AgentEvent = {

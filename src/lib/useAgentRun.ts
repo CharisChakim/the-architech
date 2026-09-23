@@ -257,6 +257,7 @@ export function useAgentRun({ sessionId, workspaceRoot, allowShell, onToolApplie
     let turnStartedAt = Date.now();
     let turnToolCount = 0;
     let streamFailed = false;
+    let sawDone = false;
     const nativeRuntime = runtimeSelection.runtime !== "legacy";
     const runtimeConversationKey = conversationId.current || sessionId;
     const externalSessionId = nativeRuntime
@@ -449,6 +450,7 @@ export function useAgentRun({ sessionId, workspaceRoot, allowShell, onToolApplie
             turnStartedAt = Date.now();
             turnToolCount = 0;
           } else if (event.type === "done") {
+            sawDone = true;
             setEntries((prev) => {
               const next = [...prev];
               const assistantIndex = next
@@ -477,6 +479,22 @@ export function useAgentRun({ sessionId, workspaceRoot, allowShell, onToolApplie
         pushStreamError(errorText(err, t("The agent is unreachable.")), true);
       }
     } finally {
+      // Stop, or a stream that broke, ends the turn with no done event. Settle
+      // what was still in progress so nothing keeps looking like it runs.
+      if (!sawDone) {
+        const stoppedByUser = ac.signal.aborted;
+        const endedAt = Date.now();
+        setEntries((prev) => {
+          const next = prev.map((entry) => {
+            if (entry.kind === "assistant" && entry.streaming) return { ...entry, streaming: false };
+            if (entry.kind === "tool" && entry.state === "running") return { ...entry, state: "stopped" as const, endedAt };
+            return entry;
+          });
+          return stoppedByUser
+            ? [...next, { kind: "turn_end", id: nextEntryId(sequence), toolCount: turnToolCount, ms: Math.max(0, endedAt - turnStartedAt), stopped: true }]
+            : next;
+        });
+      }
       if (controller.current === ac) {
         controller.current = null;
         setBusy(false);

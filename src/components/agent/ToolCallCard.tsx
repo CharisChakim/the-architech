@@ -51,10 +51,10 @@ export const ToolCallCard: React.FC<ToolCallCardProps> = ({ entry, onNavigatePip
         {entry.state !== "running" && <span className="shrink-0 text-faint">{duration(entry.startedAt, entry.endedAt)}</span>}
         <span
           className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-            entry.state === "error" ? "bg-danger-soft text-danger-ink" : entry.state === "ok" ? "bg-ok-soft text-ok-ink" : "bg-accent-soft text-accent-ink"
+            entry.state === "error" ? "bg-danger-soft text-danger-ink" : entry.state === "ok" ? "bg-ok-soft text-ok-ink" : entry.state === "stopped" ? "bg-subtle text-muted" : "bg-accent-soft text-accent-ink"
           }`}
         >
-          {entry.state === "running" ? t("Working...") : entry.state === "error" ? t("Error") : t("Done")}
+          {entry.state === "running" ? t("Working...") : entry.state === "error" ? t("Error") : entry.state === "stopped" ? t("Stopped") : t("Done")}
         </span>
         <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-faint transition-transform ${expanded ? "rotate-180" : ""}`} aria-hidden />
       </button>
@@ -63,6 +63,8 @@ export const ToolCallCard: React.FC<ToolCallCardProps> = ({ entry, onNavigatePip
         <div className="space-y-2 border-t border-line px-3 py-3">
           {entry.state === "running" && !entry.result ? (
             <p className="text-xs text-muted">{t("Running tool...")}</p>
+          ) : entry.state === "stopped" && !entry.result ? (
+            <p className="text-xs text-muted">{t("The turn ended before this tool reported a result.")}</p>
           ) : renderer.body ? (
             renderer.body(entry.input, entry.result, { onNavigate: navigate })
           ) : null}

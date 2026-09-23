@@ -58,6 +58,7 @@ const done: RuntimeEvent = {
  */
 class ProviderFixture {
   readonly turns: RuntimeTurnRequest[] = [];
+  interrupts = 0;
   approvalHandler: RuntimeApprovalHandler | undefined;
   private release: () => void = () => {};
   private readonly released = new Promise<void>((resolve) => { this.release = resolve; });
@@ -83,7 +84,7 @@ class ProviderFixture {
     return {
       startTurn: stream,
       resumeTurn: stream,
-      interrupt: async () => {},
+      interrupt: async () => { this.interrupts += 1; this.finish(); },
       close: async () => {},
     };
   }
@@ -189,6 +190,39 @@ test("replaying a finished run returns every stored event, not the first page", 
     assert.equal(original.filter((event) => event.type === "text").length, 150);
     assert.equal(replayed.filter((event) => event.type === "text").length, 150);
     assert.equal(replayed.filter((event) => event.type === "done").length, 1);
+  });
+});
+
+test("stopping from the chat interrupts the provider turn and ends the run as interrupted", async () => {
+  const provider = new ProviderFixture(async function* (fixture) {
+    yield { type: "text", text: "working", threadId: "thread_fixture", turnId: "turn_fixture", itemId: null };
+    await fixture.waitUntilReleased();
+    yield { ...done, status: "interrupted" } as RuntimeEvent;
+  });
+  const { sessionId, taskId } = project();
+
+  await withServer(provider, async (url) => {
+    // The chat's Stop button aborts the request, as useAgentRun does.
+    const stop = new AbortController();
+    const res = await fetch(`${url}/api/runtime-agent/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ runtime: "codex", message: "Do the task.", sessionId, taskId, idempotencyKey: "stop-me" }),
+      signal: stop.signal,
+    });
+    const reader = res.body!.getReader();
+    await reader.read();
+    await provider.firstTurnStarted;
+    stop.abort();
+    await reader.read().catch(() => undefined);
+
+    let run = listRuns({ taskId })[0];
+    for (let i = 0; i < 50 && run?.status === "running"; i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      run = listRuns({ taskId })[0];
+    }
+    assert.equal(provider.interrupts > 0, true);
+    assert.equal(run?.status, "interrupted");
   });
 });
 
