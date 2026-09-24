@@ -196,6 +196,34 @@ function claudeApprovalEvent(
   };
 }
 
+/**
+ * Claude's Bash result has no exit code field. A failed command's output
+ * starts with "Exit code N" (seen live with Claude Code, September 2026); a
+ * command that succeeded says nothing, which means 0. A failure without that
+ * line (a denial, a timeout) has no exit code to report.
+ */
+function claudeBashExitCode(result: unknown, isError: boolean): number | null {
+  const text = typeof result === "string"
+    ? result
+    : Array.isArray(result)
+      ? result.map((block) => (block && typeof block === "object" && typeof (block as { text?: unknown }).text === "string" ? (block as { text: string }).text : "")).join("")
+      : "";
+  const match = /^Exit code (\d+)\b/.exec(text);
+  if (match) return Number(match[1]);
+  return isError ? null : 0;
+}
+
+/**
+ * What the approval card shows. Claude asks per tool, not per command: a Bash
+ * call carries its command, a file tool its path; the card was empty before.
+ */
+function claudeApprovalCommand(toolName: string, input: unknown): string {
+  const fields = input && typeof input === "object" ? input as Record<string, unknown> : {};
+  if (typeof fields.command === "string" && fields.command.trim()) return fields.command;
+  const target = fields.file_path ?? fields.notebook_path ?? fields.path ?? fields.url;
+  return typeof target === "string" && target ? `${toolName} ${target}` : toolName;
+}
+
 async function claudeDecision(
   handler: RuntimeApprovalHandler,
   request: Parameters<RuntimeApprovalHandler>[0],
@@ -239,14 +267,16 @@ async function* mapClaudeEvents(run: ClaudeExecutionRun, signal: AbortSignal): A
       if (event.phase === "result") {
         // A result names neither the tool nor its input; the start did.
         const started = event.toolUseId ? startedTools.get(event.toolUseId) : undefined;
+        const name = event.toolName ?? started?.name ?? "tool";
+        const exitCode = name === "Bash" ? claudeBashExitCode(event.result, event.isError === true) : null;
         yield {
           type: "tool",
-          tool: event.toolName ?? started?.name ?? "tool",
+          tool: name,
           status: event.isError ? "failed" : "completed",
           threadId,
           turnId: sessionTurnId(run.sessionId),
           itemId: event.toolUseId,
-          data: { input: started?.input ?? null, output: event.result ?? null },
+          data: { input: started?.input ?? null, output: event.result ?? null, ...(exitCode !== null ? { exitCode } : {}) },
         } satisfies RuntimeToolEvent;
         continue;
       }
@@ -355,7 +385,7 @@ class ClaudeRuntimeExecutor implements RuntimeExecutor {
         threadId: this.current?.sessionId ?? null,
         turnId: null,
         itemId: approval.toolUseId,
-        command: null,
+        command: claudeApprovalCommand(approval.toolName, approval.input),
         cwd: approval.blockedPath,
         reason: approval.reason,
         details: { toolName: approval.toolName, input: approval.input },
@@ -377,7 +407,7 @@ class ClaudeRuntimeExecutor implements RuntimeExecutor {
         threadId: this.current?.sessionId ?? request.threadId,
         turnId: null,
         itemId: approval.toolUseId,
-        command: null,
+        command: claudeApprovalCommand(approval.toolName, approval.input),
         cwd: approval.blockedPath,
         reason: approval.reason,
         details: { toolName: approval.toolName, input: approval.input },

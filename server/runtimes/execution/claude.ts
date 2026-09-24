@@ -38,6 +38,7 @@ export interface ClaudeSdkQueryOptions extends Record<string, unknown> {
   model?: string;
   effort?: string;
   resume?: string;
+  env?: Record<string, string | undefined>;
 }
 
 export interface ClaudeSdkPermissionDetails extends Record<string, unknown> {
@@ -661,6 +662,11 @@ export function buildClaudeSdkOptions(
 ): ClaudeSdkQueryOptions {
   const options: ClaudeSdkQueryOptions = {
     includePartialMessages: true,
+    // Each turn is its own Claude Code process, closed when the turn ends, so
+    // a background command dies with it. Its "stopped" notice then opened the
+    // next turn and ended it early: the SDK closed the permission channel and
+    // the turn's first tool failed with "Stream closed" (seen live).
+    env: { ...process.env, CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: "1" },
     // A missing callback is a safe denial. Leaving the callback out would let
     // the SDK choose a native permission mode unknown to the host application.
     canUseTool: async (name, input, details) => {

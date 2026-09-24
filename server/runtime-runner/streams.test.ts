@@ -4,7 +4,7 @@ import test from "node:test";
 
 import type { RuntimeDetection } from "../runtimes/types.ts";
 import type { RuntimeEvent, RuntimeExecutor } from "../runtimes/execution/types.ts";
-import type { ClaudeSdkQuery } from "../runtimes/execution/claude.ts";
+import type { ClaudeSdkQuery, ClaudeSdkQueryOptions } from "../runtimes/execution/claude.ts";
 import { startAntigravityExecution } from "../runtimes/execution/antigravity.ts";
 import { createRuntimeRunner, createRuntimeRunnerAsync, type ClaudeSdkModule } from "./index.ts";
 
@@ -181,7 +181,8 @@ test("claude: one tool call is one start and one result, whatever the SDK repeat
   ]);
   assert.deepEqual(tools[0]?.data, { command: "npm test" });
   // Evidence reads the command from the result, which alone does not name it.
-  assert.deepEqual(tools[1]?.data, { input: { command: "npm test" }, output: "76 pass" });
+  // A Bash result without an "Exit code" line succeeded.
+  assert.deepEqual(tools[1]?.data, { input: { command: "npm test" }, output: "76 pass", exitCode: 0 });
 });
 
 test("claude: a failed tool result is reported as failed", async () => {
@@ -378,4 +379,60 @@ test("antigravity: a finished tool step keeps the command it started with", asyn
 
   const finished = events.find((event) => event.type === "tool" && event.tool === "run_command" && event.status === "completed");
   assert.deepEqual(finished?.type === "tool" && finished.data, { input: { CommandLine: "pwd" }, output: "/workspace\n", command: "pwd" });
+});
+
+// Shapes below were seen in the live smoke run of September 2026.
+
+test("claude: a Bash result carries the exit code its output starts with, and 0 when it succeeded", async () => {
+  const events = await claudeTurn(async function* () {
+    yield { type: "assistant", session_id: SESSION, message: { id: "msg_1", content: [
+      { type: "tool_use", id: "toolu_ok", name: "Bash", input: { command: "ls" } },
+      { type: "tool_use", id: "toolu_bad", name: "Bash", input: { command: "ls missing-dir" } },
+      { type: "tool_use", id: "toolu_denied", name: "Bash", input: { command: "touch x" } },
+    ] } };
+    yield { type: "user", session_id: SESSION, message: { role: "user", content: [
+      { type: "tool_result", tool_use_id: "toolu_ok", content: "README.md" },
+      { type: "tool_result", tool_use_id: "toolu_bad", content: "Exit code 2\n/usr/bin/ls: cannot access 'missing-dir': No such file or directory", is_error: true },
+      { type: "tool_result", tool_use_id: "toolu_denied", content: "Permission denied by Architech.", is_error: true },
+    ] } };
+    yield success;
+  });
+
+  const exitCodes = events
+    .filter((event) => event.type === "tool" && event.status !== "start")
+    .map((event) => event.type === "tool" ? [event.itemId, (event.data as { exitCode?: number }).exitCode ?? null] : null);
+  assert.deepEqual(exitCodes, [["toolu_ok", 0], ["toolu_bad", 2], ["toolu_denied", null]]);
+});
+
+test("claude: an approval card names the command or the file the tool acts on", async () => {
+  const commands: Array<string | null> = [];
+  const sdk: ClaudeSdkModule = {
+    query: ({ options }) => {
+      const { canUseTool } = options as ClaudeSdkQueryOptions;
+      const query: ClaudeSdkQuery = {
+        [Symbol.asyncIterator]: async function* () {
+          await canUseTool("Bash", { command: "touch declined.txt" }, { toolUseID: "toolu_a" });
+          await canUseTool("Write", { file_path: "/workspace/smoke.txt", content: "ok" }, { toolUseID: "toolu_b" });
+          yield success;
+        },
+        interrupt: async () => {},
+        close: async () => {},
+      };
+      return query;
+    },
+  };
+  const runner = await createRuntimeRunnerAsync({
+    runtime: "claude",
+    prompt: "fixture",
+    detection: detectionFor("claude"),
+    signal: new AbortController().signal,
+    approvalHandler: async (request) => {
+      commands.push(request.command);
+      return "accept" as const;
+    },
+    dependencies: { createCodexExecutor: unusedCodex, loadClaudeSdk: () => sdk },
+  });
+  await collect(runner.events);
+
+  assert.deepEqual(commands, ["touch declined.txt", "Write /workspace/smoke.txt"]);
 });

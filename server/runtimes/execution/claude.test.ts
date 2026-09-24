@@ -204,3 +204,11 @@ test("drives the discovered binary instead of the SDK's vendored copy", async ()
   assert.equal(withPath?.pathToClaudeCodeExecutable, "/usr/local/bin/claude");
   assert.equal("pathToClaudeCodeExecutable" in (withoutPath ?? {}), false);
 });
+
+test("Claude runs without background tasks, which would outlive the turn's process", () => {
+  // A killed background command's notice opened the next turn and closed the
+  // permission channel before its first tool (seen in the live smoke run).
+  const options = buildClaudeSdkOptions({ cwd: "/workspace", model: "inherit", effort: undefined, resumeSessionId: null });
+  assert.equal(options.env?.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS, "1");
+  assert.equal(options.env?.PATH, process.env.PATH);
+});
