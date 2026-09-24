@@ -9,6 +9,7 @@ import {
   getConversation,
   linkConversationToProject,
   loadMessagesWithMeta,
+  recordConversationNote,
 } from "../agent/conversations.ts";
 import { unseenMessages, withConversationContext, type ConversationContext, type StoredMessage } from "../agent/runtimeContext.ts";
 import { validateTransientWorkspaceRoot } from "./agent.ts";
@@ -619,7 +620,10 @@ async function chat(req: Request, res: Response, options: RuntimeAgentRouterOpti
     // made before it had a folder can move there without another run writing.
     if (body.workspaceRoot) {
       const filesEvent = chatWorkspaceEvent(adoptChatWorkspace(conversationId, body.workspaceRoot));
-      if (filesEvent) send(filesEvent);
+      if (filesEvent) {
+        send(filesEvent);
+        recordConversationNote(conversationId, filesEvent);
+      }
     }
     const context = conversationPrompt(
       conversationId,
@@ -630,13 +634,15 @@ async function chat(req: Request, res: Response, options: RuntimeAgentRouterOpti
     // The chat says so when a runtime is handed earlier messages: it gets
     // their text, not the tool results or the state of the other session.
     if (context.included > 0) {
-      send({
+      const note = {
         type: "context_carried",
         runtime: body.runtime,
         included: context.included,
         omitted: context.omitted,
         resumed: Boolean(body.externalSessionId),
-      });
+      };
+      send(note);
+      recordConversationNote(conversationId, note);
     }
     appendTranscript(conversationId, body.message, "", { runtime: body.runtime, runId: run.id });
     const runner = await createRuntimeRunnerAsync({

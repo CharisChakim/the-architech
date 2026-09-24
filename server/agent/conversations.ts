@@ -153,6 +153,18 @@ db.exec(`
 `);
 migrateConversationSchema();
 db.exec(CREATE_MESSAGES_SQL);
+// Notes the chat shows between messages ("context carried", "files moved").
+// They are kept apart from messages so they never reach a model's history.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS conversation_notes (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    conv_id         TEXT NOT NULL,
+    last_message_id INTEGER NOT NULL,
+    payload         TEXT NOT NULL,
+    created_at      TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_conversation_notes_conv ON conversation_notes (conv_id, id);
+`);
 
 interface ConversationRow {
   id: string;
@@ -185,6 +197,7 @@ export interface ConversationListFilter {
 }
 
 interface MessageRow {
+  id: number;
   role: string;
   content: string;
 }
@@ -201,7 +214,16 @@ const updateConversationProjectStmt = db.prepare(
   `UPDATE conversations SET project_id = ?, updated_at = ? WHERE id = ?`
 );
 const listMessagesStmt = db.prepare(
-  `SELECT role, content FROM messages WHERE conv_id = ? ORDER BY id ASC`
+  `SELECT id, role, content FROM messages WHERE conv_id = ? ORDER BY id ASC`
+);
+const lastMessageIdStmt = db.prepare(
+  `SELECT COALESCE(MAX(id), 0) AS id FROM messages WHERE conv_id = ?`
+);
+const insertNoteStmt = db.prepare(
+  `INSERT INTO conversation_notes (conv_id, last_message_id, payload, created_at) VALUES (?, ?, ?, ?)`
+);
+const listNotesStmt = db.prepare(
+  `SELECT last_message_id, payload FROM conversation_notes WHERE conv_id = ? ORDER BY id ASC`
 );
 const listMessagesWithMetaStmt = db.prepare(
   `SELECT role, content, meta FROM messages WHERE conv_id = ? ORDER BY id ASC`
@@ -450,7 +472,7 @@ export function linkConversationToProject(convId: string, projectId: string): Co
   return toConversation(requireConversation(conversation.id));
 }
 
-export function loadMessages(convId: string): Message[] {
+function loadMessageRows(convId: string): Array<{ id: number; message: Message }> {
   const id = requiredId(convId, "conversationId");
   const rows = listMessagesStmt.all(id) as unknown as MessageRow[];
 
@@ -459,10 +481,42 @@ export function loadMessages(convId: string): Message[] {
 
     try {
       const content = JSON.parse(row.content);
-      return Array.isArray(content) ? [{ role: row.role, content } as Message] : [];
+      return Array.isArray(content) ? [{ id: row.id, message: { role: row.role, content } as Message }] : [];
     } catch {
       // Satu baris rusak tidak boleh membuat percakapan lain atau pesan valid
       // sesudahnya ikut tidak dapat dipakai oleh provider.
+      return [];
+    }
+  });
+}
+
+export function loadMessages(convId: string): Message[] {
+  return loadMessageRows(convId).map((row) => row.message);
+}
+
+/**
+ * A note is sent as a turn starts, just before its user message is stored.
+ * It is kept with the last message stored so far and shown after the next
+ * one, which is where the chat showed it live.
+ */
+export function recordConversationNote(convId: string, note: Record<string, unknown>): void {
+  const conversation = requireConversation(convId);
+  const last = lastMessageIdStmt.get(conversation.id) as { id: number };
+  insertNoteStmt.run(conversation.id, last.id, JSON.stringify(note), new Date().toISOString());
+}
+
+/** Each note with the index, in loadMessages, of the message it follows (-1: before all). */
+export function loadConversationNotes(convId: string): Array<{ afterMessage: number; note: Record<string, unknown> }> {
+  const rows = loadMessageRows(convId);
+  const notes = listNotesStmt.all(requiredId(convId, "conversationId")) as unknown as Array<{ last_message_id: number; payload: string }>;
+  return notes.flatMap((row) => {
+    try {
+      const note = JSON.parse(row.payload);
+      if (!note || typeof note !== "object" || Array.isArray(note)) return [];
+      const next = rows.findIndex((message) => message.id > row.last_message_id);
+      // No message came after the note (the turn failed before it was stored).
+      return [{ afterMessage: next === -1 ? rows.length - 1 : next, note }];
+    } catch {
       return [];
     }
   });

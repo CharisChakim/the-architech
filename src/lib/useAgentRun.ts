@@ -76,11 +76,55 @@ function parseStoredResult(content: unknown): unknown {
   }
 }
 
-function entriesFromStoredMessages(messages: unknown[], sequence: { current: number }): Entry[] {
+/** A note the chat shows between messages, from a live event or a stored one. */
+function noteEntry(event: any, sequence: { current: number }): Entry | null {
+  if (!event || typeof event !== "object") return null;
+  if (event.type === "context_carried") {
+    return {
+      kind: "context_carried",
+      id: nextEntryId(sequence),
+      runtime: typeof event.runtime === "string" ? event.runtime : "",
+      included: Number(event.included) || 0,
+      omitted: Number(event.omitted) || 0,
+      resumed: event.resumed === true,
+    };
+  }
+  if (event.type === "chat_files" && (event.status === "moved" || event.status === "conflict" || event.status === "failed")) {
+    const conflicts = Array.isArray(event.conflicts)
+      ? event.conflicts.filter((item: unknown): item is string => typeof item === "string")
+      : [];
+    return {
+      kind: "chat_files",
+      id: nextEntryId(sequence),
+      status: event.status,
+      from: String(event.from ?? ""),
+      to: String(event.to ?? ""),
+      conflicts,
+      conflictCount: Number(event.conflictCount) || conflicts.length,
+    };
+  }
+  return null;
+}
+
+export function entriesFromStoredMessages(messages: unknown[], sequence: { current: number }, notes: unknown[] = []): Entry[] {
   const restored: Entry[] = [];
   const tools = new Map<string, number>();
+  // Notes go where the chat showed them live: after the message they follow.
+  const notesAfter = new Map<number, unknown[]>();
+  for (const item of notes) {
+    const afterMessage = Number((item as any)?.afterMessage);
+    if (!Number.isInteger(afterMessage)) continue;
+    notesAfter.set(afterMessage, [...(notesAfter.get(afterMessage) ?? []), (item as any).note]);
+  }
+  const pushNotes = (afterMessage: number): void => {
+    for (const note of notesAfter.get(afterMessage) ?? []) {
+      const entry = noteEntry(note, sequence);
+      if (entry) restored.push(entry);
+    }
+  };
 
-  for (const message of messages) {
+  for (const [index, message] of messages.entries()) {
+    pushNotes(index - 1);
     if (!message || typeof message !== "object") continue;
     const role = (message as any).role;
     const content = (message as any).content;
@@ -119,6 +163,7 @@ function entriesFromStoredMessages(messages: unknown[], sequence: { current: num
       }
     }
   }
+  pushNotes(messages.length - 1);
 
   return restored;
 }
@@ -178,7 +223,7 @@ export function useAgentRun({ sessionId, workspaceRoot, allowShell, onToolApplie
       })
       .then((data) => {
         if (cancelled || liveSendStarted.current || !Array.isArray(data?.messages)) return;
-        setEntries(entriesFromStoredMessages(data.messages, sequence));
+        setEntries(entriesFromStoredMessages(data.messages, sequence, Array.isArray(data.notes) ? data.notes : []));
       })
       .catch(() => {
         // A missing or temporarily unavailable transcript should not block a
@@ -451,37 +496,9 @@ export function useAgentRun({ sessionId, workspaceRoot, allowShell, onToolApplie
                 answered: false,
               },
             ]);
-          } else if (event.type === "chat_files") {
-            const status = (event as any).status;
-            if (status === "moved" || status === "conflict" || status === "failed") {
-              const conflicts = Array.isArray((event as any).conflicts)
-                ? (event as any).conflicts.filter((item: unknown): item is string => typeof item === "string")
-                : [];
-              setEntries((prev) => [
-                ...prev,
-                {
-                  kind: "chat_files",
-                  id: nextEntryId(sequence),
-                  status,
-                  from: String((event as any).from ?? ""),
-                  to: String((event as any).to ?? ""),
-                  conflicts,
-                  conflictCount: Number((event as any).conflictCount) || conflicts.length,
-                },
-              ]);
-            }
-          } else if (event.type === "context_carried") {
-            setEntries((prev) => [
-              ...prev,
-              {
-                kind: "context_carried",
-                id: nextEntryId(sequence),
-                runtime: typeof event.runtime === "string" ? event.runtime : "",
-                included: Number(event.included) || 0,
-                omitted: Number(event.omitted) || 0,
-                resumed: event.resumed === true,
-              },
-            ]);
+          } else if (event.type === "chat_files" || event.type === "context_carried") {
+            const note = noteEntry(event, sequence);
+            if (note) setEntries((prev) => [...prev, note]);
           } else if (event.type === "mcp_status") {
             setEntries((prev) => [
               ...prev,

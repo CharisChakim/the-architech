@@ -13,7 +13,9 @@ import {
   importLegacyHistory,
   linkConversationToProject,
   listConversations,
+  loadConversationNotes,
   loadMessages,
+  recordConversationNote,
 } from "../agent/conversations.ts";
 import { adoptChatWorkspace, chatWorkspaceEvent } from "../agent/chatWorkspace.ts";
 import { hasActiveRun } from "../runs/store.ts";
@@ -371,7 +373,10 @@ async function chat(req: Request, res: Response): Promise<void> {
   const projectRoot = typeof projectSession?.workspaceRoot === "string" ? projectSession.workspaceRoot : "";
   if (projectRoot && !hasActiveRun(convId, projectRoot)) {
     const filesEvent = chatWorkspaceEvent(adoptChatWorkspace(convId, projectRoot));
-    if (filesEvent) send(filesEvent);
+    if (filesEvent) {
+      send(filesEvent);
+      recordConversationNote(convId, filesEvent);
+    }
   }
 
   try {
@@ -448,7 +453,7 @@ router.get("/api/agent/conversations/:conversationId/messages", (req, res) => {
   }
   // Message metadata (model, connection id) stays server-side. Content blocks
   // contain only the transcript needed to repaint the local chat pane.
-  res.json({ conversation, messages: loadMessages(conversationId) });
+  res.json({ conversation, messages: loadMessages(conversationId), notes: loadConversationNotes(conversationId) });
 });
 
 router.post("/api/agent/respond", (req, res) => {
