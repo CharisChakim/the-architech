@@ -286,6 +286,8 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
   };
 
   const handleDownloadTaskHandoff = (task: AgentTask) => {
+    // Like Run: the work waits until the tasks it depends on are done.
+    if (openDependencies(task, tasks).length > 0) return;
     const handedOffTask: AgentTask = {
       ...task,
       handoffStatus: "handed_off",
@@ -915,7 +917,16 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
                     {selectedTaskHandoffJson}
                   </pre>
                 </details>
-                <button type="button" onClick={() => handleDownloadTaskHandoff(selectedTask)} className="btn-primary mt-3 !px-2.5 !py-1.5 text-xs">
+                {blockedTitle(selectedTask) && (
+                  <p className="mt-2 text-[11px] font-medium">{blockedTitle(selectedTask)}</p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => handleDownloadTaskHandoff(selectedTask)}
+                  disabled={openDependencies(selectedTask, tasks).length > 0}
+                  title={blockedTitle(selectedTask)}
+                  className="btn-primary mt-3 !px-2.5 !py-1.5 text-xs disabled:opacity-50"
+                >
                   <Download className="w-3.5 h-3.5" /> {t("Download handoff (.json)")}
                 </button>
               </div>

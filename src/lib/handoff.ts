@@ -1,4 +1,5 @@
-import type { AgentTask, ProjectSession, PRDData } from "../types";
+import type { AgentTask, PRDArtifactVersion, ProjectSession, PRDData } from "../types";
+import { hasPrdSource, taskNeedsPrdSync } from "./artifactVersions";
 
 /** Handoff artifacts describe work for another tool; they are not completion evidence. */
 export const HANDOFF_SCHEMA_VERSION = "v2-4" as const;
@@ -18,6 +19,10 @@ export interface HandoffTask {
     promptInstructions: string;
   };
   dependencies: string[];
+  /** A single-task package does not carry the other tasks, so each dependency says what it is. */
+  dependencyDetails: Array<{ id: string; title: string; status: "done" | "open" | "unknown" }>;
+  /** The PRD version the task was made from; needsSync means the PRD has changed since. */
+  prdSource: { versionNumber: number | null; needsSync: boolean } | null;
   acceptanceCriteria: string;
   verificationSteps: string;
 }
@@ -55,8 +60,10 @@ function redactSensitiveText(value: string): string {
     .replace(/\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/g, "[REDACTED AWS KEY]")
     .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, "[REDACTED JWT]")
     .replace(/([a-z][a-z0-9+.-]*:\/\/[^:\s/]+:)[^@\s/]+(@)/gi, "$1[REDACTED]$2")
-    .replace(/\b(sk-[A-Za-z0-9_-]{12,}|gh[pousr]_[A-Za-z0-9_]{12,}|AIza[A-Za-z0-9_-]{20,})\b/g, "[REDACTED]")
-    .replace(/(api[_-]?key|access[_-]?token|refresh[_-]?token|auth(?:orization)?|client[_-]?secret|password|secret)\s*[:=]\s*["']?[^\r\n"',;]+/gi, "$1: [REDACTED]");
+    .replace(/\b(sk-[A-Za-z0-9_-]{12,}|gh[pousr]_[A-Za-z0-9_]{12,}|AIza[A-Za-z0-9_-]{20,}|xox[abposr]-[A-Za-z0-9-]{10,})\b/g, "[REDACTED]")
+    // A quoted key (JSON, YAML) closes its quote before the colon. Bare "token"
+    // is left alone so schema fields such as "token: text" stay readable.
+    .replace(/(api[_-]?key|[a-z0-9]*[_-]token|auth(?:orization)?|client[_-]?secret|password|secret)(["']?\s*[:=]\s*["']?)[^\r\n"',;]+/gi, "$1$2[REDACTED]");
 }
 
 function safeText(value: unknown): string {
@@ -77,7 +84,7 @@ function prdVersion(prd: PRDData | undefined): string | number | null {
   return typeof value === "string" || typeof value === "number" ? value : null;
 }
 
-function toHandoffTask(task: AgentTask): HandoffTask {
+function toHandoffTask(task: AgentTask, allTasks: AgentTask[], currentVersion?: PRDArtifactVersion): HandoffTask {
   const verification = safeText(task.verificationSteps);
   return {
     id: safeText(task.id),
@@ -92,6 +99,20 @@ function toHandoffTask(task: AgentTask): HandoffTask {
       promptInstructions: safeText(task.promptInstructions),
     },
     dependencies: (task.dependencies || []).map(safeText).filter(Boolean),
+    dependencyDetails: (task.dependencies || []).filter(Boolean).map((id) => {
+      const dependency = allTasks.find((other) => other.id === id);
+      return {
+        id: safeText(id),
+        title: safeText(dependency?.title),
+        status: !dependency ? "unknown" as const : dependency.status === "done" ? "done" as const : "open" as const,
+      };
+    }),
+    prdSource: hasPrdSource(task)
+      ? {
+          versionNumber: task.sourcePrdVersionNumber ?? task.prdVersionNumber ?? null,
+          needsSync: taskNeedsPrdSync(task, currentVersion),
+        }
+      : null,
     acceptanceCriteria: safeText(task.acceptanceCriteria) || verification,
     verificationSteps: verification,
   };
@@ -103,8 +124,8 @@ function toHandoffTask(task: AgentTask): HandoffTask {
  */
 export function buildHandoffPackage(session: ProjectSession, task?: AgentTask | null): HandoffPackage {
   const projectTitle = safeText(session.input.title || session.title || "Project");
-  const tasks = (task ? [task] : session.tasks || []).map(toHandoffTask);
   const currentVersion = session.prdVersions?.find((version) => version.status === "active") || session.prdVersions?.[session.prdVersions.length - 1];
+  const tasks = (task ? [task] : session.tasks || []).map((item) => toHandoffTask(item, session.tasks || [], currentVersion));
   const prd = session.prd
     ? {
         version: prdVersion(session.prd) ?? currentVersion?.number ?? null,
@@ -188,7 +209,12 @@ export function buildHandoffMarkdown(session: ProjectSession, task?: AgentTask |
         `- **Phase**: ${task.phase}`,
         `- **Priority**: ${task.priority}`,
         `- **Target files**: ${task.scope.targetFiles.length ? task.scope.targetFiles.map((file) => `\`${file}\``).join(", ") : "None"}`,
-        `- **Dependencies**: ${task.dependencies.length ? task.dependencies.join(", ") : "None"}`,
+        `- **Dependencies**: ${task.dependencyDetails.length
+          ? task.dependencyDetails.map((dependency) => `${dependency.id}${dependency.title ? ` (${dependency.title})` : ""}: ${dependency.status}`).join(", ")
+          : "None"}`,
+        ...(task.prdSource
+          ? [`- **PRD source**: version ${task.prdSource.versionNumber ?? "unknown"}${task.prdSource.needsSync ? " (the PRD has changed since this task was made; check it against the PRD above)" : ""}`]
+          : []),
         "",
         "#### Instructions",
         task.scope.promptInstructions || "No task instructions were provided.",
