@@ -594,6 +594,11 @@ async function chat(req: Request, res: Response, options: RuntimeAgentRouterOpti
   let executor: { interrupt?: (turnId?: string) => Promise<void>; close: () => Promise<void> } | null = null;
   const interruptExecutor = (): void => { void executor?.interrupt?.().catch(() => undefined); };
   let assistantText = "";
+  // Text that resumes after a tool call is a new paragraph in the stored
+  // reply, not a run-on of whatever text came before the tool. This only
+  // affects what gets appended to assistantText, not the individual "text"
+  // events streamed live to the chat.
+  let assistantTextNeedsParagraphBreak = false;
   let externalSessionId = body.externalSessionId ?? null;
   let approvalRejected = false;
   // A provider stream that reconnects can deliver a finished item again; the
@@ -660,7 +665,11 @@ async function chat(req: Request, res: Response, options: RuntimeAgentRouterOpti
     for await (const runtimeEvent of runner.events) {
       if (ac.signal.aborted) {
         finalStatus = "interrupted";
-        finalError = "Client disconnected.";
+        // A dropped network connection and the chat's Stop button both abort
+        // the same request the same way, so the server cannot tell which one
+        // happened; the stored reason says that honestly instead of naming a
+        // fault that may not be there.
+        finalError = "The chat stopped this run, or its connection to the server was lost.";
         break;
       }
       const ids = "threadId" in runtimeEvent && typeof runtimeEvent.threadId === "string" ? runtimeEvent.threadId : null;
@@ -668,7 +677,12 @@ async function chat(req: Request, res: Response, options: RuntimeAgentRouterOpti
         externalSessionId = ids;
         send({ type: "runtime_session", externalSessionId: ids });
       }
-      if (runtimeEvent.type === "text") assistantText += runtimeEvent.text;
+      if (runtimeEvent.type === "text") {
+        if (assistantText && assistantTextNeedsParagraphBreak) assistantText += "\n\n";
+        assistantTextNeedsParagraphBreak = false;
+        assistantText += runtimeEvent.text;
+      }
+      if (runtimeEvent.type === "tool") assistantTextNeedsParagraphBreak = true;
       if (runtimeEvent.type === "tool" && runtimeEvent.itemId && terminalToolStatus(runtimeEvent.status)) {
         if (finishedToolItems.has(runtimeEvent.itemId)) continue;
         finishedToolItems.add(runtimeEvent.itemId);

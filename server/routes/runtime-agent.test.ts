@@ -680,3 +680,74 @@ test("a provider's own copy of an approval request is not shown as a second card
     assert.equal(events.at(-1)?.runStatus, "completed");
   });
 });
+
+test("text that resumes after a tool call starts a new paragraph in the stored reply", async () => {
+  const provider = new ProviderFixture(async function* () {
+    yield { type: "text", text: "Running the check", threadId: "thread_fixture", turnId: "turn_fixture", itemId: null };
+    yield {
+      type: "tool",
+      tool: "shell",
+      status: "completed",
+      threadId: "thread_fixture",
+      turnId: "turn_fixture",
+      itemId: "item_1",
+      data: { command: "cat smoke.txt" },
+    } as RuntimeEvent;
+    yield { type: "text", text: "pwd returned ", threadId: "thread_fixture", turnId: "turn_fixture", itemId: null };
+    yield { type: "text", text: "/tmp.", threadId: "thread_fixture", turnId: "turn_fixture", itemId: null };
+    yield done;
+  });
+  const conversationId = "conversation-paragraphs";
+
+  await withServer(provider, async (url) => {
+    const events = await chat(url, { conversationId });
+
+    // Streamed live, the text events are untouched: no separator was invented.
+    assert.deepEqual(
+      events.filter((event) => event.type === "text").map((event) => event.text),
+      ["Running the check", "pwd returned ", "/tmp."],
+    );
+
+    // Stored, the text that resumed after the tool call is its own paragraph,
+    // and the two text events with no tool between them are not split.
+    const messages = loadMessages(conversationId).map((message) => (message.content[0] as { text: string }).text);
+    assert.deepEqual(messages, ["Do the task.", "Running the check\n\npwd returned /tmp."]);
+  });
+});
+
+test("when the server cannot tell Stop from a dropped connection, the stored reason says so honestly", async () => {
+  const provider = new ProviderFixture(async function* (fixture) {
+    yield { type: "text", text: "working", threadId: "thread_fixture", turnId: "turn_fixture", itemId: null };
+    await fixture.waitUntilReleased();
+    // The provider is interrupted rather than sending its own "done" with
+    // status interrupted, as a stream that is simply cut off would.
+    yield { type: "text", text: " more", threadId: "thread_fixture", turnId: "turn_fixture", itemId: null };
+  });
+  const { sessionId, taskId } = project();
+
+  await withServer(provider, async (url) => {
+    const stop = new AbortController();
+    const res = await fetch(`${url}/api/runtime-agent/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ runtime: "codex", message: "Do the task.", sessionId, taskId, idempotencyKey: "stop-honest" }),
+      signal: stop.signal,
+    });
+    const reader = res.body!.getReader();
+    await reader.read();
+    await provider.firstTurnStarted;
+    stop.abort();
+    await reader.read().catch(() => undefined);
+
+    let run = listRuns({ taskId })[0];
+    for (let i = 0; i < 50 && run?.status === "running"; i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      run = listRuns({ taskId })[0];
+    }
+    assert.equal(run?.status, "interrupted");
+    // The chat's own Stop and a lost connection abort the request the same
+    // way, so the reason names both instead of claiming a fault.
+    assert.doesNotMatch(run?.error ?? "", /disconnected/i);
+    assert.match(run?.error ?? "", /stopped this run|lost its connection/);
+  });
+});
