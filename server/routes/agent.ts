@@ -15,6 +15,8 @@ import {
   listConversations,
   loadMessages,
 } from "../agent/conversations.ts";
+import { adoptChatWorkspace, chatWorkspaceEvent } from "../agent/chatWorkspace.ts";
+import { hasActiveRun } from "../runs/store.ts";
 import { runAgent } from "../agent/loop.ts";
 import { parseAgentHarnessSettings } from "../agent/harness.ts";
 
@@ -364,6 +366,13 @@ async function chat(req: Request, res: Response): Promise<void> {
   res.on("close", abortForResponseDisconnect);
   sseHeaders(res);
   send({ type: "conversation", conversationId: convId });
+  // Files this chat made before it had a folder move there, unless a runtime
+  // run is still working in the chat or the folder.
+  const projectRoot = typeof projectSession?.workspaceRoot === "string" ? projectSession.workspaceRoot : "";
+  if (projectRoot && !hasActiveRun(convId, projectRoot)) {
+    const filesEvent = chatWorkspaceEvent(adoptChatWorkspace(convId, projectRoot));
+    if (filesEvent) send(filesEvent);
+  }
 
   try {
     await runAgent({

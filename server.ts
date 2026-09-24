@@ -14,6 +14,8 @@ import runtimePreferencesRouter from "./server/routes/runtime-preferences.ts";
 import runsRouter from "./server/routes/runs.ts";
 import runtimeAgentRouter from "./server/routes/runtime-agent.ts";
 import mcpRouter from "./server/mcp/routes.ts";
+import { listConversations } from "./server/agent/conversations.ts";
+import { removeChatWorkspaces } from "./server/agent/chatWorkspace.ts";
 import { generateFollowups } from "./server/pipeline/followups.ts";
 import { generatePlan } from "./server/pipeline/plan.ts";
 import { generatePrd } from "./server/pipeline/prd.ts";
@@ -104,6 +106,9 @@ app.put("/api/sessions/:id", (req, res) => {
 app.delete("/api/sessions/:id", (req, res) => {
   try {
     deleteSession(req.params.id);
+    // The chat folders of a project that never got its files moved are not
+    // reachable once the project is gone.
+    removeChatWorkspaces(listConversations({ projectId: req.params.id }).map((conversation) => conversation.id));
     res.json({ success: true });
   } catch (err: any) {
     console.error("Error DELETE /api/sessions/:id:", err);

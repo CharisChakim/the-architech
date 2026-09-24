@@ -249,6 +249,30 @@ export const AgentPane: React.FC<AgentPaneProps> = ({
           </div>
         );
       }
+      case "chat_files":
+        return (
+          <div
+            key={entry.id}
+            className={entry.status === "moved"
+              ? "flex items-start gap-2 px-1 text-[11px] text-faint"
+              : "flex items-start gap-2 rounded-xl border border-warn/30 bg-warn-soft px-3 py-2 text-xs text-warn-ink"}
+            role="note"
+          >
+            <Folder className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+            <span className="min-w-0 flex-1 break-words">
+              {entry.status === "moved"
+                ? t("Files this chat made before it had a folder were moved to {to}.", { to: entry.to })
+                : entry.status === "conflict"
+                  ? t("Files this chat made before it had a folder were not moved, because {count} of them would replace files in {to}: {paths}. They are still in {from}.", {
+                      count: entry.conflictCount,
+                      to: entry.to,
+                      paths: entry.conflicts.join(", ") + (entry.conflictCount > entry.conflicts.length ? ", …" : ""),
+                      from: entry.from,
+                    })
+                  : t("Files this chat made before it had a folder could not all be moved to {to}. What is left is still in {from}.", { to: entry.to, from: entry.from })}
+            </span>
+          </div>
+        );
       case "mcp_status":
         return (
           <div key={entry.id} className="flex items-start gap-2 rounded-xl border border-warn/30 bg-warn-soft px-3 py-2 text-xs text-warn-ink">

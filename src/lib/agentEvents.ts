@@ -35,6 +35,7 @@ export type Entry =
     }
   | { kind: "mcp_status"; id: string; server: string; state: string; tools: number; message: string }
   | { kind: "context_carried"; id: string; runtime: string; included: number; omitted: number; resumed: boolean }
+  | { kind: "chat_files"; id: string; status: "moved" | "conflict" | "failed"; from: string; to: string; conflicts: string[]; conflictCount: number }
   | { kind: "turn_end"; id: string; toolCount: number; ms: number; failed?: boolean; stopped?: boolean }
   | { kind: "error"; id: string; message: string; retryable: boolean };
 
@@ -50,6 +51,7 @@ export type AgentEvent = {
     | "questions"
     | "mcp_status"
     | "context_carried"
+    | "chat_files"
     | "done"
     | "error"
     | "abort"

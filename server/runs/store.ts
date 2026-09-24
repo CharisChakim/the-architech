@@ -663,6 +663,11 @@ function isTerminal(status: RunStatus): status is (typeof TERMINAL_RUN_STATUSES)
   return TERMINAL_RUN_STATUSES.includes(status as (typeof TERMINAL_RUN_STATUSES)[number]);
 }
 
+/** Whether a run is working in this conversation or this workspace right now. */
+export function hasActiveRun(conversationId: string, workspace: string): boolean {
+  return Boolean(activeConversationStmt.get(conversationId, "") || activeWorkspaceStmt.get(workspace, ""));
+}
+
 export function updateRunStatus(runId: string, input: RunStatusUpdateInput): Run {
   const current = requireRun(runId);
   const from = runtimeStatus(current.status);

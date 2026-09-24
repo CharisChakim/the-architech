@@ -451,6 +451,25 @@ export function useAgentRun({ sessionId, workspaceRoot, allowShell, onToolApplie
                 answered: false,
               },
             ]);
+          } else if (event.type === "chat_files") {
+            const status = (event as any).status;
+            if (status === "moved" || status === "conflict" || status === "failed") {
+              const conflicts = Array.isArray((event as any).conflicts)
+                ? (event as any).conflicts.filter((item: unknown): item is string => typeof item === "string")
+                : [];
+              setEntries((prev) => [
+                ...prev,
+                {
+                  kind: "chat_files",
+                  id: nextEntryId(sequence),
+                  status,
+                  from: String((event as any).from ?? ""),
+                  to: String((event as any).to ?? ""),
+                  conflicts,
+                  conflictCount: Number((event as any).conflictCount) || conflicts.length,
+                },
+              ]);
+            }
           } else if (event.type === "context_carried") {
             setEntries((prev) => [
               ...prev,

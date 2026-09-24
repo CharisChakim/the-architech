@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import express, { type Request, type Response } from "express";
 
 import { getSession } from "../../db.ts";
+import { adoptChatWorkspace, chatWorkspaceEvent, ensureChatWorkspace } from "../agent/chatWorkspace.ts";
 import {
   appendMessage,
   ensureConversationFor,
@@ -614,6 +615,12 @@ async function chat(req: Request, res: Response, options: RuntimeAgentRouterOpti
   let finalError: string | null = null;
   try {
     startRun(run.id);
+    // The run now holds the conversation and the workspace, so files this chat
+    // made before it had a folder can move there without another run writing.
+    if (body.workspaceRoot) {
+      const filesEvent = chatWorkspaceEvent(adoptChatWorkspace(conversationId, body.workspaceRoot));
+      if (filesEvent) send(filesEvent);
+    }
     const context = conversationPrompt(
       conversationId,
       body.runtime,
@@ -637,7 +644,7 @@ async function chat(req: Request, res: Response, options: RuntimeAgentRouterOpti
       prompt: context.prompt,
       model: body.model,
       effort: body.effort,
-      cwd: body.workspaceRoot,
+      cwd: body.workspaceRoot || ensureChatWorkspace(conversationId),
       externalSessionId: body.externalSessionId,
       detection,
       signal: ac.signal,

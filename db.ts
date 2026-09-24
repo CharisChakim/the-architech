@@ -5,7 +5,7 @@ import path from "path";
 // Paket desktop menjalankan server dari direktori instalasi yang sering
 // read-only, jadi lokasi data bisa ditunjuk lewat environment. Tanpa itu
 // perilakunya sama seperti sebelumnya: ./data relatif terhadap cwd.
-const DB_DIR = process.env.ARCHITECH_DATA_DIR ?? path.join(process.cwd(), "data");
+export const DB_DIR = process.env.ARCHITECH_DATA_DIR ?? path.join(process.cwd(), "data");
 const DB_PATH = path.join(DB_DIR, "architech.db");
 
 fs.mkdirSync(DB_DIR, { recursive: true });

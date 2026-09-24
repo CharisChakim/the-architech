@@ -59,6 +59,8 @@ const done: RuntimeEvent = {
  */
 class ProviderFixture {
   readonly turns: RuntimeTurnRequest[] = [];
+  /** The folder each provider process was started in. */
+  readonly cwds: Array<string | undefined> = [];
   interrupts = 0;
   approvalHandler: RuntimeApprovalHandler | undefined;
   private release: () => void = () => {};
@@ -103,6 +105,7 @@ async function withServer(
     runnerDependencies: {
       createCodexExecutor: (options) => {
         provider.approvalHandler = options.approvalHandler;
+        provider.cwds.push(options.cwd);
         return provider.executor();
       },
     },
@@ -369,6 +372,47 @@ test("a chat keeps its conversation when it becomes a project", async () => {
     assert.equal(second.at(-1)?.runStatus, "completed");
     const messages = loadMessages(conversationId).map((message) => (message.content[0] as { text: string }).text);
     assert.deepEqual(messages, ["Plan a todo app.", "answer 1", "Now add auth.", "answer 2"]);
+  });
+});
+
+test("each chat without a folder runs in a folder of its own, not in the server's", async () => {
+  const provider = new ProviderFixture(async function* () { yield done; });
+  const withFolder = project();
+
+  await withServer(provider, async (url) => {
+    await chat(url, { conversationId: "no-folder-1" });
+    await chat(url, { conversationId: "no-folder-2" });
+    await chat(url, { sessionId: withFolder.sessionId });
+  });
+
+  const [first, second, projectCwd] = provider.cwds;
+  assert.equal(first, path.join(dataDir, "chat-workspaces", "no-folder-1"));
+  assert.equal(second, path.join(dataDir, "chat-workspaces", "no-folder-2"));
+  assert.ok(fs.statSync(first!).isDirectory());
+  assert.equal(projectCwd, withFolder.workspaceRoot);
+});
+
+test("files a chat made before it had a folder move into the folder once it has one", async () => {
+  const provider = new ProviderFixture(async function* (fixture) {
+    // The agent writes where it was started, as a real runtime would.
+    fs.writeFileSync(path.join(fixture.cwds.at(-1)!, `turn-${fixture.turns.length}.md`), "made by the agent");
+    yield done;
+  });
+  const sessionId = "session-gets-folder";
+
+  await withServer(provider, async (url) => {
+    const first = await chat(url, { sessionId, message: "Draft a plan." });
+    const conversationId = String(first.find((event) => event.type === "conversation")?.conversationId);
+    const workspaceRoot = fs.mkdtempSync(path.join(dataDir, "workspace-"));
+    saveSession({ id: sessionId, title: "plan", workspaceRoot, tasks: [] });
+
+    const second = await chat(url, { sessionId, conversationId, message: "Now build it." });
+
+    const note = second.find((event) => event.type === "chat_files");
+    assert.equal(note?.status, "moved", JSON.stringify(second));
+    assert.equal(fs.readFileSync(path.join(workspaceRoot, "turn-1.md"), "utf8"), "made by the agent");
+    assert.equal(fs.existsSync(path.join(workspaceRoot, "turn-2.md")), true);
+    assert.equal(fs.existsSync(path.join(dataDir, "chat-workspaces", conversationId)), false);
   });
 });
 
