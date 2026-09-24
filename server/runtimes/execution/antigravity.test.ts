@@ -121,3 +121,22 @@ test("spawns safely, sends stream prompt, and resolves a normalized result", asy
   await closing;
   assert.equal(killed, "SIGTERM");
 });
+
+test("a failed result names the fix when the cause is known and keeps AGY's words otherwise", () => {
+  const failed = (message: string) => {
+    const [event] = parseAntigravityJsonLine(JSON.stringify({
+      event: "result",
+      result: { conversation_id: "agy-conversation-1", status: "FAILED", error: { message } },
+    }));
+    assert.equal(event?.type, "result");
+    return event?.type === "result" ? event.error : undefined;
+  };
+
+  const signedOut = failed("User is not logged in.");
+  assert.equal(signedOut?.code, "AGY_AUTH_REQUIRED");
+  assert.match(signedOut?.message ?? "", /Run `agy` in a terminal and sign in/);
+
+  const other = failed("Workspace is busy.");
+  assert.equal(other?.code, "AGY_PROCESS_ERROR");
+  assert.equal(other?.message, "Workspace is busy.");
+});

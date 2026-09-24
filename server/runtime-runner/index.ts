@@ -11,6 +11,7 @@ import {
   type ClaudeSdkQuery,
 } from "../runtimes/execution/claude.ts";
 import {
+  antigravityFailureMessage,
   startAntigravityExecution,
   type AntigravityEvent,
   type AntigravityExecutionHandle,
@@ -483,7 +484,7 @@ async function* mapAntigravityEvents(run: AntigravityExecutionHandle): AsyncIter
         threadId: sessionThreadId(event.conversationId),
         turnId: sessionTurnId(event.conversationId),
         error: failed
-          ? { code: denied ? "AGY_PERMISSION_DENIED" : (event.error?.code ?? "AGY_RESULT_ERROR"), message: denied ? "Antigravity denied a tool permission; the run is incomplete." : (event.error?.message ?? "Antigravity returned an unsuccessful result.") }
+          ? { code: denied ? "AGY_PERMISSION_DENIED" : (event.error?.code ?? "AGY_RESULT_ERROR"), message: denied ? antigravityFailureMessage("AGY_PERMISSION_DENIED") : (event.error?.message ?? "Antigravity returned an unsuccessful result.") }
           : null,
       };
     }

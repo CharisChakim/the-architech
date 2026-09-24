@@ -265,14 +265,19 @@ function resultError(value: unknown, providerStatus: string): AntigravityErrorIn
   const message = stringValue(item?.message) ?? stringValue(value) ?? "AGY returned an error.";
   if (providerStatus.toUpperCase() === "SUCCESS") return undefined;
   const lower = message.toLowerCase();
-  const code: AntigravityErrorCode = /auth|login|credential|unauthori|forbidden|token/.test(lower)
+  const code: AntigravityErrorCode = /auth|log(?:ged)? ?in|sign(?:ed)?[ -]?in|credential|unauthori|forbidden|token/.test(lower)
     ? "AGY_AUTH_REQUIRED"
     : /version|unsupported/.test(lower)
       ? "AGY_UNSUPPORTED_VERSION"
       : permissionDenied(value)
         ? "AGY_PERMISSION_DENIED"
         : "AGY_PROCESS_ERROR";
-  return { code, message: boundedText(message, 2_048), retryable: code === "AGY_PROCESS_ERROR" };
+  // A recognised cause gets the steps to fix it; anything else keeps AGY's own words.
+  return {
+    code,
+    message: code === "AGY_PROCESS_ERROR" ? boundedText(message, 2_048) : antigravityFailureMessage(code),
+    retryable: code === "AGY_PROCESS_ERROR",
+  };
 }
 
 function normalizeResult(value: unknown, context: ParserContext): AntigravityEvent[] {
@@ -525,24 +530,26 @@ export function classifyAntigravityFailure(stderr: string, processCode?: string 
   if (processCode === "ENOENT") return "AGY_UNAVAILABLE";
   const lower = stderr.toLowerCase();
   if (/unsupported version|requires.*version|version.*unsupported/.test(lower)) return "AGY_UNSUPPORTED_VERSION";
-  if (/auth|login|credential|unauthori|forbidden|token/.test(lower)) return "AGY_AUTH_REQUIRED";
+  if (/auth|log(?:ged)? ?in|sign(?:ed)?[ -]?in|credential|unauthori|forbidden|token/.test(lower)) return "AGY_AUTH_REQUIRED";
   if (/permission|approval|not allowed|soft.denied|denied/.test(lower)) return "AGY_PERMISSION_DENIED";
   return "AGY_PROCESS_EXITED";
 }
 
-function failureMessage(code: AntigravityErrorCode): string {
+/** Why an AGY run failed, worded so the user knows what to do next. */
+export function antigravityFailureMessage(code: AntigravityErrorCode): string {
   switch (code) {
-    case "AGY_UNAVAILABLE": return "Antigravity CLI is unavailable.";
-    case "AGY_UNSUPPORTED_VERSION": return "Antigravity CLI version is unsupported.";
-    case "AGY_AUTH_REQUIRED": return "Antigravity CLI authentication is required.";
-    case "AGY_PERMISSION_DENIED": return "Antigravity CLI denied a tool permission.";
-    case "AGY_PROTOCOL_ERROR": return "Antigravity CLI returned an invalid stream event.";
-    case "AGY_OUTPUT_LIMIT": return "Antigravity CLI output exceeded the configured limit.";
-    case "AGY_PROCESS_ERROR": return "Antigravity CLI process failed.";
-    case "AGY_PROCESS_EXITED": return "Antigravity CLI exited before completing the run.";
-    case "AGY_RESULT_MISSING": return "Antigravity CLI closed without a result event.";
+    case "AGY_UNAVAILABLE": return "Antigravity CLI (`agy`) was not found. Install it or set its path in Connections, then try again.";
+    case "AGY_UNSUPPORTED_VERSION": return "This Antigravity CLI version is not supported. Update it with `agy update`, then try again.";
+    case "AGY_AUTH_REQUIRED": return "Antigravity CLI is not signed in, or its sign-in expired. Run `agy` in a terminal and sign in (use /login if it does not ask), then try again.";
+    case "AGY_PERMISSION_DENIED":
+    case "AGY_APPROVAL_UNAVAILABLE":
+      return "Antigravity stopped at a tool that needs approval, which it cannot ask for here, so the run is incomplete. Use Codex or Claude Code for this work, or run it in `agy` directly.";
+    case "AGY_PROTOCOL_ERROR": return "Antigravity CLI sent output this app could not read. Update it with `agy update`, then try again.";
+    case "AGY_OUTPUT_LIMIT": return "Antigravity CLI produced more output than this app accepts. Ask for a smaller change or split the task, then try again.";
+    case "AGY_PROCESS_ERROR": return "The Antigravity CLI process failed. Try again; if it keeps failing, run `agy` in a terminal to see why.";
+    case "AGY_PROCESS_EXITED": return "Antigravity CLI exited before the run finished. Try again; if it keeps failing, run `agy` in a terminal to see why.";
+    case "AGY_RESULT_MISSING": return "Antigravity CLI closed without reporting a result. Try again; if it keeps failing, run `agy` in a terminal to see why.";
     case "AGY_INTERRUPTED": return "Antigravity run interrupted.";
-    case "AGY_APPROVAL_UNAVAILABLE": return "Interactive approval is unavailable in AGY headless stream mode.";
   }
 }
 
@@ -575,7 +582,7 @@ export class AntigravityExecution implements AntigravityExecutionHandle {
 
     if (options.versionSupported === false) {
       this.child = null;
-      this.fail("AGY_UNSUPPORTED_VERSION", failureMessage("AGY_UNSUPPORTED_VERSION"), false);
+      this.fail("AGY_UNSUPPORTED_VERSION", antigravityFailureMessage("AGY_UNSUPPORTED_VERSION"), false);
       this.finishClosed();
       return;
     }
@@ -591,7 +598,7 @@ export class AntigravityExecution implements AntigravityExecutionHandle {
     } catch (error) {
       this.child = null;
       const code = errorCodeFromUnknown(error) === "ENOENT" ? "AGY_UNAVAILABLE" : "AGY_PROCESS_ERROR";
-      this.fail(code, failureMessage(code), code === "AGY_PROCESS_ERROR");
+      this.fail(code, antigravityFailureMessage(code), code === "AGY_PROCESS_ERROR");
       this.finishClosed();
       return;
     }
@@ -635,7 +642,7 @@ export class AntigravityExecution implements AntigravityExecutionHandle {
   private handleChildError(error: unknown): void {
     if (this.closed || this.resultResolved) return;
     const code = classifyAntigravityFailure(this.stderr, errorCodeFromUnknown(error));
-    this.fail(code, failureMessage(code), code === "AGY_PROCESS_EXITED" || code === "AGY_PROCESS_ERROR");
+    this.fail(code, antigravityFailureMessage(code), code === "AGY_PROCESS_EXITED" || code === "AGY_PROCESS_ERROR");
   }
 
   private handleClose(code: number | null, _signal: NodeJS.Signals | null): void {
@@ -648,7 +655,7 @@ export class AntigravityExecution implements AntigravityExecutionHandle {
           : code === 0
             ? "AGY_RESULT_MISSING"
             : classifyAntigravityFailure(this.stderr);
-        this.fail(failureCode, failureMessage(failureCode), failureCode === "AGY_PROCESS_EXITED");
+        this.fail(failureCode, antigravityFailureMessage(failureCode), failureCode === "AGY_PROCESS_EXITED");
       }
     }
     this.finishClosed();
@@ -708,21 +715,21 @@ export class AntigravityExecution implements AntigravityExecutionHandle {
     try {
       this.child.stdin.write(JSON.stringify({ event: "user", message: { content: prompt } }) + "\n");
     } catch {
-      throw new AntigravityExecutionError("AGY_PROCESS_ERROR", failureMessage("AGY_PROCESS_ERROR"), true);
+      throw new AntigravityExecutionError("AGY_PROCESS_ERROR", antigravityFailureMessage("AGY_PROCESS_ERROR"), true);
     }
   }
 
   async close(): Promise<void> {
     if (this.closed) return;
     await this.stopProcess("SIGTERM");
-    if (!this.resultResolved) this.fail("AGY_RESULT_MISSING", failureMessage("AGY_RESULT_MISSING"), false);
+    if (!this.resultResolved) this.fail("AGY_RESULT_MISSING", antigravityFailureMessage("AGY_RESULT_MISSING"), false);
   }
 
   async interrupt(): Promise<void> {
     if (this.closed) return;
     this.interrupted = true;
     await this.stopProcess("SIGINT");
-    if (!this.resultResolved) this.fail("AGY_INTERRUPTED", failureMessage("AGY_INTERRUPTED"), false);
+    if (!this.resultResolved) this.fail("AGY_INTERRUPTED", antigravityFailureMessage("AGY_INTERRUPTED"), false);
   }
 
   [Symbol.asyncIterator](): AsyncIterableIterator<AntigravityEvent> {
