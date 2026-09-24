@@ -383,6 +383,38 @@ test("antigravity: a finished tool step keeps the command it started with", asyn
 
 // Shapes below were seen in the live smoke run of September 2026.
 
+test("antigravity: a tool headless mode refused fails the run as a permission denial", async () => {
+  const step = (state: string, info: Record<string, unknown>) => ({
+    event: "step_update",
+    step_update: { conversation_id: "agy_c1", step_index: 2, state, step_type: "tool", tool_name: "run_command", tool_info: { name: "run_command", ...info } },
+  });
+  const { events } = await agyTurn((child) => {
+    child.line(init);
+    child.line(step("ACTIVE", { parameters: { CommandLine: "pwd" } }));
+    // The refused step ends as ERROR, never DONE, and the result says SUCCESS.
+    child.line(step("ERROR", {
+      parameters: { CommandLine: "pwd" },
+      error: { type: "TOOL_ERROR", message: "permission check failed for unsandboxed \"pwd\": user denied permission to run command" },
+    }));
+    child.line({ event: "result", result: { conversation_id: "agy_c1", status: "SUCCESS", response: "", denied_actions: [{ action: "command", display_name: "RunCommand" }] } });
+  });
+
+  const statuses = events.filter((event) => event.type === "tool" && event.tool === "run_command").map((event) => event.type === "tool" ? event.status : null);
+  assert.deepEqual(statuses, ["started", "failed"]);
+  assert.equal(doneOf(events)?.status, "failed");
+  assert.equal(doneOf(events)?.error?.code, "AGY_PERMISSION_DENIED");
+  assert.match(doneOf(events)?.error?.message ?? "", /permissions\.allow/);
+});
+
+test("antigravity: a result that lists denied actions is a denial even without a tool step", async () => {
+  const { events } = await agyTurn((child) => {
+    child.line(init);
+    child.line({ event: "result", result: { conversation_id: "agy_c1", status: "SUCCESS", response: "", denied_actions: [{ action: "command" }] } });
+  });
+
+  assert.equal(doneOf(events)?.error?.code, "AGY_PERMISSION_DENIED");
+});
+
 test("claude: a Bash result carries the exit code its output starts with, and 0 when it succeeded", async () => {
   const events = await claudeTurn(async function* () {
     yield { type: "assistant", session_id: SESSION, message: { id: "msg_1", content: [

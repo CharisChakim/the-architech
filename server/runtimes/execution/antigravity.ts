@@ -103,6 +103,8 @@ export interface AntigravityResultEvent {
   durationSeconds?: number;
   numTurns?: number;
   error?: AntigravityErrorInfo;
+  /** Tools headless mode refused because it cannot ask; the result still says SUCCESS. */
+  deniedActions?: number;
 }
 
 export interface AntigravityErrorEvent {
@@ -291,6 +293,7 @@ function normalizeResult(value: unknown, context: ParserContext): AntigravityEve
   const itemUsage = usage(item.usage);
   const duration = finiteNumber(item.duration_seconds);
   const turns = finiteNumber(item.num_turns);
+  const deniedActions = Array.isArray(item.denied_actions) ? item.denied_actions.length : 0;
   return [{
     type: "result",
     conversationId,
@@ -302,6 +305,7 @@ function normalizeResult(value: unknown, context: ParserContext): AntigravityEve
     ...(duration !== undefined ? { durationSeconds: duration } : {}),
     ...(turns !== undefined ? { numTurns: turns } : {}),
     ...(error ? { error } : {}),
+    ...(deniedActions ? { deniedActions } : {}),
   }];
 }
 
@@ -337,8 +341,10 @@ function normalizeStep(value: unknown, context: ParserContext): AntigravityEvent
     const id = toolId(step, info, conversationId);
     if (state === "ACTIVE") {
       events.push({ type: "tool_start", id, conversationId, stepIndex: index, tool, input: boundedValue(info?.parameters ?? {}) });
-    } else if (state === "DONE") {
-      const toolError = info?.error;
+    } else if (state === "DONE" || state === "ERROR") {
+      // A refused or failed tool ends its step as ERROR, with the reason in
+      // tool_info.error (seen live with AGY 1.2.9); it never reaches DONE.
+      const toolError = info?.error ?? (state === "ERROR" ? "AGY reported the step as failed." : undefined);
       events.push({
         type: "tool_done",
         id,
@@ -543,7 +549,7 @@ export function antigravityFailureMessage(code: AntigravityErrorCode): string {
     case "AGY_AUTH_REQUIRED": return "Antigravity CLI is not signed in, or its sign-in expired. Run `agy` in a terminal and sign in (use /login if it does not ask), then try again.";
     case "AGY_PERMISSION_DENIED":
     case "AGY_APPROVAL_UNAVAILABLE":
-      return "Antigravity stopped at a tool that needs approval, which it cannot ask for here, so the run is incomplete. Use Codex or Claude Code for this work, or run it in `agy` directly.";
+      return "Antigravity refused a tool that needs approval, because it cannot ask for it here, so the run is incomplete. Allow the tool under permissions.allow in Antigravity's settings.json (for example `command(npm test)`), or use Codex or Claude Code for this work.";
     case "AGY_PROTOCOL_ERROR": return "Antigravity CLI sent output this app could not read. Update it with `agy update`, then try again.";
     case "AGY_OUTPUT_LIMIT": return "Antigravity CLI produced more output than this app accepts. Ask for a smaller change or split the task, then try again.";
     case "AGY_PROCESS_ERROR": return "The Antigravity CLI process failed. Try again; if it keeps failing, run `agy` in a terminal to see why.";

@@ -498,6 +498,7 @@ async function* mapAntigravityEvents(run: AntigravityExecutionHandle): AsyncIter
     } else if (event.type === "error") {
       yield antigravityErrorEvent(event);
     } else if (event.type === "result") {
+      denied = denied || Boolean(event.deniedActions);
       if (!sawAssistant && event.response) {
         yield {
           type: "text",
