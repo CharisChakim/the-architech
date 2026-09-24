@@ -322,15 +322,20 @@ export class CodexRuntimeExecutor implements RuntimeExecutor {
 
     let threadId = request.threadId;
     const cwd = request.cwd ?? this.options.cwd;
+    // Without these the thread takes the user's own Codex config: read-only
+    // in a folder Codex does not trust (edits fail and nothing is asked), or
+    // whatever a trusted folder allows. The app promises the same everywhere:
+    // writes stay in the workspace and commands ask first.
+    const policy = cwd ? { sandbox: "workspace-write", approvalPolicy: "untrusted" } : {};
     if (kind === "resume") {
       if (!threadId) throw new RuntimeTransportError("INVALID_INPUT", "A threadId is required to resume a turn.");
-      const resumeParams: Record<string, unknown> = { threadId };
+      const resumeParams: Record<string, unknown> = { threadId, ...policy };
       optionalParam(resumeParams, "model", explicitOverride(request.model));
       optionalParam(resumeParams, "cwd", cwd);
       const resumed = await this.transport.request("thread/resume", resumeParams);
       threadId = threadFromResult(resumed) ?? threadId;
     } else if (!threadId) {
-      const threadParams: Record<string, unknown> = {};
+      const threadParams: Record<string, unknown> = { ...policy };
       optionalParam(threadParams, "model", explicitOverride(request.model));
       optionalParam(threadParams, "cwd", cwd);
       const started = await this.transport.request("thread/start", threadParams);

@@ -207,3 +207,20 @@ test("codex: a repeated turn completion and repeated approval request each take 
   assert.deepEqual(responses[0]?.result, { decision: "accept" });
   await executor.close();
 });
+
+test("codex: a thread in a workspace may write there and asks before commands, whatever the user's config", async () => {
+  // Without these, a folder Codex does not trust started read-only: edits
+  // failed and nothing was asked (seen in the live smoke run).
+  const server = appServer();
+  const executor = executorFor(server.spawn);
+  const events = collect(executor.startTurn({ prompt: "fixture", cwd: "/workspace" }));
+  while (!server.requests.some((request) => request.method === "turn/start")) {
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+  server.child.send(turnCompleted);
+  await events;
+
+  const start = server.requests.find((request) => request.method === "thread/start");
+  assert.deepEqual(start?.params, { sandbox: "workspace-write", approvalPolicy: "untrusted", cwd: "/workspace" });
+  await executor.close();
+});
