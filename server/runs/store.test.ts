@@ -62,6 +62,27 @@ test("a restart interrupts every run a worker left unfinished and leaves finishe
   assert.deepEqual(completedAfter?.result, { ok: true });
 });
 
+test("a restart expires the pending approvals of a run it interrupts, so they stop waiting forever", async () => {
+  const waiting = store.createRun(createInput()).run;
+  store.startRun(waiting.id);
+  const pendingApproval = store.createRunApproval({ runId: waiting.id, request: { command: "rm -rf /tmp/x" } });
+
+  const completed = store.createRun(createInput()).run;
+  store.startRun(completed.id);
+  const settledApproval = store.createRunApproval({ runId: completed.id, request: { command: "echo hi" } });
+  store.resolveRunApproval(settledApproval.id, "approved");
+  store.updateRunStatus(completed.id, { status: "completed", result: { ok: true } });
+
+  const restarted = await restartServer();
+
+  const pendingAfter = restarted.getRunApproval(pendingApproval.id);
+  assert.equal(pendingAfter?.status, "expired");
+  assert.ok(pendingAfter?.decidedAt, "an expired approval needs a decision time like any other resolution");
+
+  const settledAfter = restarted.getRunApproval(settledApproval.id);
+  assert.equal(settledAfter?.status, "approved", "a restart must not touch an approval already decided");
+});
+
 test("an interrupted run cannot be resumed in place, so a reconnect cannot revive a dead worker", async () => {
   const run = store.createRun(createInput()).run;
   store.startRun(run.id);

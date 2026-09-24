@@ -109,6 +109,12 @@ function reconcileStaleRuns(): void {
   try {
     db.exec("BEGIN IMMEDIATE");
     transactionStarted = true;
+    const staleRunIds = (
+      db.prepare(`
+        SELECT id FROM runs
+         WHERE status IN ('queued', 'running', 'waiting_for_input', 'waiting_for_approval')
+      `).all() as { id: string }[]
+    ).map((row) => row.id);
     db.prepare(`
       UPDATE runs
          SET status = 'interrupted',
@@ -117,6 +123,18 @@ function reconcileStaleRuns(): void {
              updated_at = ?
        WHERE status IN ('queued', 'running', 'waiting_for_input', 'waiting_for_approval')
     `).run("Run interrupted because the server restarted before it completed.", now, now);
+    // A run interrupted mid-restart leaves nobody to ever decide its pending
+    // approvals; expire them so they stop showing as awaiting a decision.
+    if (staleRunIds.length > 0) {
+      const placeholders = staleRunIds.map(() => "?").join(", ");
+      db.prepare(`
+        UPDATE run_approvals
+           SET status = 'expired',
+               decided_at = ?
+         WHERE status = 'pending'
+           AND run_id IN (${placeholders})
+      `).run(now, ...staleRunIds);
+    }
     db.exec("COMMIT");
   } catch (error) {
     if (transactionStarted) {
