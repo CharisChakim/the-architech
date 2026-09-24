@@ -45,6 +45,15 @@ function errorText(value: unknown, fallback: string): string {
   return fallback;
 }
 
+// Claude's own blocked-path detail rides in the approval event's `details`,
+// not `cwd` — `cwd` is the turn's real working folder now (see
+// server/runtime-runner/index.ts), and this can be a file, not a folder.
+function approvalBlockedPath(event: Record<string, any>): string | undefined {
+  const details = event.details;
+  const value = details && typeof details === "object" ? (details as Record<string, unknown>).blockedPath : undefined;
+  return typeof value === "string" && value ? value : undefined;
+}
+
 const CONVERSATION_STORAGE_PREFIX = "ai_plan_architect_agent_conversation_v1";
 
 function conversationStorageKey(sessionId: string): string {
@@ -65,6 +74,21 @@ function saveConversationId(sessionId: string, conversationId: string): void {
   } catch {
     // Conversation persistence is best effort; the server remains authoritative.
   }
+}
+
+/**
+ * Whether the SSE stream showed the message reached the server, so a failed
+ * send does not invite the composer to offer the same text again.
+ *
+ * The legacy route stores the message before its first "turn" event; every
+ * later failure in that turn (denied tool, error, max turns) still follows a
+ * "turn". The runtime route stores it before starting the run, which it
+ * always finishes with a "done" event, success or failure; only a refusal
+ * before the run starts (an unready runtime) skips both, so it correctly
+ * counts as not delivered.
+ */
+export function wasMessageDelivered(nativeRuntime: boolean, sawTurn: boolean, sawDone: boolean): boolean {
+  return nativeRuntime ? sawDone : sawTurn;
 }
 
 function parseStoredResult(content: unknown): unknown {
@@ -316,8 +340,8 @@ export function useAgentRun({ sessionId, workspaceRoot, allowShell, onToolApplie
     let toolTouchedSession = false;
     let turnStartedAt = Date.now();
     let turnToolCount = 0;
-    let streamFailed = false;
     let sawDone = false;
+    let sawTurn = false;
     const nativeRuntime = runtimeSelection.runtime !== "legacy";
     const runtimeConversationKey = conversationId.current || sessionId;
     const externalSessionId = nativeRuntime
@@ -459,6 +483,7 @@ export function useAgentRun({ sessionId, workspaceRoot, allowShell, onToolApplie
             if (nativeRuntime && typeof event.runId === "string" && event.runId) {
               approvalRunIds.current.set(elicitId, event.runId);
             }
+            const blockedPath = approvalBlockedPath(event);
             setEntries((prev) => [
               ...prev,
               {
@@ -467,6 +492,7 @@ export function useAgentRun({ sessionId, workspaceRoot, allowShell, onToolApplie
                 elicitId,
                 command: event.command || "",
                 ...(event.cwd ? { cwd: event.cwd } : {}),
+                ...(blockedPath ? { blockedPath } : {}),
                 decided: false,
               },
             ]);
@@ -514,12 +540,12 @@ export function useAgentRun({ sessionId, workspaceRoot, allowShell, onToolApplie
           } else if (event.type === "history") {
             history.current = event.history;
           } else if (event.type === "error") {
-            streamFailed = true;
             pushStreamError(
               event.message || t("The agent is unreachable."),
               event.retryable !== false,
             );
           } else if (event.type === "turn") {
+            sawTurn = true;
             turnStartedAt = Date.now();
             turnToolCount = 0;
           } else if (event.type === "done") {
@@ -553,7 +579,6 @@ export function useAgentRun({ sessionId, workspaceRoot, allowShell, onToolApplie
       }
     } catch (err) {
       if (!ac.signal.aborted) {
-        streamFailed = true;
         pushStreamError(errorText(err, t("The agent is unreachable.")), true);
       }
     } finally {
@@ -579,9 +604,11 @@ export function useAgentRun({ sessionId, workspaceRoot, allowShell, onToolApplie
       }
       if (toolTouchedSession) onToolAppliedRef.current();
     }
-    // Stopped by the user, the message was still sent and shows in the chat;
-    // the composer lets go of it instead of offering it to send again.
-    return !streamFailed;
+    // Delivery, not turn success, decides the draft: a message that reached
+    // the server shows in the chat, so the composer lets go of it instead of
+    // offering it to send again, even when that turn then failed. A turn the
+    // user stopped ends without "done", but its message is in the chat too.
+    return ac.signal.aborted || wasMessageDelivered(nativeRuntime, sawTurn, sawDone);
   }, [allowShell, appendError, harnessSettings, runtimeSelection, sessionId, t, workspaceRoot]);
 
   const retry = useCallback(async (): Promise<void> => {

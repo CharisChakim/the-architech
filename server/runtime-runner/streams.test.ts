@@ -468,3 +468,41 @@ test("claude: an approval card names the command or the file the tool acts on", 
 
   assert.deepEqual(commands, ["touch declined.txt", "Write /workspace/smoke.txt"]);
 });
+
+test("claude: an approval's working folder is the turn's cwd, never the SDK's blocked path", async () => {
+  const requests: Array<{ cwd: string | null; blockedPath: unknown }> = [];
+  const sdk: ClaudeSdkModule = {
+    query: ({ options }) => {
+      const { canUseTool } = options as ClaudeSdkQueryOptions;
+      const query: ClaudeSdkQuery = {
+        [Symbol.asyncIterator]: async function* () {
+          // Claude reports the file its permission rule blocked, not a folder
+          // (seen live as .../claude/declined.txt).
+          await canUseTool("Bash", { command: "touch declined.txt" }, {
+            toolUseID: "toolu_a",
+            blockedPath: "/workspace/.claude/declined.txt",
+          });
+          yield success;
+        },
+        interrupt: async () => {},
+        close: async () => {},
+      };
+      return query;
+    },
+  };
+  const runner = await createRuntimeRunnerAsync({
+    runtime: "claude",
+    prompt: "fixture",
+    cwd: "/workspace",
+    detection: detectionFor("claude"),
+    signal: new AbortController().signal,
+    approvalHandler: async (request) => {
+      requests.push({ cwd: request.cwd, blockedPath: (request.details as { blockedPath?: unknown } | undefined)?.blockedPath });
+      return "accept" as const;
+    },
+    dependencies: { createCodexExecutor: unusedCodex, loadClaudeSdk: () => sdk },
+  });
+  await collect(runner.events);
+
+  assert.deepEqual(requests, [{ cwd: "/workspace", blockedPath: "/workspace/.claude/declined.txt" }]);
+});

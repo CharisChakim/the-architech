@@ -224,6 +224,20 @@ function claudeApprovalCommand(toolName: string, input: unknown): string {
   return typeof target === "string" && target ? `${toolName} ${target}` : toolName;
 }
 
+/**
+ * blockedPath is the file or path a permission-mode rule blocked, not the
+ * turn's working folder — Claude reported a file (declined.txt) there, which
+ * the approval card then showed as "Working folder". It rides in `details`
+ * instead, so the card can name it as what it is.
+ */
+function claudeApprovalDetails(approval: { toolName: string; input: unknown; blockedPath: string | null }): Record<string, unknown> {
+  return {
+    toolName: approval.toolName,
+    input: approval.input,
+    ...(approval.blockedPath ? { blockedPath: approval.blockedPath } : {}),
+  };
+}
+
 async function claudeDecision(
   handler: RuntimeApprovalHandler,
   request: Parameters<RuntimeApprovalHandler>[0],
@@ -386,9 +400,9 @@ class ClaudeRuntimeExecutor implements RuntimeExecutor {
         turnId: null,
         itemId: approval.toolUseId,
         command: claudeApprovalCommand(approval.toolName, approval.input),
-        cwd: approval.blockedPath,
+        cwd: request.cwd ?? null,
         reason: approval.reason,
-        details: { toolName: approval.toolName, input: approval.input },
+        details: claudeApprovalDetails(approval),
       }) : undefined,
     });
     return mapClaudeEvents(this.current, this.signal);
@@ -408,9 +422,9 @@ class ClaudeRuntimeExecutor implements RuntimeExecutor {
         turnId: null,
         itemId: approval.toolUseId,
         command: claudeApprovalCommand(approval.toolName, approval.input),
-        cwd: approval.blockedPath,
+        cwd: request.cwd ?? null,
         reason: approval.reason,
-        details: { toolName: approval.toolName, input: approval.input },
+        details: claudeApprovalDetails(approval),
       }) : undefined,
     });
     return mapClaudeEvents(this.current, this.signal);

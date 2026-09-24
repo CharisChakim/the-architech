@@ -11,6 +11,7 @@ interface ApprovalEntry {
   elicitId: string;
   command: string;
   cwd?: string;
+  blockedPath?: string;
   decided: boolean;
   approved?: boolean;
 }
@@ -19,6 +20,7 @@ export interface ApprovalCardProps {
   entry?: ApprovalEntry;
   command?: string;
   cwd?: string;
+  blockedPath?: string;
   resolved?: boolean;
   decided?: boolean;
   approved?: boolean;
@@ -37,6 +39,7 @@ export const ApprovalCard: React.FC<ApprovalCardProps> = ({
   entry,
   command,
   cwd,
+  blockedPath,
   resolved,
   decided = false,
   approved,
@@ -47,6 +50,7 @@ export const ApprovalCard: React.FC<ApprovalCardProps> = ({
   const { t } = useT();
   const approvalCommand = command ?? entry?.command ?? "";
   const approvalCwd = cwd ?? entry?.cwd;
+  const approvalBlockedPath = blockedPath ?? entry?.blockedPath;
   const isResolved = resolved ?? entry?.decided ?? decided;
   const approvalResult = approved ?? entry?.approved;
   const [remaining, setRemaining] = useState(APPROVAL_TIMEOUT_SECONDS);
@@ -117,6 +121,12 @@ export const ApprovalCard: React.FC<ApprovalCardProps> = ({
       {approvalCwd && (
         <div className="text-xs text-muted break-all">
           {t("Working folder")}: <code className="font-mono text-ink">{approvalCwd}</code>
+        </div>
+      )}
+
+      {approvalBlockedPath && (
+        <div className="text-xs text-muted break-all">
+          {t("Blocked path")}: <code className="font-mono text-ink">{approvalBlockedPath}</code>
         </div>
       )}
 

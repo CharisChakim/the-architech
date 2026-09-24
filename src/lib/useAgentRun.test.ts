@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { entriesFromStoredMessages } from "./useAgentRun";
+import { entriesFromStoredMessages, wasMessageDelivered } from "./useAgentRun";
 
 const text = (role: "user" | "assistant", value: string) => ({ role, content: [{ type: "text", text: value }] });
 
@@ -23,4 +23,22 @@ test("a note before any message, or on a chat with none, is still shown", () => 
 
   assert.deepEqual(entriesFromStoredMessages([], { current: 0 }, [note]).map((entry) => entry.kind), ["chat_files"]);
   assert.deepEqual(entriesFromStoredMessages([text("user", "one")], { current: 0 }, [note]).map((entry) => entry.kind), ["chat_files", "user"]);
+});
+
+test("legacy chat counts the message delivered once its first turn starts, whatever happens after", () => {
+  // The message is stored before the "turn" event, so a later failure (a
+  // denied tool, max turns, a thrown error) does not undo delivery.
+  assert.equal(wasMessageDelivered(false, true, false), true);
+  assert.equal(wasMessageDelivered(false, true, true), true);
+  // A refusal before "turn" (session not found) never stored the message.
+  assert.equal(wasMessageDelivered(false, false, false), false);
+});
+
+test("runtime chat counts the message delivered once the run finishes, success or failure", () => {
+  // The message is stored before the run starts, which always ends in
+  // "done" — including a turn that failed, such as a declined tool.
+  assert.equal(wasMessageDelivered(true, false, true), true);
+  // An unready runtime is refused before the run starts, so it never sends
+  // "done"; the message never reached the server.
+  assert.equal(wasMessageDelivered(true, false, false), false);
 });
