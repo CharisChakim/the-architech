@@ -293,7 +293,7 @@ checklist smoke test live ada di [`runtime-compatibility.md`](runtime-compatibil
 |---|---|---|
 | Instalasi baru: Chat bisa dipakai tanpa proyek/PRD | Selesai: diuji dengan data kosong terpisah; chat baru mulai di runtime yang siap, dan penolakan menampilkan alasannya | `159ffda` |
 | Riwayat lama terbuka; draft bertahan setelah reload/pindah tab/layout | Sebagian: draft pesan pertama kini terhapus setelah terkirim | `f6f82a9`; reload/layout belum diuji ulang |
-| Percakapan menjadi proyek dengan pesan utuh | Belum diuji ulang | — |
+| Percakapan menjadi proyek dengan pesan utuh | Selesai (tes route): chat yang berjalan sebelum sesinya tersimpan kini ditautkan ke proyek saat folder dipilih, dengan pesan yang sama; sebelumnya pesan berikutnya ditolak ("does not belong to the requested project") di route runtime maupun Legacy | `e539629` |
 | PRD diedit → disetujui → task; PRD berubah → task ditandai | Belum diuji ulang | — |
 | Task manual tanpa PRD dieksekusi; dependensi memblokir | Selesai: board dengan task di chat tanpa judul kini tersimpan (sebelumnya hilang saat reload); task dengan dependensi yang belum Done ditolak server (409) dan Run-nya nonaktif dengan label "Waiting on …". Task manual tidak punya UI untuk mengatur dependensi | `f31bdb7` |
 | Ketiga koneksi terdeteksi atau diberi tindakan pemulihan | Terverifikasi 22 September | `runtime-compatibility.md` |
@@ -326,9 +326,9 @@ checklist smoke test live ada di [`runtime-compatibility.md`](runtime-compatibil
 2. **Tes end-to-end** untuk Chat → proyek → PRD → Kanban → Review dan
    picker/default per provider. Perlu keputusan framework (mis. Playwright)
    karena menambah dependency.
-3. **Kriteria yang belum dicek** di tabel atas: percakapan menjadi proyek, dan
-   alur PRD (edit → setujui → task, lalu PRD berubah → task ditandai). Membuat
-   PRD dan task dari PRD memanggil LLM, jadi sebagian butuh kuota.
+3. **Kriteria yang belum dicek** di tabel atas: alur PRD (edit → setujui →
+   task, lalu PRD berubah → task ditandai). Membuat PRD dan task dari PRD
+   memanggil LLM, jadi sebagian butuh kuota.
 4. **Celah kecil yang tercatat:**
    - Chat tanpa workspace menjalankan runtime tanpa `cwd`; dua chat seperti itu
      bisa menulis ke direktori yang sama.
