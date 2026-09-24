@@ -29,6 +29,17 @@ export const ToolCallCard: React.FC<ToolCallCardProps> = ({ entry, onNavigatePip
     setExpanded(entry.state === "running" || entry.state === "error");
   }, [entry.id, entry.state]);
 
+  // A long command shows how long it has been running. Claude's tool_progress
+  // carries only this elapsed time, so counting from the start says the same
+  // for every runtime.
+  const running = entry.state === "running" && entry.startedAt > 0;
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!running) return;
+    const timer = window.setInterval(() => setTick((value) => value + 1), 1000);
+    return () => window.clearInterval(timer);
+  }, [running]);
+
   const navigate = (target: ToolNavigationTarget) => onNavigatePipeline?.(targetStep[target]);
   const title = renderer.title(entry.input, entry.result);
 
@@ -48,7 +59,9 @@ export const ToolCallCard: React.FC<ToolCallCardProps> = ({ entry, onNavigatePip
           <renderer.icon className="h-3.5 w-3.5 shrink-0 text-muted" aria-hidden />
         )}
         <code className="min-w-0 flex-1 truncate font-mono text-ink">{title}</code>
-        {entry.state !== "running" && <span className="shrink-0 text-faint">{duration(entry.startedAt, entry.endedAt)}</span>}
+        {(entry.state !== "running" || (running && Date.now() - entry.startedAt >= 1000)) && (
+          <span className="shrink-0 tabular-nums text-faint">{duration(entry.startedAt, entry.state === "running" ? undefined : entry.endedAt)}</span>
+        )}
         <span
           className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
             entry.state === "error" ? "bg-danger-soft text-danger-ink" : entry.state === "ok" ? "bg-ok-soft text-ok-ink" : entry.state === "stopped" ? "bg-subtle text-muted" : "bg-accent-soft text-accent-ink"
