@@ -6,6 +6,7 @@ import {
   appendMessage,
   ensureConversationFor,
   getConversation,
+  linkConversationToProject,
   loadMessagesWithMeta,
 } from "../agent/conversations.ts";
 import { unseenMessages, withConversationContext, type ConversationContext, type StoredMessage } from "../agent/runtimeContext.ts";
@@ -456,6 +457,13 @@ async function chat(req: Request, res: Response, options: RuntimeAgentRouterOpti
       body.workspaceRoot = project.workspaceRoot;
     } else if (body.workspaceRoot) {
       body.workspaceRoot = validateTransientWorkspaceRoot(body.workspaceRoot);
+    }
+    // A chat that was not saved yet ran as a standalone conversation. Once it
+    // becomes a project (a folder is chosen and the session is saved), the
+    // same conversation carries on inside it instead of being refused.
+    if (project && body.conversationId) {
+      const existing = getConversation(body.conversationId);
+      if (existing && !existing.sessionId && !existing.projectId) linkConversationToProject(existing.id, project.id);
     }
     conversationId = ensureConversationFor({
       sessionId: project ? body.sessionId : null,

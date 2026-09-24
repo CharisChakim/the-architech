@@ -22,6 +22,7 @@ process.on("exit", () => fs.rmSync(dataDir, { recursive: true, force: true }));
 const express = (await import("express")).default;
 const { saveSession } = await import("../../db.ts");
 const { listRuns, listRunEvidence } = await import("../runs/store.ts");
+const { loadMessages } = await import("../agent/conversations.ts");
 const { createRuntimeAgentRouter } = await import("./runtime-agent.ts");
 
 const detection: RuntimeDetection = {
@@ -342,6 +343,32 @@ test("a task waits for the tasks it depends on before it can run", async () => {
     const events = await chat(url, { sessionId, taskId: "TASK-02", idempotencyKey: "unblocked" });
     assert.equal(events.at(-1)?.runStatus, "completed");
     assert.equal(provider.turns.length, 1);
+  });
+});
+
+test("a chat keeps its conversation when it becomes a project", async () => {
+  let turn = 0;
+  const provider = new ProviderFixture(async function* () {
+    turn += 1;
+    yield { type: "text", text: `answer ${turn}`, threadId: `thread_p${turn}`, turnId: "turn_fixture", itemId: null };
+    yield { ...done, threadId: `thread_p${turn}` };
+  });
+  const sessionId = "session-becomes-project";
+
+  await withServer(provider, async (url) => {
+    // The chat is not saved yet, as a new untitled chat is not.
+    const first = await chat(url, { sessionId, message: "Plan a todo app." });
+    const conversationId = String(first.find((event) => event.type === "conversation")?.conversationId);
+
+    // Choosing a folder saves the session and makes the chat a project.
+    saveSession({ id: sessionId, title: "todo", workspaceRoot: fs.mkdtempSync(path.join(dataDir, "workspace-")), tasks: [] });
+    const second = await chat(url, { sessionId, conversationId, message: "Now add auth." });
+
+    assert.equal(second.find((event) => event.type === "error"), undefined, JSON.stringify(second));
+    assert.equal(second.find((event) => event.type === "conversation")?.conversationId, conversationId);
+    assert.equal(second.at(-1)?.runStatus, "completed");
+    const messages = loadMessages(conversationId).map((message) => (message.content[0] as { text: string }).text);
+    assert.deepEqual(messages, ["Plan a todo app.", "answer 1", "Now add auth.", "answer 2"]);
   });
 });
 

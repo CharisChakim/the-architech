@@ -301,6 +301,11 @@ async function chat(req: Request, res: Response): Promise<void> {
     sessionId = projectSession ? requestedSessionId : null;
 
     const existing = requestedConversationId ? getConversation(requestedConversationId) : null;
+    // A chat that ran before its session was saved becomes part of the
+    // project once it is one, instead of being refused as a stranger.
+    if (projectSession && existing && !existing.sessionId && !existing.projectId) {
+      linkConversationToProject(existing.id, projectSession.id);
+    }
     if (!projectSession && existing?.projectId) {
       // A linked standalone conversation resumes its project context even when
       // the browser still sends the old transient client session id.
