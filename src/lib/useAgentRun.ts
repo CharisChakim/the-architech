@@ -524,8 +524,13 @@ export function useAgentRun({ sessionId, workspaceRoot, allowShell, onToolApplie
             turnToolCount = 0;
           } else if (event.type === "done") {
             sawDone = true;
+            const endedAt = Date.now();
             setEntries((prev) => {
-              const next = [...prev];
+              // A tool the provider never finished, such as a command the user
+              // declined, will not report now that the turn is over.
+              const next = prev.map((entry) => entry.kind === "tool" && entry.state === "running"
+                ? { ...entry, state: "stopped" as const, endedAt }
+                : entry);
               const assistantIndex = next
                 .map((entry) => entry.kind === "assistant" && entry.streaming)
                 .lastIndexOf(true);
@@ -574,7 +579,9 @@ export function useAgentRun({ sessionId, workspaceRoot, allowShell, onToolApplie
       }
       if (toolTouchedSession) onToolAppliedRef.current();
     }
-    return !streamFailed && !ac.signal.aborted;
+    // Stopped by the user, the message was still sent and shows in the chat;
+    // the composer lets go of it instead of offering it to send again.
+    return !streamFailed;
   }, [allowShell, appendError, harnessSettings, runtimeSelection, sessionId, t, workspaceRoot]);
 
   const retry = useCallback(async (): Promise<void> => {

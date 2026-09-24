@@ -653,3 +653,30 @@ test("a second decision on the same approval is refused and does not reach the p
     assert.equal(provider.turns.length, 1);
   });
 });
+
+test("a provider's own copy of an approval request is not shown as a second card", async () => {
+  // Codex puts the request in its stream as well as asking the handler; the
+  // handler's card is the one the chat can answer.
+  const provider = new ProviderFixture(async function* () {
+    yield {
+      type: "approval",
+      requestId: 0,
+      kind: "command",
+      threadId: "thread_fixture",
+      turnId: "turn_fixture",
+      itemId: "item_1",
+      command: "printf ok > smoke.txt",
+      cwd: null,
+      reason: null,
+      details: null,
+    } as RuntimeEvent;
+    yield done;
+  });
+  const conversationId = "conversation-one-card";
+
+  await withServer(provider, async (url) => {
+    const events = await chat(url, { conversationId });
+    assert.equal(events.filter((event) => event.type === "approval_request").length, 0);
+    assert.equal(events.at(-1)?.runStatus, "completed");
+  });
+});

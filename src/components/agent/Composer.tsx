@@ -124,12 +124,14 @@ export const Composer: React.FC<ComposerProps> = ({
               </button>
             )}
 
+            {/* Separate keys: reusing one node let the Stop click finish as a
+                click on Send once the turn ended, which sent the message again. */}
             {busy && stopHandler ? (
-              <button type="button" onClick={() => void stopHandler()} aria-label={t("Stop")} title={t("Stop")} className="shrink-0 rounded-lg border border-danger/30 p-2 text-danger-ink hover:bg-danger-soft">
+              <button key="stop" type="button" onClick={() => void stopHandler()} aria-label={t("Stop")} title={t("Stop")} className="shrink-0 rounded-lg border border-danger/30 p-2 text-danger-ink hover:bg-danger-soft">
                 <Square className="h-4 w-4" aria-hidden />
               </button>
             ) : (
-              <button type="submit" disabled={busy || disabled || !draft.trim() || !sendHandler} aria-label={t("Send")} className="shrink-0 rounded-lg bg-accent p-2 text-accent-fg disabled:bg-subtle disabled:text-faint">
+              <button key="send" type="submit" disabled={busy || disabled || !draft.trim() || !sendHandler} aria-label={t("Send")} className="shrink-0 rounded-lg bg-accent p-2 text-accent-fg disabled:bg-subtle disabled:text-faint">
                 {busy ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden /> : <Send className="h-4 w-4" aria-hidden />}
               </button>
             )}

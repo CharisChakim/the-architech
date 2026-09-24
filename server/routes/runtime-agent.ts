@@ -255,17 +255,10 @@ function normalizeRuntimeEvent(event: RuntimeEvent): NormalizedUiEvent[] {
       input: toolInput(tool.data),
     }];
   }
-  if (event.type === "approval") {
-    const approval = event as RuntimeApprovalRequest & { type: "approval" };
-    return [{
-      type: "approval_request",
-      approvalId: String(approval.requestId),
-      elicitId: String(approval.requestId),
-      command: approval.command ?? "",
-      ...(approval.cwd ? { cwd: approval.cwd } : {}),
-      message: approval.reason ?? "Approval was declined because interactive approval is unavailable.",
-    }];
-  }
+  // The approval handler already showed this request, with an id the chat can
+  // answer. The provider's copy in the stream would be a second card whose
+  // answer reaches no one.
+  if (event.type === "approval") return [];
   // The chat handler sends the one done event, with the status the run
   // actually ends in; forwarding the provider's as well sent two.
   if (event.type === "done") return [];
