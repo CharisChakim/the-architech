@@ -283,7 +283,7 @@ Dokumentasi provider bergerak cepat. Verifikasi ulang referensi dan versi saat m
 
 ## 10. Progres V2-7
 
-Diperbarui 23 September 2026. Bagian ini adalah daftar kerja aktif V2-7: mulai
+Diperbarui 24 September 2026. Bagian ini adalah daftar kerja aktif V2-7: mulai
 dari **Sisa pekerjaan** saat melanjutkan. Rincian pemetaan event per runtime dan
 checklist smoke test live ada di [`runtime-compatibility.md`](runtime-compatibility.md).
 
@@ -292,7 +292,7 @@ checklist smoke test live ada di [`runtime-compatibility.md`](runtime-compatibil
 | Kriteria | Status | Bukti |
 |---|---|---|
 | Instalasi baru: Chat bisa dipakai tanpa proyek/PRD | Selesai: diuji dengan data kosong terpisah; chat baru mulai di runtime yang siap, dan penolakan menampilkan alasannya | `159ffda` |
-| Riwayat lama terbuka; draft bertahan setelah reload/pindah tab/layout | Sebagian: draft pesan pertama kini terhapus setelah terkirim | `f6f82a9`; reload/layout belum diuji ulang |
+| Riwayat lama terbuka; draft bertahan setelah reload/pindah tab/layout | Selesai: draft bertahan setelah pindah layout, reload, dan pindah chat, lalu terhapus setelah terkirim. Chat proyek kini terbuka dengan riwayatnya walau browser tidak menyimpan ID percakapannya (browser lain, app desktop, storage dibersihkan); sebelumnya tampil kosong. Chat standalone yang belum jadi proyek tetap hanya ditemukan lewat localStorage | `f6f82a9`, `1fb1ae8` |
 | Percakapan menjadi proyek dengan pesan utuh | Selesai (tes route): chat yang berjalan sebelum sesinya tersimpan kini ditautkan ke proyek saat folder dipilih, dengan pesan yang sama; sebelumnya pesan berikutnya ditolak ("does not belong to the requested project") di route runtime maupun Legacy | `e539629` |
 | PRD diedit → disetujui → task; PRD berubah → task ditandai | Belum diuji ulang | — |
 | Task manual tanpa PRD dieksekusi; dependensi memblokir | Selesai: board dengan task di chat tanpa judul kini tersimpan (sebelumnya hilang saat reload); task dengan dependensi yang belum Done ditolak server (409) dan Run-nya nonaktif dengan label "Waiting on …". Task manual tidak punya UI untuk mengatur dependensi | `f31bdb7` |
