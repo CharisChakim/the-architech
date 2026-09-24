@@ -13,7 +13,7 @@ process.on("exit", () => fs.rmSync(dataDir, { recursive: true, force: true }));
 
 const express = (await import("express")).default;
 const { saveSession } = await import("../../db.ts");
-const { createConversation, getConversation } = await import("../agent/conversations.ts");
+const { createConversation, getConversation, linkConversationToProject } = await import("../agent/conversations.ts");
 const { router } = await import("./agent.ts");
 
 test("a Legacy API chat keeps its conversation when it becomes a project", async () => {
@@ -42,6 +42,29 @@ test("a Legacy API chat keeps its conversation when it becomes a project", async
     const body = await res.text();
     assert.doesNotMatch(body, /does not belong/);
     assert.equal(getConversation(conversation.id)?.projectId, "session-legacy-project");
+  } finally {
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+});
+
+test("a project's conversations can be found without a saved conversation id", async () => {
+  saveSession({ id: "session-history", title: "history", workspaceRoot: "", tasks: [] });
+  const linked = createConversation({});
+  linkConversationToProject(linked.id, "session-history");
+  createConversation({ sessionId: "other-session", projectId: "other-session" });
+
+  const app = express();
+  app.use(router);
+  const server = app.listen(0);
+  await new Promise<void>((resolve) => server.once("listening", resolve));
+  try {
+    const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}/api/agent/conversations`;
+    const res = await fetch(`${base}?projectId=session-history`);
+    assert.equal(res.status, 200);
+    const body = await res.json() as { conversations: Array<{ id: string }> };
+    assert.deepEqual(body.conversations.map((conversation) => conversation.id), [linked.id]);
+    assert.equal((await fetch(base)).status, 400);
   } finally {
     server.closeAllConnections();
     await new Promise<void>((resolve) => server.close(() => resolve()));

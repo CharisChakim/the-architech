@@ -12,6 +12,7 @@ import {
   getConversation,
   importLegacyHistory,
   linkConversationToProject,
+  listConversations,
   loadMessages,
 } from "../agent/conversations.ts";
 import { runAgent } from "../agent/loop.ts";
@@ -412,6 +413,17 @@ router.post("/api/agent/conversations/:conversationId/link", (req, res) => {
   } catch (error) {
     sendJsonError(res, error, 404);
   }
+});
+
+// A browser that never saw a project's chat (another browser, the desktop app,
+// cleared storage) has no conversation id for it; this lets it find one.
+router.get("/api/agent/conversations", (req, res) => {
+  const projectId = typeof req.query.projectId === "string" ? req.query.projectId.trim() : "";
+  if (!projectId) {
+    res.status(400).json({ error: "projectId is required." });
+    return;
+  }
+  res.json({ conversations: listConversations({ projectId }) });
 });
 
 router.get("/api/agent/conversations/:conversationId/messages", (req, res) => {

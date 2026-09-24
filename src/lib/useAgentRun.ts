@@ -156,11 +156,26 @@ export function useAgentRun({ sessionId, workspaceRoot, allowShell, onToolApplie
     setBusy(false);
     setError(null);
 
-    const savedConversationId = conversationId.current;
-    if (!savedConversationId) return () => { cancelled = true; };
+    // This browser may never have seen the chat (another browser, the desktop
+    // app, cleared storage). A saved project still has its conversation on the
+    // server, so the most recent one is opened instead of an empty chat.
+    const findConversationId = async (): Promise<string | null> => {
+      if (conversationId.current) return conversationId.current;
+      const res = await fetch(`/api/agent/conversations?projectId=${encodeURIComponent(sessionId)}`);
+      const data = res.ok ? await res.json() : null;
+      const found = data?.conversations?.[0]?.id;
+      if (cancelled || liveSendStarted.current || typeof found !== "string" || !found) return null;
+      conversationId.current = found;
+      saveConversationId(sessionId, found);
+      return found;
+    };
 
-    fetch(`/api/agent/conversations/${encodeURIComponent(savedConversationId)}/messages`)
-      .then(async (res) => (res.ok ? res.json() : null))
+    findConversationId()
+      .then(async (id) => {
+        if (!id) return null;
+        const res = await fetch(`/api/agent/conversations/${encodeURIComponent(id)}/messages`);
+        return res.ok ? res.json() : null;
+      })
       .then((data) => {
         if (cancelled || liveSendStarted.current || !Array.isArray(data?.messages)) return;
         setEntries(entriesFromStoredMessages(data.messages, sequence));
