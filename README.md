@@ -125,7 +125,7 @@ The current scope is `initialize`, `tools/list`, and `tools/call`. MCP `sampling
 
 ### Desktop app
 
-Download an installer from the [v1.0.0-beta release](https://github.com/CharisChakim/the-architech/releases/tag/v1.0.0-beta):
+Download an installer from the [v1.0.1-beta release](https://github.com/CharisChakim/the-architech/releases/tag/v1.0.1-beta):
 
 | Platform | File | Notes |
 | --- | --- | --- |
