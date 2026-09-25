@@ -9,6 +9,7 @@ import {
 import { toTransportAnswers } from "../components/plan/followups";
 import { useT } from "./i18n";
 import type { AgentHarnessSettings } from "./agentHarness";
+import type { PermissionMode } from "../types";
 
 interface AgentRunOptions {
   sessionId: string;
@@ -17,6 +18,7 @@ interface AgentRunOptions {
   onToolApplied: () => void;
   runtimeSelection?: RuntimeChatSelection;
   harnessSettings: AgentHarnessSettings;
+  permissionMode?: PermissionMode;
 }
 
 interface AgentRunResult {
@@ -196,7 +198,7 @@ export function entriesFromStoredMessages(messages: unknown[], sequence: { curre
 // disimpan terpisah apa adanya dari server, karena blok tool_use dan tool_result
 // harus tetap berpasangan persis atau permintaan berikutnya ditolak.
 
-export function useAgentRun({ sessionId, workspaceRoot, allowShell, onToolApplied, runtimeSelection = { runtime: "legacy", model: "inherit", effort: "inherit" }, harnessSettings }: AgentRunOptions): AgentRunResult {
+export function useAgentRun({ sessionId, workspaceRoot, allowShell, onToolApplied, runtimeSelection = { runtime: "legacy", model: "inherit", effort: "inherit" }, harnessSettings, permissionMode = "ask" }: AgentRunOptions): AgentRunResult {
   const { t } = useT();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [busy, setBusy] = useState(false);
@@ -371,6 +373,7 @@ export function useAgentRun({ sessionId, workspaceRoot, allowShell, onToolApplie
           model: runtimeSelection.model,
           effort: runtimeSelection.effort,
           harnessSettings,
+          permissionMode,
           message,
         } : {
           sessionId,
@@ -379,6 +382,7 @@ export function useAgentRun({ sessionId, workspaceRoot, allowShell, onToolApplie
           allowShell,
           history: history.current,
           harnessSettings,
+          permissionMode,
           message,
         }),
         signal: ac.signal,
@@ -609,7 +613,7 @@ export function useAgentRun({ sessionId, workspaceRoot, allowShell, onToolApplie
     // offering it to send again, even when that turn then failed. A turn the
     // user stopped ends without "done", but its message is in the chat too.
     return ac.signal.aborted || wasMessageDelivered(nativeRuntime, sawTurn, sawDone);
-  }, [allowShell, appendError, harnessSettings, runtimeSelection, sessionId, t, workspaceRoot]);
+  }, [allowShell, appendError, harnessSettings, permissionMode, runtimeSelection, sessionId, t, workspaceRoot]);
 
   const retry = useCallback(async (): Promise<void> => {
     if (lastSend.current) await send(lastSend.current.message, lastSend.current.options);

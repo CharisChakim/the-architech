@@ -21,6 +21,7 @@ import { adoptChatWorkspace, chatWorkspaceEvent } from "../agent/chatWorkspace.t
 import { hasActiveRun } from "../runs/store.ts";
 import { runAgent } from "../agent/loop.ts";
 import { parseAgentHarnessSettings } from "../agent/harness.ts";
+import { parsePermissionMode, withPermissionMode } from "../agent/permissionMode.ts";
 
 const router = express.Router();
 
@@ -390,7 +391,7 @@ async function chat(req: Request, res: Response): Promise<void> {
       harnessSettings: parseAgentHarnessSettings(body.harnessSettings),
       limits: (projectSession?.agentLimits || {}) as any,
       onEvent: (event: unknown) => send(event),
-      elicit: makeElicit(convId, ac, send, ownedIds),
+      elicit: withPermissionMode(makeElicit(convId, ac, send, ownedIds), parsePermissionMode(body.permissionMode)),
       signal: providerSignal,
     });
   } catch (error) {

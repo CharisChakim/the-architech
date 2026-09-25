@@ -34,7 +34,7 @@ export interface FollowUpQuestion {
 }
 
 export type ElicitRequest =
-  | { kind: "approval"; command: string; cwd?: string }
+  | { kind: "approval"; command: string; cwd?: string; action?: "edit" | "command" }
   | { kind: "questions"; questions: FollowUpQuestion[]; round: number };
 
 export type Elicit = (req: ElicitRequest) => Promise<unknown>;

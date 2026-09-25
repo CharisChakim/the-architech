@@ -13,6 +13,7 @@ import {
 } from "../agent/conversations.ts";
 import { unseenMessages, withConversationContext, type ConversationContext, type StoredMessage } from "../agent/runtimeContext.ts";
 import { validateTransientWorkspaceRoot } from "./agent.ts";
+import { autoApproves, parsePermissionMode, runtimeApprovalAction, type PermissionMode } from "../agent/permissionMode.ts";
 import { discoverRuntime } from "../runtimes/discovery.ts";
 import type { RuntimeDetection, RuntimeId } from "../runtimes/types.ts";
 import {
@@ -75,6 +76,7 @@ interface RuntimeAgentBody {
   externalSessionId?: string | null;
   idempotencyKey?: string | null;
   harnessSettings: AgentHarnessSettings;
+  permissionMode: PermissionMode;
 }
 
 interface NormalizedUiEvent extends Record<string, unknown> {
@@ -130,6 +132,7 @@ function parseBody(value: unknown): RuntimeAgentBody {
     externalSessionId: optionalText(value.externalSessionId, "externalSessionId"),
     idempotencyKey: optionalText(value.idempotencyKey, "idempotencyKey"),
     harnessSettings: parseAgentHarnessSettings(value.harnessSettings),
+    permissionMode: parsePermissionMode(value.permissionMode),
   };
 }
 
@@ -655,6 +658,7 @@ async function chat(req: Request, res: Response, options: RuntimeAgentRouterOpti
       dependencies: options.runnerDependencies,
       claudeSdk: claudeSdk ?? undefined,
       approvalHandler: async (approval) => {
+        if (autoApproves(body.permissionMode, runtimeApprovalAction(approval))) return "accept";
         const decision = await waitForRuntimeApproval(run.id, approval, send, ac.signal);
         if (decision === "decline") approvalRejected = true;
         return decision;

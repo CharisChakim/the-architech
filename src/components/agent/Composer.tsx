@@ -2,11 +2,16 @@ import React from "react";
 import { LoaderCircle, RotateCcw, Send, Square } from "lucide-react";
 import { useDraft } from "../../lib/draftStore";
 import { useT } from "../../lib/i18n";
+import type { PermissionMode } from "../../types";
 
 type SendHandler = (text: string) => void | Promise<void | boolean>;
 type ActionHandler = () => void | Promise<void>;
 
-export type ComposerMode = "agent" | "plan" | "prd";
+const PERMISSION_HINTS: Record<PermissionMode, string> = {
+  ask: "Every file edit and command waits for your approval.",
+  auto: "File edits in the working folder go ahead; commands still ask.",
+  full: "Edits and commands run without asking.",
+};
 
 export interface ComposerProps {
   send?: SendHandler;
@@ -20,8 +25,8 @@ export interface ComposerProps {
   placeholder?: string;
   sessionId?: string;
   conversationId?: string;
-  mode?: ComposerMode;
-  onModeChange?: (mode: ComposerMode) => void;
+  permissionMode?: PermissionMode;
+  onPermissionModeChange?: (mode: PermissionMode) => void;
   contextControls?: React.ReactNode;
   controls?: React.ReactNode;
   secondaryControls?: React.ReactNode;
@@ -40,8 +45,8 @@ export const Composer: React.FC<ComposerProps> = ({
   placeholder,
   sessionId,
   conversationId,
-  mode = "agent",
-  onModeChange,
+  permissionMode = "ask",
+  onPermissionModeChange,
   contextControls,
   controls,
   secondaryControls,
@@ -99,17 +104,18 @@ export const Composer: React.FC<ComposerProps> = ({
         <div className="flex min-w-0 flex-wrap items-center gap-2 px-2 py-2">
           <div className="flex min-w-0 items-center gap-1">
             {controls}
-            <label className="sr-only" htmlFor="agent-composer-mode">{t("Interaction mode")}</label>
+            <label className="sr-only" htmlFor="agent-composer-permission">{t("Permission mode")}</label>
             <select
-              id="agent-composer-mode"
-              value={mode}
-              onChange={(event) => onModeChange?.(event.target.value as ComposerMode)}
-              disabled={disabled || busy}
-              className="h-8 rounded-lg border-0 bg-transparent px-2 text-[11px] font-medium text-ink outline-hidden hover:bg-subtle focus:bg-subtle"
+              id="agent-composer-permission"
+              value={permissionMode}
+              onChange={(event) => onPermissionModeChange?.(event.target.value as PermissionMode)}
+              disabled={disabled || busy || !onPermissionModeChange}
+              title={t(PERMISSION_HINTS[permissionMode])}
+              className={`h-8 rounded-lg border-0 bg-transparent px-2 text-[11px] font-medium outline-hidden hover:bg-subtle focus:bg-subtle ${permissionMode === "full" ? "text-warn-ink" : "text-ink"}`}
             >
-              <option value="agent">{t("Agent mode")}</option>
-              <option value="plan">{t("Plan mode")}</option>
-              <option value="prd">{t("PRD mode")}</option>
+              <option value="ask">{t("Ask for permission")}</option>
+              <option value="auto">{t("Auto mode")}</option>
+              <option value="full">{t("Full access")}</option>
             </select>
           </div>
 

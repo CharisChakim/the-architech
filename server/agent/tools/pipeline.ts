@@ -24,6 +24,23 @@ function saveArtifact(session: any): void {
   saveSession(session);
 }
 
+// A chat that asks for a plan without the "Plan a project" card has no saved
+// idea yet, so the agent passes the user's request as the description.
+function ensureDescription(session: any, value: unknown): string {
+  const current = String(session.input?.description ?? "").trim();
+  if (current) return current;
+  const idea = typeof value === "string" ? value.trim() : "";
+  if (!idea) return "";
+  session.input = { ...session.input, description: idea };
+  saveArtifact(session);
+  return idea;
+}
+
+const DESCRIPTION_PARAM = {
+  type: "string",
+  description: "Ide proyek dari permintaan pengguna. Wajib bila deskripsi proyek belum tersimpan; diabaikan bila sudah ada.",
+};
+
 function titleFor(session: any): string {
   return String(session?.input?.title || session?.title || session?.plan?.suggestedTitle || "Aplikasi Baru");
 }
@@ -172,26 +189,26 @@ const generatePlanTool: ToolSpec = {
     name: "generate_plan",
     description:
       "Buat atau perbarui Project Plan dari input proyek dan jawaban follow-up yang tersimpan. Gunakan role model plan, simpan hasil ke sesi, lalu kembalikan ringkasan singkat.",
-    parameters: { type: "object", properties: {}, required: [] },
+    parameters: { type: "object", properties: { description: DESCRIPTION_PARAM }, required: [] },
   },
   available: () => true,
-  async run(_input: unknown, ctx: ToolContext): Promise<unknown> {
+  async run(input: any, ctx: ToolContext): Promise<unknown> {
     const found = sessionOrError(ctx);
     if ("error" in found) return found;
     const session = found.session;
-    if (!session.input?.description?.trim()) return { error: "Deskripsi proyek belum diisi." };
+    if (!ensureDescription(session, input?.description)) return { error: "Deskripsi proyek belum diisi." };
 
     const resolved = roleConnection("plan");
     if ("error" in resolved) return resolved;
     const lockedFeatures = session.planFeaturesEdited && Array.isArray(session.plan?.specs?.coreFeatures)
       ? session.plan.specs.coreFeatures
       : undefined;
-    const input = {
+    const planInput = {
       ...session.input,
       answers: session.input.answers ?? session.input.answersToFollowUp ?? {},
     };
     const plan = await generatePlan(
-      input,
+      planInput,
       resolved.conn,
       resolved.model,
       languageFor(session),
@@ -275,16 +292,17 @@ const askFollowups: ToolSpec = {
       type: "object",
       properties: {
         round: { type: "integer", description: "Ronde klarifikasi berikutnya, mulai dari 1." },
+        description: DESCRIPTION_PARAM,
       },
       required: [],
     },
   },
-  available: (session) => Boolean(session?.input?.description?.trim()),
+  available: () => true,
   async run(input: any, ctx: ToolContext): Promise<unknown> {
     const found = sessionOrError(ctx);
     if ("error" in found) return found;
     const session = found.session;
-    const description = session.input?.description?.trim();
+    const description = ensureDescription(session, input?.description);
     if (!description) return { error: "Deskripsi proyek belum diisi." };
 
     const resolved = roleConnection("plan");

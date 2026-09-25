@@ -21,7 +21,7 @@ function displayPath(root: string, file: string): string {
 
 async function requireWriteApproval(ctx: ToolContext, command: string, cwd: string): Promise<boolean> {
   if (ctx.session?.agentAutoMode === true) return true;
-  return Boolean(await ctx.elicit({ kind: "approval", command, cwd }));
+  return Boolean(await ctx.elicit({ kind: "approval", command, cwd, action: "edit" }));
 }
 
 const EXCLUDED_GLOB_PATHS = /(^|[\/\\])(node_modules|\.git|dist|build|coverage|\.next|\.venv)([\/\\]|$)/;

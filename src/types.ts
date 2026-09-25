@@ -12,6 +12,8 @@ export interface LLMConfig {
 
 export type WireFormat = "anthropic" | "openai";
 export type AgentRole = "agent" | "plan" | "prd" | "tasks";
+/** Which approvals a chat run answers itself: none, file edits, or all. */
+export type PermissionMode = "ask" | "auto" | "full";
 
 export interface ConnectionCheck {
   ok: boolean;

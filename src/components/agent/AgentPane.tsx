@@ -1,13 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
-import { AlertTriangle, Bot, Check, ChevronDown, Circle, Clock3, Code2, FileText, Folder, GitBranch, History, Kanban, Laptop, ListChecks, PlugZap, ShieldCheck, Sparkles } from "lucide-react";
-import type { ProjectSession, RuntimeDiscoveryReport, RuntimePreference } from "../../types";
+import { AlertTriangle, Bot, Check, ChevronDown, Circle, Clock3, Code2, FileText, Folder, GitBranch, History, Kanban, Laptop, ListChecks, PlugZap, Sparkles } from "lucide-react";
+import type { PermissionMode, ProjectSession, RuntimeDiscoveryReport, RuntimePreference } from "../../types";
 import type { RuntimeChatSelection } from "../../lib/runtimeChat";
 import type { Entry } from "../../lib/agentEvents";
 import { projectNameFromWorkspaceRoot } from "../../lib/workspace";
 import { useT } from "../../lib/i18n";
 import { Markdown } from "../lazy";
 import { ApprovalCard } from "./ApprovalCard";
-import { Composer, type ComposerMode } from "./Composer";
+import { Composer } from "./Composer";
 import { QuestionsCard } from "./QuestionsCard";
 import { ToolCallCard } from "./ToolCallCard";
 import { RuntimeControls } from "./RuntimeControls";
@@ -43,6 +43,8 @@ export interface AgentPaneProps {
   runtimeLoading?: boolean;
   onRuntimeSelectionChange: (selection: RuntimeChatSelection) => void;
   onOpenConnections?: () => void;
+  permissionMode: PermissionMode;
+  onPermissionModeChange: (mode: PermissionMode) => void;
 }
 
 const formatDuration = (ms: number): string => (ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`);
@@ -73,6 +75,8 @@ export const AgentPane: React.FC<AgentPaneProps> = ({
   runtimeLoading,
   onRuntimeSelectionChange,
   onOpenConnections,
+  permissionMode,
+  onPermissionModeChange,
 }) => {
   const { t } = useT();
   const [folderOpen, setFolderOpen] = useState(false);
@@ -81,7 +85,9 @@ export const AgentPane: React.FC<AgentPaneProps> = ({
   const [folderPickerError, setFolderPickerError] = useState<string | null>(null);
   const [preparingIntake, setPreparingIntake] = useState(false);
   const [intakeError, setIntakeError] = useState<string | null>(null);
-  const [composerMode, setComposerMode] = useState<ComposerMode>("agent");
+  // Set by the "Plan a project" card: the next message starts the guided
+  // plan (saved idea, then follow-up questions) instead of a plain turn.
+  const [guidedPlan, setGuidedPlan] = useState(false);
   const [workspaceBranch, setWorkspaceBranch] = useState<string | null>(null);
   const transcript = useRef<HTMLDivElement>(null);
   const folderPopover = useRef<HTMLDivElement>(null);
@@ -115,7 +121,7 @@ export const AgentPane: React.FC<AgentPaneProps> = ({
   }, [folderOpen]);
 
   useEffect(() => {
-    setComposerMode("agent");
+    setGuidedPlan(false);
     setIntakeError(null);
   }, [sessionId]);
 
@@ -191,15 +197,13 @@ export const AgentPane: React.FC<AgentPaneProps> = ({
     setIntakeError(null);
     setPreparingIntake(true);
     try {
-      if (composerMode === "plan" || composerMode === "prd") await onPreparePlan?.(idea);
-      if (composerMode === "prd") {
-        onNavigatePipeline?.(2);
-        return true;
-      }
-      const prompt = composerMode === "plan"
+      if (guidedPlan) await onPreparePlan?.(idea);
+      const prompt = guidedPlan
         ? `${t("Plan this project first. Call ask_followups before generating the plan.")}\n\n${idea}`
         : idea;
-      return await onSend(prompt);
+      const sent = await onSend(prompt);
+      if (sent !== false) setGuidedPlan(false);
+      return sent;
     } catch {
       setIntakeError(t("Could not save the project idea."));
       return false;
@@ -208,13 +212,8 @@ export const AgentPane: React.FC<AgentPaneProps> = ({
     }
   };
 
-  const handleModeChange = (mode: ComposerMode): void => {
-    setComposerMode(mode);
-    if (mode === "prd") onNavigatePipeline?.(2);
-  };
-
-  const focusComposerMode = (mode: ComposerMode): void => {
-    setComposerMode(mode);
+  const focusComposer = (planFirst: boolean): void => {
+    setGuidedPlan(planFirst);
     window.requestAnimationFrame(() => composerRegion.current?.querySelector("textarea")?.focus());
   };
 
@@ -387,13 +386,6 @@ export const AgentPane: React.FC<AgentPaneProps> = ({
     </>
   );
 
-  const approvalControl = workspaceRoot.trim() && allowShell ? (
-    <span className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-[11px] text-muted" title={t("Commands still require approval before they run.")}>
-      <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
-      <span className="hidden sm:inline">{t("Ask before commands")}</span>
-    </span>
-  ) : null;
-
   const composer = (variant: "default" | "hero") => (
     <Composer
       sessionId={sessionId}
@@ -402,17 +394,14 @@ export const AgentPane: React.FC<AgentPaneProps> = ({
       disabled={preparingIntake}
       stop={onStop}
       retry={error ? onRetry : undefined}
-      mode={composerMode}
-      onModeChange={handleModeChange}
+      permissionMode={permissionMode}
+      onPermissionModeChange={onPermissionModeChange}
       contextControls={contextControls}
-      controls={approvalControl}
       secondaryControls={runtimeControl}
       variant={variant}
-      placeholder={composerMode === "plan"
+      placeholder={guidedPlan
         ? t("Describe what you want the agent to plan...")
-        : composerMode === "prd"
-          ? t("Describe the product to build its PRD...")
-          : t("Ask the agent to build or change something...")}
+        : t("Ask the agent to build or change something...")}
     />
   );
 
@@ -430,15 +419,15 @@ export const AgentPane: React.FC<AgentPaneProps> = ({
               <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">{t("Work with the coding agent, shape a plan, build a PRD, or organize tasks directly in Kanban.")}</p>
             </div>
             <div className="mt-5 grid grid-cols-2 gap-2 lg:grid-cols-4" aria-label={t("Start a workflow")}>
-              <button type="button" onClick={() => focusComposerMode("agent")} className="group lift rounded-xl border border-line bg-surface p-3 text-left hover:border-accent/40 hover:bg-accent-soft/40">
+              <button type="button" onClick={() => focusComposer(false)} className="group lift rounded-xl border border-line bg-surface p-3 text-left hover:border-accent/40 hover:bg-accent-soft/40">
                 <Code2 className="h-4 w-4 text-accent" aria-hidden />
                 <span className="mt-2 block text-xs font-medium text-ink">{t("Build a feature")}</span>
-                <span className="mt-0.5 block text-[10px] text-faint">{t("Agent mode")}</span>
+                <span className="mt-0.5 block text-[10px] text-faint">{t("Agent chat")}</span>
               </button>
-              <button type="button" onClick={() => focusComposerMode("plan")} className="group lift rounded-xl border border-line bg-surface p-3 text-left hover:border-accent/40 hover:bg-accent-soft/40">
+              <button type="button" aria-pressed={guidedPlan} onClick={() => focusComposer(true)} className={`group lift rounded-xl border p-3 text-left hover:border-accent/40 hover:bg-accent-soft/40 ${guidedPlan ? "border-accent bg-accent-soft/40" : "border-line bg-surface"}`}>
                 <ListChecks className="h-4 w-4 text-accent" aria-hidden />
                 <span className="mt-2 block text-xs font-medium text-ink">{t("Plan a project")}</span>
-                <span className="mt-0.5 block text-[10px] text-faint">{t("Plan mode")}</span>
+                <span className="mt-0.5 block text-[10px] text-faint">{t("Guided planning")}</span>
               </button>
               <button type="button" onClick={() => onNavigatePipeline?.(2)} className="group lift rounded-xl border border-line bg-surface p-3 text-left hover:border-accent/40 hover:bg-accent-soft/40">
                 <FileText className="h-4 w-4 text-accent" aria-hidden />

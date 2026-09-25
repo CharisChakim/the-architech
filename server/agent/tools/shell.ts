@@ -73,7 +73,7 @@ const runCommandTool: ToolSpec = {
     // Persetujuan datang sebelum child dibuat, sehingga penolakan tidak pernah
     // menimbulkan efek samping dan tetap menjadi hasil tool biasa.
     const cwd = await resolveInsideRoot(root, ".");
-    const approved = Boolean(await ctx.elicit({ kind: "approval", command, cwd }));
+    const approved = Boolean(await ctx.elicit({ kind: "approval", command, cwd, action: "command" }));
     if (!approved) {
       return { error: "Pengguna menolak menjalankan perintah ini.", command, ranAnything: false };
     }

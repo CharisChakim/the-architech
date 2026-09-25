@@ -1,6 +1,6 @@
 import React from "react";
 import { AlertTriangle, Bot, Check } from "lucide-react";
-import type { AgentTask, ProjectSession } from "../../types";
+import type { AgentTask, PermissionMode, ProjectSession } from "../../types";
 import { isStepReachable, Step } from "../../lib/routing";
 import { LayoutMode } from "../../lib/layout";
 import { useT } from "../../lib/i18n";
@@ -65,6 +65,9 @@ export const Workbench: React.FC<WorkbenchProps> = ({
   const taskCount = session.tasks?.length ?? 0;
   const completedTasks = (session.tasks ?? []).filter((task) => task.status === "done").length;
   const [runningTaskId, setRunningTaskId] = React.useState<string | null>(null);
+  // Every chat starts asking; a wider mode is chosen per chat, never carried over.
+  const [permissionState, setPermissionState] = React.useState<{ sessionId: string; mode: PermissionMode }>({ sessionId: session.id, mode: "ask" });
+  const permissionMode = permissionState.sessionId === session.id ? permissionState.mode : "ask";
   const runtimeDiscovery = useRuntimeDiscovery(true);
   const { roles } = useConnections();
   // A chat the user has not picked a runtime for follows the default, which
@@ -99,6 +102,7 @@ export const Workbench: React.FC<WorkbenchProps> = ({
     onToolApplied: handleToolApplied,
     runtimeSelection,
     harnessSettings,
+    permissionMode,
   });
 
   const handleRunTask = React.useCallback((task: AgentTask): void => {
@@ -164,6 +168,8 @@ export const Workbench: React.FC<WorkbenchProps> = ({
         runtimeLoading={runtimeDiscovery.loading}
         onRuntimeSelectionChange={handleRuntimeSelectionChange}
         onOpenConnections={onOpenConnections}
+        permissionMode={permissionMode}
+        onPermissionModeChange={(mode) => setPermissionState({ sessionId: session.id, mode })}
       />
     </div>
   );
