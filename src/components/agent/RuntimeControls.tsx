@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo } from "react";
+import { LoaderCircle } from "lucide-react";
 import type { AgentRole, RuntimeDetection, RuntimePreference, RuntimeModel, RuntimeDiscoveryReport } from "../../types";
 import type { RuntimeChatSelection } from "../../lib/runtimeChat";
 import { useConnections } from "../../lib/connections";
@@ -24,6 +25,8 @@ export interface RuntimeControlsProps {
   report: RuntimeDiscoveryReport | null;
   preferences: RuntimePreference[];
   loading?: boolean;
+  /** Show that discovery is running instead of a pick that is about to change. */
+  detecting?: boolean;
   onChange: (selection: RuntimeChatSelection) => void;
   onOpenConnections?: () => void;
   disabled?: boolean;
@@ -75,6 +78,7 @@ export const RuntimeControls: React.FC<RuntimeControlsProps> = ({
   report,
   preferences,
   loading = false,
+  detecting = false,
   onChange,
   onOpenConnections,
   disabled = false,
@@ -215,6 +219,15 @@ export const RuntimeControls: React.FC<RuntimeControlsProps> = ({
       ))}
     </>
   );
+
+  if (compact && detecting) {
+    return (
+      <span className="inline-flex h-8 items-center gap-1.5 px-2 text-[11px] text-muted" role="status" aria-live="polite">
+        <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden />
+        {t("Detecting...")}
+      </span>
+    );
+  }
 
   if (compact) {
     return (

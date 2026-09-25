@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { RuntimeDiscoveryReport } from "../types";
-import { defaultRuntimeSelection, normalizeRuntimeChatEvent } from "./runtimeChat";
+import { defaultAwaitsDiscovery, defaultRuntimeSelection, normalizeRuntimeChatEvent } from "./runtimeChat";
 
 test("a run the chat route ends as failed keeps that status on done", () => {
   assert.deepEqual(normalizeRuntimeChatEvent({ type: "done", runStatus: "failed", stop: "stop" }), { type: "done", runStatus: "failed" });
@@ -43,4 +43,18 @@ test("with no usable last pick, a Legacy API endpoint wins, then the first ready
   );
   assert.deepEqual(defaultRuntimeSelection({ last: null, legacyAvailable: false, report: report([]) }), legacy);
   assert.deepEqual(defaultRuntimeSelection({ last: null, legacyAvailable: false, report: null }), legacy);
+});
+
+test("the default waits for discovery only while its answer could still change", () => {
+  const lastCodex = { runtime: "codex" as const, connectionId: "runtime:codex", model: "inherit", effort: "inherit" };
+  // No endpoint: the first ready runtime decides, so wait for it.
+  assert.equal(defaultAwaitsDiscovery({ last: null, legacyAvailable: false, report: null, loading: true }), true);
+  // A runtime was the last pick: whether it is still ready decides.
+  assert.equal(defaultAwaitsDiscovery({ last: lastCodex, legacyAvailable: true, report: null, loading: true }), true);
+  // The Legacy API endpoint wins whatever discovery says.
+  assert.equal(defaultAwaitsDiscovery({ last: null, legacyAvailable: true, report: null, loading: true }), false);
+  assert.equal(defaultAwaitsDiscovery({ last: legacy, legacyAvailable: true, report: null, loading: true }), false);
+  // Discovery answered, or failed and stopped: nothing left to wait for.
+  assert.equal(defaultAwaitsDiscovery({ last: null, legacyAvailable: false, report: report(["claude"]), loading: false }), false);
+  assert.equal(defaultAwaitsDiscovery({ last: null, legacyAvailable: false, report: null, loading: false }), false);
 });

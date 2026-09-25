@@ -41,6 +41,8 @@ export interface AgentPaneProps {
   runtimeReport: RuntimeDiscoveryReport | null;
   runtimePreferences: RuntimePreference[];
   runtimeLoading?: boolean;
+  /** The chat's default runtime is not known until discovery answers. */
+  runtimeDetecting?: boolean;
   onRuntimeSelectionChange: (selection: RuntimeChatSelection) => void;
   onOpenConnections?: () => void;
   permissionMode: PermissionMode;
@@ -72,6 +74,7 @@ export const AgentPane: React.FC<AgentPaneProps> = ({
   runtimeReport,
   runtimePreferences,
   runtimeLoading,
+  runtimeDetecting = false,
   onRuntimeSelectionChange,
   onOpenConnections,
   permissionMode,
@@ -345,6 +348,7 @@ export const AgentPane: React.FC<AgentPaneProps> = ({
       report={runtimeReport}
       preferences={runtimePreferences}
       loading={runtimeLoading}
+      detecting={runtimeDetecting}
       onChange={onRuntimeSelectionChange}
       onOpenConnections={onOpenConnections}
       disabled={busy}
@@ -368,7 +372,8 @@ export const AgentPane: React.FC<AgentPaneProps> = ({
   const composer = (variant: "default" | "hero") => (
     <Composer
       sessionId={sessionId}
-      send={onSend}
+      // Typing goes on while detecting; only sending waits for the runtime.
+      send={runtimeDetecting ? undefined : onSend}
       busy={busy}
       stop={onStop}
       retry={error ? onRetry : undefined}

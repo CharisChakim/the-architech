@@ -82,6 +82,22 @@ export function defaultRuntimeSelection(input: {
   return legacyRuntimeSelection();
 }
 
+/**
+ * Whether the default above can still change once discovery answers. Until
+ * then its Legacy API fallback is only a placeholder, and the chat shows that
+ * it is detecting instead of offering a pick that is about to switch.
+ */
+export function defaultAwaitsDiscovery(input: {
+  last: RuntimeChatSelection | null;
+  legacyAvailable: boolean;
+  report: RuntimeDiscoveryReport | null;
+  loading: boolean;
+}): boolean {
+  if (input.report || !input.loading) return false;
+  const legacySettled = input.legacyAvailable && (!input.last || input.last.runtime === "legacy");
+  return !legacySettled;
+}
+
 export function loadRuntimeSelection(sessionId: string): RuntimeChatSelection {
   try {
     const raw = window.localStorage.getItem(storageKey(SELECTION_PREFIX, sessionId));

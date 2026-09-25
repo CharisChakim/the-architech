@@ -7,6 +7,7 @@ import { useT } from "../../lib/i18n";
 import { useAgentRun } from "../../lib/useAgentRun";
 import { useRuntimeDiscovery } from "../../lib/runtimes";
 import {
+  defaultAwaitsDiscovery,
   defaultRuntimeSelection,
   hasRuntimeSelection,
   loadLastRuntimeSelection,
@@ -89,6 +90,12 @@ export const Workbench: React.FC<WorkbenchProps> = ({
     // session.id: the last pick may have changed in the chat just left.
   }), [roles.agent, runtimeDiscovery.report, session.id]);
   const runtimeSelection = chosenSelection ?? defaultSelection;
+  const runtimeDetecting = !chosenSelection && defaultAwaitsDiscovery({
+    last: loadLastRuntimeSelection(),
+    legacyAvailable: Boolean(roles.agent),
+    report: runtimeDiscovery.report,
+    loading: runtimeDiscovery.loading,
+  });
   const handleRuntimeSelectionChange = React.useCallback((selection: RuntimeChatSelection) => {
     setRuntimeState({ sessionId: session.id, selection });
     saveRuntimeSelection(session.id, selection);
@@ -173,6 +180,7 @@ export const Workbench: React.FC<WorkbenchProps> = ({
         runtimeReport={runtimeDiscovery.report}
         runtimePreferences={runtimeDiscovery.preferences}
         runtimeLoading={runtimeDiscovery.loading}
+        runtimeDetecting={runtimeDetecting}
         onRuntimeSelectionChange={handleRuntimeSelectionChange}
         onOpenConnections={onOpenConnections}
         permissionMode={permissionMode}
