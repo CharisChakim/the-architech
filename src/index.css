@@ -37,10 +37,10 @@
   --app-muted: #616374;
   --app-faint: #6a6c7f;
 
-  --app-accent: #713dd4;
+  --app-accent: #2563eb;
   --app-accent-fg: #ffffff;
-  --app-accent-soft: #eee8fc;
-  --app-accent-ink: #5b2aab;
+  --app-accent-soft: #e7effd;
+  --app-accent-ink: #1d4ed8;
 
   --app-ok: #226d54;
   --app-ok-soft: #eaf4ef;
@@ -74,10 +74,10 @@
   --app-muted: #abadc0;
   --app-faint: #8e90a3;
 
-  --app-accent: #b89aff;
-  --app-accent-fg: #20132f;
-  --app-accent-soft: #352849;
-  --app-accent-ink: #c7aeff;
+  --app-accent: #8ab4f8;
+  --app-accent-fg: #0c1a33;
+  --app-accent-soft: #1f2d47;
+  --app-accent-ink: #a8c7fa;
 
   --app-ok: #8cd4b6;
   --app-ok-soft: #20372f;
