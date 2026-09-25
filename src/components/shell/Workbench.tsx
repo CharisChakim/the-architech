@@ -154,7 +154,7 @@ export const Workbench: React.FC<WorkbenchProps> = ({
   );
 
   const agentPane = (
-    <div className="shell-chat-pane flex min-h-0 min-w-0 flex-col overflow-hidden bg-surface [&>aside]:!static [&>aside]:!inset-auto [&>aside]:!h-full [&>aside]:!w-full [&>aside]:!max-w-none [&>aside]:!shadow-none">
+    <div className="shell-chat-pane flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-surface [&>aside]:!static [&>aside]:!inset-auto [&>aside]:!h-full [&>aside]:!w-full [&>aside]:!max-w-none [&>aside]:!shadow-none">
       <AgentPane
         sessionId={session.id}
         workspaceRoot={session.workspaceRoot || ""}
