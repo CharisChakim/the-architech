@@ -1,4 +1,4 @@
-import { createContext, useContext } from "react";
+import { createContext, useContext, type ReactNode } from "react";
 import type { AgentTask, FollowUpQuestion, PRDData, ProjectPlan, ProjectSession } from "../types";
 import { Language, makeT } from "./i18n";
 import { legacyRuntimeSelection, type RuntimeChatSelection } from "./runtimeChat";
@@ -6,6 +6,9 @@ import { legacyRuntimeSelection, type RuntimeChatSelection } from "./runtimeChat
 /** What the pipeline pane's model picker chose; the steps read it to generate. */
 export const PipelineTargetContext = createContext<RuntimeChatSelection>(legacyRuntimeSelection());
 export const usePipelineTarget = (): RuntimeChatSelection => useContext(PipelineTargetContext);
+/** The picker itself, shown beside each step's generate action like the chat's. */
+export const PipelineModelControlContext = createContext<ReactNode>(null);
+export const PipelineModelControl = (): ReactNode => useContext(PipelineModelControlContext);
 
 // The Legacy API sends nothing extra: the server resolves the step's role.
 const targetBody = (target?: RuntimeChatSelection): Record<string, unknown> =>

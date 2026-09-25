@@ -3,7 +3,7 @@ import type { FeatureSpec, ProjectSession } from "../../types";
 import { MermaidViewer, PlanCanvas } from "../lazy";
 import { FeatureEditor } from "../FeatureEditor";
 import { GenerationProgress } from "../GenerationProgress";
-import { generatePrd, generateProjectPlan, isAbort, usePipelineTarget } from "../../lib/generate";
+import { generatePrd, generateProjectPlan, isAbort, PipelineModelControl, usePipelineTarget } from "../../lib/generate";
 import { useT } from "../../lib/i18n";
 import { AlertTriangle, ArrowRight, Check, CheckCircle2, Clock, Compass, Cpu, Edit3, Layers, ListTodo, Network, RefreshCw, ShieldCheck, Undo2 } from "lucide-react";
 import { readStoredFollowUpAnswers, toTransportAnswers } from "./followups";
@@ -188,7 +188,8 @@ export const PlanView: React.FC<PlanViewProps> = ({
             <h3 className="text-base font-semibold text-ink">{session.input.title || session.title}</h3>
             <p className="text-muted mt-1 max-w-2xl leading-relaxed">{plan.summary}</p>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <PipelineModelControl />
             <button type="button" onClick={() => setEditingInput(true)} className="btn-ghost"><Edit3 className="w-3.5 h-3.5" /> {t("Edit input")}</button>
             <button type="button" onClick={() => void handleContinueToPrd()} disabled={generatingPrd} className="btn-primary">{t("Continue to the PRD")} <ArrowRight className="w-4 h-4" /></button>
           </div>

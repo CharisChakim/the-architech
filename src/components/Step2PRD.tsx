@@ -20,7 +20,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { useT, TFunction } from "../lib/i18n";
-import { generatePrd, generateTasks, isAbort, usePipelineTarget } from "../lib/generate";
+import { generatePrd, generateTasks, isAbort, PipelineModelControl, usePipelineTarget } from "../lib/generate";
 import {
   attachPrdVersionToPrd,
   attachPrdVersionToTasks,
@@ -417,7 +417,9 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
               </div>
             </div>
           )}
-          <button onClick={handleGeneratePRD} disabled={loading || generatingTasks || (!session.plan && !briefDescription.trim())} className="btn-primary mx-auto">
+          <div className="flex flex-wrap items-center justify-between gap-3 -mx-6 -mb-6 border-t border-line px-6 py-4 sm:-mx-8 sm:-mb-8 sm:px-8">
+          <PipelineModelControl />
+          <button onClick={handleGeneratePRD} disabled={loading || generatingTasks || (!session.plan && !briefDescription.trim())} className="btn-primary">
             {loading ? (
               <>
                 <RefreshCw className="w-4 h-4 animate-spin" />
@@ -430,6 +432,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
               </>
             )}
           </button>
+          </div>
         </div>
       ) : (
         <div className="space-y-5 animate-in fade-in duration-300">
@@ -447,6 +450,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
             </div>
 
             <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <PipelineModelControl />
               <button onClick={handleCopyMarkdown} className="btn-ghost">
                 {copiedMd ? <Check className="w-4 h-4 text-ok" /> : <Copy className="w-4 h-4" />}
                 {copiedMd ? t("Copied") : t("Copy MD")}

@@ -609,7 +609,6 @@ const ID: Record<string, string> = {
   "{count} tools": "{count} tool",
   "What should we build?": "Apa yang harus kita bangun?",
   "Isi manual": "Isi manual",
-  "default model": "model bawaan",
   "e.g. AI Code Reviewer Bot": "misal: AI Code Reviewer Bot",
   "e.g. Candlestick view": "misal: Tampilan Candlestick",
   "e.g. React, Node.js, PostgreSQL": "misal: React, Node.js, PostgreSQL",

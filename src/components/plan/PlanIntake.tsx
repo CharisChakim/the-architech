@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { useT } from "../../lib/i18n";
 import { useDraft } from "../../lib/draftStore";
-import { generateFollowUpQuestions, generateProjectPlan, isAbort, usePipelineTarget } from "../../lib/generate";
+import { generateFollowUpQuestions, generateProjectPlan, isAbort, PipelineModelControl, usePipelineTarget } from "../../lib/generate";
 import {
   createFollowUpState,
   getFollowUpOptions,
@@ -288,7 +288,7 @@ export const PlanIntake: React.FC<PlanIntakeProps> = ({
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3 -mx-6 -mb-6 px-6 py-4 border-t border-line">
-              <span className="text-xs text-faint truncate">{session.llmConfig.provider} · {session.llmConfig.modelName || t("default model")}</span>
+              <PipelineModelControl />
               <button type="submit" disabled={loadingQuestions || !description.trim()} className="btn-primary shrink-0">
                 {loadingQuestions ? <><RefreshCw className="w-4 h-4 animate-spin" /> {t("Analysing...")}</> : <><Wand2 className="w-4 h-4" /> {t("Analyse the idea & draft questions")}</>}
               </button>
@@ -336,7 +336,8 @@ export const PlanIntake: React.FC<PlanIntakeProps> = ({
               })}
             </div>
 
-            <div className="flex flex-wrap justify-end gap-2 pt-1">
+            <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
+              <div className="mr-auto"><PipelineModelControl /></div>
               <button type="button" onClick={() => void requestFollowUps(false)} disabled={loadingQuestions || loadingPlan} className="btn-outline" title={t("Send the current answers so the AI can judge whether anything is still missing")}>{loadingQuestions ? <><RefreshCw className="w-4 h-4 animate-spin" /> {t("Reviewing your answers...")}</> : <><HelpCircle className="w-4 h-4" /> {t("Continue clarifying (round {round})", { round: (session.clarificationRound || 1) + 1 })}</>}</button>
               <button type="button" onClick={() => void handleGeneratePlan()} disabled={loadingPlan || loadingQuestions} className="btn-primary">{loadingPlan ? <><RefreshCw className="w-4 h-4 animate-spin" /> {t("Drafting the architecture & diagram...")}</> : <><Sparkles className="w-4 h-4" /> {t("Generate project plan")}</>}</button>
             </div>

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import type { ProjectSession, AgentTask } from "../types";
-import { generateTasks, isAbort, usePipelineTarget } from "../lib/generate";
+import { generateTasks, isAbort, PipelineModelControl, usePipelineTarget } from "../lib/generate";
 import { agentsMarkdownFilename, buildAgentsMarkdown } from "../lib/agentsMd";
 import { downloadFile } from "../lib/download";
 import { buildHandoffJson, handoffJsonFilename } from "../lib/handoff";
@@ -409,9 +409,12 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
             <h3 className="font-semibold text-ink">{t("Generate from PRD")}</h3>
             <p className="mt-1 flex-1 text-sm leading-relaxed text-muted">{session.prd ? t("Turn the current PRD into atomic, agent-ready tasks. Existing manual tasks stay on the board.") : t("Create or open a PRD first, then let the AI break it into executable tasks.")}</p>
             {session.prd ? (
-              <button onClick={handleGenerateTasks} disabled={loading} className="btn-outline mt-5 self-start">
-                <Sparkles className="h-4 w-4" />{loading ? t("Building the task board...") : t("Generate task board")}
-              </button>
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
+                <PipelineModelControl />
+                <button onClick={handleGenerateTasks} disabled={loading} className="btn-outline">
+                  <Sparkles className="h-4 w-4" />{loading ? t("Building the task board...") : t("Generate task board")}
+                </button>
+              </div>
             ) : (
               <button type="button" onClick={() => onSelectStep?.(2)} className="btn-outline mt-5 self-start">{t("Open PRD builder")}<ArrowRight className="h-4 w-4" /></button>
             )}
@@ -487,10 +490,13 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
             </div>
 
             {session.prd ? (
+              <div className="flex flex-wrap items-center gap-2">
+              <PipelineModelControl />
               <button onClick={handleGenerateTasks} disabled={loading} className="btn-outline text-xs">
                 <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
                 {tasksNeedingSync > 0 ? t("Sync PRD tasks") : t("Generate PRD tasks")}
               </button>
+              </div>
             ) : (
               <button type="button" onClick={() => onSelectStep?.(2)} className="text-xs text-muted hover:text-accent-ink">{t("PRD is optional")} · {t("Open builder")}</button>
             )}

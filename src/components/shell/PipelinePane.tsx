@@ -3,7 +3,7 @@ import { Check } from "lucide-react";
 import type { AgentTask, ProjectSession } from "../../types";
 import { isStepReachable, STEP_PATHS, Step } from "../../lib/routing";
 import { useT } from "../../lib/i18n";
-import { PipelineTargetContext } from "../../lib/generate";
+import { PipelineModelControlContext, PipelineTargetContext } from "../../lib/generate";
 import { legacyRuntimeSelection, type RuntimeChatSelection } from "../../lib/runtimeChat";
 
 const Step1Plan = React.lazy(() =>
@@ -51,10 +51,9 @@ interface TabStripProps {
   session: ProjectSession;
   onSelectStep: (step: Step) => void;
   onSelectAgent?: () => void;
-  modelControl?: React.ReactNode;
 }
 
-export const TabStrip: React.FC<TabStripProps> = ({ step, session, onSelectStep, onSelectAgent, modelControl }) => {
+export const TabStrip: React.FC<TabStripProps> = ({ step, session, onSelectStep, onSelectAgent }) => {
   const { t } = useT();
 
   return (
@@ -98,7 +97,6 @@ export const TabStrip: React.FC<TabStripProps> = ({ step, session, onSelectStep,
           </button>
         );
       })}
-      {modelControl && <div className="ml-auto flex min-w-max items-center pl-3">{modelControl}</div>}
     </nav>
   );
 };
@@ -116,9 +114,10 @@ export const PipelinePane: React.FC<PipelinePaneProps> = ({
   modelControl,
 }) => (
   <div className="shell-project-pane @container/pane flex min-h-0 flex-1 min-w-0 flex-col overflow-y-auto">
-    <TabStrip step={step} session={session} onSelectStep={onSelectStep} onSelectAgent={onSelectAgent} modelControl={modelControl} />
+    <TabStrip step={step} session={session} onSelectStep={onSelectStep} onSelectAgent={onSelectAgent} />
     <div className="shell-project-content px-4 py-8 @3xl/pane:px-8">
       <PipelineTargetContext.Provider value={generationTarget}>
+      <PipelineModelControlContext.Provider value={modelControl}>
       <Suspense fallback={<PaneSkeleton />}>
         {step === 1 && (
           <Step1Plan
@@ -140,6 +139,7 @@ export const PipelinePane: React.FC<PipelinePaneProps> = ({
           />
         )}
       </Suspense>
+      </PipelineModelControlContext.Provider>
       </PipelineTargetContext.Provider>
     </div>
   </div>

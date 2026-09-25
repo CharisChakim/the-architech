@@ -225,6 +225,7 @@ export const Workbench: React.FC<WorkbenchProps> = ({
                 runningTaskId={agentRun.busy ? runningTaskId ?? "__agent_busy__" : runningTaskId}
                 generationTarget={pipelineSelection}
                 modelControl={(
+                  <div className="inline-flex min-w-0 max-w-full rounded-lg border border-line bg-canvas px-1">
                   <RuntimeControls
                     sessionId={session.id}
                     selection={pipelineSelection}
@@ -237,6 +238,7 @@ export const Workbench: React.FC<WorkbenchProps> = ({
                     legacyRoles={["plan", "prd", "tasks"]}
                     compact
                   />
+                  </div>
                 )}
               />
             </div>
