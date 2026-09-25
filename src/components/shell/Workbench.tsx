@@ -31,7 +31,6 @@ export interface WorkbenchProps {
   onWorkspaceSelected: (workspaceRoot: string) => void | Promise<void>;
   onSelectStep: (step: Step) => void;
   onToolApplied?: () => void | Promise<void>;
-  onPrepareAgentPlan?: (idea: string) => void | Promise<void>;
   layoutMode: LayoutMode;
   ratio: number;
   onLayoutModeChange: (mode: LayoutMode) => void;
@@ -55,7 +54,6 @@ export const Workbench: React.FC<WorkbenchProps> = ({
   onWorkspaceSelected,
   onSelectStep,
   onToolApplied,
-  onPrepareAgentPlan,
   layoutMode,
   ratio,
   onLayoutModeChange,
@@ -171,7 +169,6 @@ export const Workbench: React.FC<WorkbenchProps> = ({
         onRespondQuestions={agentRun.respondQuestions}
         onStop={agentRun.stop}
         hasPlan={Boolean(session.plan)}
-        onPreparePlan={onPrepareAgentPlan}
         runtimeSelection={runtimeSelection}
         runtimeReport={runtimeDiscovery.report}
         runtimePreferences={runtimeDiscovery.preferences}

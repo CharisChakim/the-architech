@@ -282,21 +282,6 @@ export default function App() {
     );
   };
 
-  const handlePrepareAgentPlan = async (idea: string) => {
-    if (!session) return;
-    // ask_followups is gated by the persisted project description. Save the
-    // intake idea before opening the chat request so the tool can see it.
-    const next = {
-      ...session,
-      input: { ...session.input, description: idea },
-      updatedAt: new Date().toISOString(),
-    };
-    await persistSession(next);
-    lastPersistedRef.current = JSON.stringify(next);
-    setSession(next);
-    await refreshHistory();
-  };
-
   const handleSelectHistorySession = async (id: string) => {
     if (!session) return;
     try {
@@ -385,7 +370,6 @@ export default function App() {
               setStoreError(err?.message || t("Failed to open the project session."));
             }
           }}
-          onPrepareAgentPlan={handlePrepareAgentPlan}
           layoutMode={effectiveLayoutMode}
           ratio={layout.ratio}
           onLayoutModeChange={handleLayoutModeChange}
