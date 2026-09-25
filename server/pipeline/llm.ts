@@ -3,11 +3,27 @@ import { callLlm as callLlmCore, LLM_TIMEOUT_MS, MAX_OUTPUT_TOKENS } from "../ll
 import { getAdapter } from "../llm/adapters/index.ts";
 import { streamLlm } from "../llm/stream.ts";
 import type { Connection, LlmRequest } from "../llm/types.ts";
+import { generateRuntimeText, type RuntimeTextTarget } from "./runtimeText.ts";
 
 export interface PipelineOptions {
   signal?: AbortSignal;
   onProgress?: (chars: number) => void;
+  /** Write the step with a local runtime instead of the HTTP connection. */
+  runtime?: RuntimeTextTarget;
 }
+
+/**
+ * Passed as the connection of a step a runtime writes. The generators only
+ * check that a connection has an endpoint; generateLlmText never calls it.
+ */
+export const RUNTIME_CONNECTION: Connection = {
+  id: "runtime",
+  name: "Runtime",
+  format: "openai",
+  baseUrl: "runtime:",
+  models: [],
+  jsonMode: false,
+};
 
 interface PipelineLlmOptions extends PipelineOptions {
   prompt: string;
@@ -91,6 +107,16 @@ async function collectStream(
 }
 
 export async function generateLlmText(opts: PipelineLlmOptions): Promise<string> {
+  if (opts.runtime) {
+    return generateRuntimeText({
+      target: opts.runtime,
+      prompt: opts.prompt,
+      system: opts.system,
+      signal: pipelineSignal(opts.signal),
+      onProgress: opts.onProgress,
+    });
+  }
+
   // Tanpa opsi, tetap melalui callLlm lama agar jalur JSON non-streaming tidak
   // berubah: retry response_format, timeout, salvage, dan error handling tetap sama.
   if (opts.signal === undefined && opts.onProgress === undefined) {

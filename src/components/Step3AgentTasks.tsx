@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import type { ProjectSession, AgentTask } from "../types";
-import { generateTasks, isAbort } from "../lib/generate";
+import { generateTasks, isAbort, usePipelineTarget } from "../lib/generate";
 import { agentsMarkdownFilename, buildAgentsMarkdown } from "../lib/agentsMd";
 import { downloadFile } from "../lib/download";
 import { buildHandoffJson, handoffJsonFilename } from "../lib/handoff";
@@ -56,6 +56,7 @@ function runDate(value: string | null | undefined): string {
 
 export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpdateSession, onRunTask, runningTaskId, onSelectStep }) => {
   const { t, lang } = useT();
+  const pipelineTarget = usePipelineTarget();
   const [loading, setLoading] = useState(false);
   const [generationChars, setGenerationChars] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -178,7 +179,7 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
       const taskSession = recorded && versionedPrd
         ? { ...session, prd: versionedPrd, prdVersions: recorded.versions }
         : session;
-      const generated = await generateTasks(taskSession, lang, controller.signal, setGenerationChars);
+      const generated = await generateTasks(taskSession, lang, controller.signal, setGenerationChars, pipelineTarget);
       const generatedTasks = attachPrdVersionToTasks(generated, recorded?.version);
       onUpdateSession({
         ...(recorded && versionedPrd ? { prd: versionedPrd, prdVersions: recorded.versions } : {}),

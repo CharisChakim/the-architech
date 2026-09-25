@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from "react";
-import type { RuntimeDetection, RuntimePreference, RuntimeModel, RuntimeDiscoveryReport } from "../../types";
+import type { AgentRole, RuntimeDetection, RuntimePreference, RuntimeModel, RuntimeDiscoveryReport } from "../../types";
 import type { RuntimeChatSelection } from "../../lib/runtimeChat";
 import { useConnections } from "../../lib/connections";
 import { useT } from "../../lib/i18n";
@@ -28,6 +28,10 @@ export interface RuntimeControlsProps {
   onOpenConnections?: () => void;
   disabled?: boolean;
   compact?: boolean;
+  /** Keeps element ids apart when the chat and the pipeline both show one. */
+  idPrefix?: string;
+  /** The roles a Legacy API pick is bound to; the first one's binding is shown. */
+  legacyRoles?: AgentRole[];
 }
 
 function preferredValue(
@@ -75,6 +79,8 @@ export const RuntimeControls: React.FC<RuntimeControlsProps> = ({
   onOpenConnections,
   disabled = false,
   compact = false,
+  idPrefix = "agent",
+  legacyRoles = ["agent"],
 }) => {
   const { t } = useT();
   const { connections, roles, bindRole } = useConnections();
@@ -164,7 +170,7 @@ export const RuntimeControls: React.FC<RuntimeControlsProps> = ({
       model,
       label: `${connection.name} · ${model}`,
     }))), [connections]);
-  const legacyBinding = roles.agent;
+  const legacyBinding = roles[legacyRoles[0]];
   const legacyValue = String(legacyChoices.findIndex((choice) => (
     choice.connectionId === legacyBinding?.connectionId && choice.model === legacyBinding?.model
   )));
@@ -172,14 +178,14 @@ export const RuntimeControls: React.FC<RuntimeControlsProps> = ({
   const changeLegacyModel = (value: string) => {
     const choice = legacyChoices[Number(value)];
     if (!choice) return;
-    void bindRole("agent", choice.connectionId, choice.model).catch(() => undefined);
+    for (const role of legacyRoles) void bindRole(role, choice.connectionId, choice.model).catch(() => undefined);
   };
 
   const legacyModelSelect = (
     <>
-      <label htmlFor="agent-legacy-model" className="sr-only">{t("Model")}</label>
+      <label htmlFor={`${idPrefix}-legacy-model`} className="sr-only">{t("Model")}</label>
       <select
-        id="agent-legacy-model"
+        id={`${idPrefix}-legacy-model`}
         className="h-8 max-w-44 rounded-lg border-0 bg-transparent px-2 text-[11px] text-ink outline-hidden hover:bg-subtle focus:bg-subtle"
         value={legacyValue}
         onChange={(event) => changeLegacyModel(event.target.value)}
@@ -213,9 +219,9 @@ export const RuntimeControls: React.FC<RuntimeControlsProps> = ({
   if (compact) {
     return (
       <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1" aria-label={t("Agent runtime controls")}>
-        <label htmlFor="agent-runtime" className="sr-only">{t("Runtime")}</label>
+        <label htmlFor={`${idPrefix}-runtime`} className="sr-only">{t("Runtime")}</label>
         <select
-          id="agent-runtime"
+          id={`${idPrefix}-runtime`}
           className="h-8 max-w-36 rounded-lg border-0 bg-transparent px-2 text-[11px] font-medium text-ink outline-hidden hover:bg-subtle focus:bg-subtle"
           value={selection.runtime}
           onChange={(event) => changeRuntime(event.target.value)}
@@ -227,9 +233,9 @@ export const RuntimeControls: React.FC<RuntimeControlsProps> = ({
         {selection.runtime === "legacy" && legacyModelSelect}
         {selection.runtime !== "legacy" && (
           <>
-            <label htmlFor="agent-runtime-model" className="sr-only">{t("Model")}</label>
+            <label htmlFor={`${idPrefix}-runtime-model`} className="sr-only">{t("Model")}</label>
             <select
-              id="agent-runtime-model"
+              id={`${idPrefix}-runtime-model`}
               className="h-8 max-w-40 rounded-lg border-0 bg-transparent px-2 text-[11px] text-ink outline-hidden hover:bg-subtle focus:bg-subtle"
               value={selection.model}
               onChange={(event) => changeModel(event.target.value)}
@@ -241,12 +247,12 @@ export const RuntimeControls: React.FC<RuntimeControlsProps> = ({
             </select>
             {effortOptions.length > 0 && (
               <>
-                <label htmlFor="agent-runtime-effort" className="sr-only">{t("Effort")}</label>
+                <label htmlFor={`${idPrefix}-runtime-effort`} className="sr-only">{t("Effort")}</label>
                 {/* Opsi bawaannya berbentuk "Default · <effort>", dan yang
                     terpanjang yang bisa dihasilkan butuh ~121px — cap 96px
                     memotongnya di tengah kata. */}
                 <select
-                  id="agent-runtime-effort"
+                  id={`${idPrefix}-runtime-effort`}
                   className="h-8 max-w-32 rounded-lg border-0 bg-transparent px-2 text-[11px] text-ink outline-hidden hover:bg-subtle focus:bg-subtle"
                   value={selection.effort}
                   onChange={(event) => onChange({ ...selection, effort: event.target.value })}
@@ -272,9 +278,9 @@ export const RuntimeControls: React.FC<RuntimeControlsProps> = ({
   return (
     <div className="min-w-0 flex-1" aria-label={t("Agent runtime controls")}>
       <div className="flex min-w-0 flex-wrap items-center gap-2">
-        <label htmlFor="agent-runtime" className="text-[11px] font-medium text-muted">{t("Runtime")}</label>
+        <label htmlFor={`${idPrefix}-runtime`} className="text-[11px] font-medium text-muted">{t("Runtime")}</label>
         <select
-          id="agent-runtime"
+          id={`${idPrefix}-runtime`}
           className="field min-w-36 flex-1 py-1 text-[11px] sm:max-w-56 sm:flex-none"
           value={selection.runtime}
           onChange={(event) => changeRuntime(event.target.value)}
@@ -300,9 +306,9 @@ export const RuntimeControls: React.FC<RuntimeControlsProps> = ({
 
       {selection.runtime === "legacy" && (
         <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
-          <label htmlFor="agent-legacy-model" className="text-[11px] font-medium text-muted">{t("Model")}</label>
+          <label htmlFor={`${idPrefix}-legacy-model`} className="text-[11px] font-medium text-muted">{t("Model")}</label>
           <select
-            id="agent-legacy-model"
+            id={`${idPrefix}-legacy-model`}
             className="field min-w-44 flex-1 py-1 text-[11px] sm:max-w-72 sm:flex-none"
             value={legacyValue}
             onChange={(event) => changeLegacyModel(event.target.value)}
@@ -323,9 +329,9 @@ export const RuntimeControls: React.FC<RuntimeControlsProps> = ({
 
       {selection.runtime !== "legacy" && (
         <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
-          <label htmlFor="agent-runtime-model" className="text-[11px] font-medium text-muted">{t("Model")}</label>
+          <label htmlFor={`${idPrefix}-runtime-model`} className="text-[11px] font-medium text-muted">{t("Model")}</label>
           <select
-            id="agent-runtime-model"
+            id={`${idPrefix}-runtime-model`}
             className="field min-w-36 flex-1 py-1 text-[11px] sm:max-w-56 sm:flex-none"
             value={selection.model}
             onChange={(event) => changeModel(event.target.value)}
@@ -336,9 +342,9 @@ export const RuntimeControls: React.FC<RuntimeControlsProps> = ({
           </select>
           {effortOptions.length > 0 && (
             <>
-              <label htmlFor="agent-runtime-effort" className="text-[11px] font-medium text-muted">{t("Effort")}</label>
+              <label htmlFor={`${idPrefix}-runtime-effort`} className="text-[11px] font-medium text-muted">{t("Effort")}</label>
               <select
-                id="agent-runtime-effort"
+                id={`${idPrefix}-runtime-effort`}
                 className="field min-w-28 flex-1 py-1 text-[11px] sm:max-w-40 sm:flex-none"
                 value={selection.effort}
                 onChange={(event) => onChange({ ...selection, effort: event.target.value })}

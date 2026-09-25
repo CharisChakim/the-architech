@@ -7,6 +7,7 @@ export type RuntimeChatSelection =
 const SELECTION_PREFIX = "ai_plan_architect_runtime_selection_v1";
 const LAST_SELECTION_KEY = "ai_plan_architect_runtime_selection_last_v1";
 const EXTERNAL_SESSION_PREFIX = "ai_plan_architect_runtime_session_v1";
+const PIPELINE_SELECTION_PREFIX = "ai_plan_architect_pipeline_selection_v1";
 
 const isRuntimeId = (value: unknown): value is RuntimeId =>
   value === "codex" || value === "claude" || value === "antigravity";
@@ -105,6 +106,23 @@ export function saveRuntimeSelection(sessionId: string, selection: RuntimeChatSe
     window.localStorage.setItem(LAST_SELECTION_KEY, JSON.stringify(selection));
   } catch {
     // Runtime selection is a convenience; a storage failure must not block chat.
+  }
+}
+
+/** The runtime that writes this project's Plan, PRD, and tasks; Legacy API until picked. */
+export function loadPipelineSelection(sessionId: string): RuntimeChatSelection {
+  try {
+    return parseSelection(window.localStorage.getItem(storageKey(PIPELINE_SELECTION_PREFIX, sessionId))) ?? legacyRuntimeSelection();
+  } catch {
+    return legacyRuntimeSelection();
+  }
+}
+
+export function savePipelineSelection(sessionId: string, selection: RuntimeChatSelection): void {
+  try {
+    window.localStorage.setItem(storageKey(PIPELINE_SELECTION_PREFIX, sessionId), JSON.stringify(selection));
+  } catch {
+    // Like the chat's pick, this is a convenience; generation still runs.
   }
 }
 

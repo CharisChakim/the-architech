@@ -20,7 +20,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { useT, TFunction } from "../lib/i18n";
-import { generatePrd, generateTasks, isAbort } from "../lib/generate";
+import { generatePrd, generateTasks, isAbort, usePipelineTarget } from "../lib/generate";
 import {
   attachPrdVersionToPrd,
   attachPrdVersionToTasks,
@@ -161,6 +161,7 @@ const PrdSection: React.FC<{
 
 export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, onGoToNextStep }) => {
   const { t, lang } = useT();
+  const pipelineTarget = usePipelineTarget();
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [copiedMd, setCopiedMd] = useState(false);
@@ -231,7 +232,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
         input: { ...session.input, title, description },
       };
       if (!session.plan) onUpdateSession({ title, input: sourceSession.input });
-      const generatedPrd = await generatePrd(sourceSession, lang, controller.signal, setGenerationChars);
+      const generatedPrd = await generatePrd(sourceSession, lang, controller.signal, setGenerationChars, pipelineTarget);
       const recorded = recordPrdVersion(generatedPrd, session.prdVersions);
       const versionedPrd = attachPrdVersionToPrd(generatedPrd, recorded.version);
       onUpdateSession({
@@ -278,7 +279,7 @@ export const Step2PRD: React.FC<Step2PRDProps> = ({ session, onUpdateSession, on
       const taskSession = versionedPrd && recorded
         ? { ...session, prd: versionedPrd, prdVersions: recorded.versions }
         : session;
-      const generatedTasks = await generateTasks(taskSession, lang, controller.signal, setGenerationChars);
+      const generatedTasks = await generateTasks(taskSession, lang, controller.signal, setGenerationChars, pipelineTarget);
       onUpdateSession({
         ...(recorded && versionedPrd ? { prd: versionedPrd, prdVersions: recorded.versions } : {}),
         tasks: attachPrdVersionToTasks(generatedTasks, recorded?.version),

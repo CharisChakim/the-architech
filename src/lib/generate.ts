@@ -1,5 +1,17 @@
+import { createContext, useContext } from "react";
 import type { AgentTask, FollowUpQuestion, PRDData, ProjectPlan, ProjectSession } from "../types";
 import { Language, makeT } from "./i18n";
+import { legacyRuntimeSelection, type RuntimeChatSelection } from "./runtimeChat";
+
+/** What the pipeline pane's model picker chose; the steps read it to generate. */
+export const PipelineTargetContext = createContext<RuntimeChatSelection>(legacyRuntimeSelection());
+export const usePipelineTarget = (): RuntimeChatSelection => useContext(PipelineTargetContext);
+
+// The Legacy API sends nothing extra: the server resolves the step's role.
+const targetBody = (target?: RuntimeChatSelection): Record<string, unknown> =>
+  target && target.runtime !== "legacy"
+    ? { runtimeTarget: { runtime: target.runtime, model: target.model, effort: target.effort } }
+    : {};
 
 export type GenerateProgress = (chars: number) => void;
 
@@ -69,6 +81,7 @@ async function postJson(
   fallbackKey: string,
   signal?: AbortSignal,
   onProgress?: GenerateProgress,
+  target?: RuntimeChatSelection,
 ): Promise<any> {
   const res = await fetch(url, {
     method: "POST",
@@ -76,7 +89,7 @@ async function postJson(
       "Content-Type": "application/json",
       ...(onProgress ? { Accept: "text/event-stream" } : {}),
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ ...(body as Record<string, unknown>), ...targetBody(target) }),
     signal,
   });
 
@@ -95,8 +108,9 @@ export async function generateFollowUpQuestions(
   lang: Language,
   signal?: AbortSignal,
   onProgress?: GenerateProgress,
+  target?: RuntimeChatSelection,
 ): Promise<{ questions: FollowUpQuestion[]; needsMoreInfo?: boolean; readinessNote?: string }> {
-  return (await postJson("/api/followup-questions", body, lang, "Failed to generate the follow-up questions.", signal, onProgress)) as {
+  return (await postJson("/api/followup-questions", body, lang, "Failed to generate the follow-up questions.", signal, onProgress, target)) as {
     questions: FollowUpQuestion[];
     needsMoreInfo?: boolean;
     readinessNote?: string;
@@ -108,8 +122,9 @@ export async function generateProjectPlan(
   lang: Language,
   signal?: AbortSignal,
   onProgress?: GenerateProgress,
+  target?: RuntimeChatSelection,
 ): Promise<ProjectPlan> {
-  return (await postJson("/api/generate-plan", body, lang, "Failed to generate the project plan.", signal, onProgress)) as ProjectPlan;
+  return (await postJson("/api/generate-plan", body, lang, "Failed to generate the project plan.", signal, onProgress, target)) as ProjectPlan;
 }
 
 export async function generatePrd(
@@ -117,6 +132,7 @@ export async function generatePrd(
   lang: Language,
   signal?: AbortSignal,
   onProgress?: GenerateProgress,
+  target?: RuntimeChatSelection,
 ): Promise<PRDData> {
   return (await postJson(
     "/api/generate-prd",
@@ -130,6 +146,7 @@ export async function generatePrd(
     "Failed to generate the PRD.",
     signal,
     onProgress,
+    target,
   )) as PRDData;
 }
 
@@ -138,6 +155,7 @@ export async function generateTasks(
   lang: Language,
   signal?: AbortSignal,
   onProgress?: GenerateProgress,
+  target?: RuntimeChatSelection,
 ): Promise<AgentTask[]> {
   const data = await postJson(
     "/api/generate-tasks",
@@ -151,6 +169,7 @@ export async function generateTasks(
     "Failed to generate the agent tasks.",
     signal,
     onProgress,
+    target,
   );
 
   return (data.tasks || []).map((task: AgentTask) => ({ ...task, status: task.status || "todo" }));

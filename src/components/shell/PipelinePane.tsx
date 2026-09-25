@@ -3,6 +3,8 @@ import { Check } from "lucide-react";
 import type { AgentTask, ProjectSession } from "../../types";
 import { isStepReachable, STEP_PATHS, Step } from "../../lib/routing";
 import { useT } from "../../lib/i18n";
+import { PipelineTargetContext } from "../../lib/generate";
+import { legacyRuntimeSelection, type RuntimeChatSelection } from "../../lib/runtimeChat";
 
 const Step1Plan = React.lazy(() =>
   import("../Step1Plan").then((module) => ({ default: module.Step1Plan }))
@@ -21,6 +23,9 @@ export interface PipelinePaneProps {
   onSelectAgent?: () => void;
   onRunTask?: (task: AgentTask) => void;
   runningTaskId?: string | null;
+  /** The model Plan, PRD, and tasks are generated with, and its picker. */
+  generationTarget?: RuntimeChatSelection;
+  modelControl?: React.ReactNode;
 }
 
 const tabs: { step: Step; label: string; path: string }[] = [
@@ -46,9 +51,10 @@ interface TabStripProps {
   session: ProjectSession;
   onSelectStep: (step: Step) => void;
   onSelectAgent?: () => void;
+  modelControl?: React.ReactNode;
 }
 
-export const TabStrip: React.FC<TabStripProps> = ({ step, session, onSelectStep, onSelectAgent }) => {
+export const TabStrip: React.FC<TabStripProps> = ({ step, session, onSelectStep, onSelectAgent, modelControl }) => {
   const { t } = useT();
 
   return (
@@ -92,6 +98,7 @@ export const TabStrip: React.FC<TabStripProps> = ({ step, session, onSelectStep,
           </button>
         );
       })}
+      {modelControl && <div className="ml-auto flex min-w-max items-center pl-3">{modelControl}</div>}
     </nav>
   );
 };
@@ -105,10 +112,13 @@ export const PipelinePane: React.FC<PipelinePaneProps> = ({
   onSelectAgent,
   onRunTask,
   runningTaskId,
+  generationTarget = legacyRuntimeSelection(),
+  modelControl,
 }) => (
   <div className="shell-project-pane @container/pane flex min-h-0 flex-1 min-w-0 flex-col overflow-y-auto">
-    <TabStrip step={step} session={session} onSelectStep={onSelectStep} onSelectAgent={onSelectAgent} />
+    <TabStrip step={step} session={session} onSelectStep={onSelectStep} onSelectAgent={onSelectAgent} modelControl={modelControl} />
     <div className="shell-project-content px-4 py-8 @3xl/pane:px-8">
+      <PipelineTargetContext.Provider value={generationTarget}>
       <Suspense fallback={<PaneSkeleton />}>
         {step === 1 && (
           <Step1Plan
@@ -130,6 +140,7 @@ export const PipelinePane: React.FC<PipelinePaneProps> = ({
           />
         )}
       </Suspense>
+      </PipelineTargetContext.Provider>
     </div>
   </div>
 );

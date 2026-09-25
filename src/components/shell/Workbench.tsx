@@ -10,12 +10,15 @@ import {
   defaultRuntimeSelection,
   hasRuntimeSelection,
   loadLastRuntimeSelection,
+  loadPipelineSelection,
   loadRuntimeSelection,
+  savePipelineSelection,
   saveRuntimeSelection,
   type RuntimeChatSelection,
 } from "../../lib/runtimeChat";
 import { useConnections } from "../../lib/connections";
 import { AgentPane } from "../agent/AgentPane";
+import { RuntimeControls } from "../agent/RuntimeControls";
 import type { AgentHarnessSettings } from "../../lib/agentHarness";
 import { PipelinePane } from "./PipelinePane";
 import { Splitter } from "./Splitter";
@@ -91,6 +94,13 @@ export const Workbench: React.FC<WorkbenchProps> = ({
   const handleRuntimeSelectionChange = React.useCallback((selection: RuntimeChatSelection) => {
     setRuntimeState({ sessionId: session.id, selection });
     saveRuntimeSelection(session.id, selection);
+  }, [session.id]);
+  // Plan, PRD, and tasks have their own pick, kept per project like the chat's.
+  const [pipelineState, setPipelineState] = React.useState(() => ({ sessionId: session.id, selection: loadPipelineSelection(session.id) }));
+  const pipelineSelection = pipelineState.sessionId === session.id ? pipelineState.selection : loadPipelineSelection(session.id);
+  const handlePipelineSelectionChange = React.useCallback((selection: RuntimeChatSelection) => {
+    setPipelineState({ sessionId: session.id, selection });
+    savePipelineSelection(session.id, selection);
   }, [session.id]);
   const handleToolApplied = React.useCallback(() => {
     void onToolApplied?.();
@@ -213,6 +223,21 @@ export const Workbench: React.FC<WorkbenchProps> = ({
                 onSelectAgent={() => onLayoutModeChange("agent")}
                 onRunTask={handleRunTask}
                 runningTaskId={agentRun.busy ? runningTaskId ?? "__agent_busy__" : runningTaskId}
+                generationTarget={pipelineSelection}
+                modelControl={(
+                  <RuntimeControls
+                    sessionId={session.id}
+                    selection={pipelineSelection}
+                    report={runtimeDiscovery.report}
+                    preferences={runtimeDiscovery.preferences}
+                    loading={runtimeDiscovery.loading}
+                    onChange={handlePipelineSelectionChange}
+                    onOpenConnections={onOpenConnections}
+                    idPrefix="pipeline"
+                    legacyRoles={["plan", "prd", "tasks"]}
+                    compact
+                  />
+                )}
               />
             </div>
           )}

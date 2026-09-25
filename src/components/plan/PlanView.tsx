@@ -3,7 +3,7 @@ import type { FeatureSpec, ProjectSession } from "../../types";
 import { MermaidViewer, PlanCanvas } from "../lazy";
 import { FeatureEditor } from "../FeatureEditor";
 import { GenerationProgress } from "../GenerationProgress";
-import { generatePrd, generateProjectPlan, isAbort } from "../../lib/generate";
+import { generatePrd, generateProjectPlan, isAbort, usePipelineTarget } from "../../lib/generate";
 import { useT } from "../../lib/i18n";
 import { AlertTriangle, ArrowRight, Check, CheckCircle2, Clock, Compass, Cpu, Edit3, Layers, ListTodo, Network, RefreshCw, ShieldCheck, Undo2 } from "lucide-react";
 import { readStoredFollowUpAnswers, toTransportAnswers } from "./followups";
@@ -29,6 +29,7 @@ export const PlanView: React.FC<PlanViewProps> = ({
   onGoToNextStep,
 }) => {
   const { t, lang } = useT();
+  const pipelineTarget = usePipelineTarget();
   const plan = session.plan;
   const [title, setTitle] = useState(session.input.title || "");
   const [description, setDescription] = useState(session.input.description || "");
@@ -109,7 +110,7 @@ export const PlanView: React.FC<PlanViewProps> = ({
         lockedFeatures: plan.specs.coreFeatures,
         llmConfig: session.llmConfig,
         language: lang,
-      }, lang, controller.signal, setGenerationChars);
+      }, lang, controller.signal, setGenerationChars, pipelineTarget);
       onUpdateSession({ plan: data, planFeaturesEdited: false });
       finishEditingFeatures();
     } catch (err: any) {
@@ -133,7 +134,7 @@ export const PlanView: React.FC<PlanViewProps> = ({
     prdAbort.current = controller;
 
     try {
-      const prd = await generatePrd(session, lang, controller.signal, setGenerationChars);
+      const prd = await generatePrd(session, lang, controller.signal, setGenerationChars, pipelineTarget);
       onUpdateSession({ prd });
       onGoToNextStep();
     } catch (err: any) {

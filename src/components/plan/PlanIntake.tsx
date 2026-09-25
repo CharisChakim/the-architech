@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { useT } from "../../lib/i18n";
 import { useDraft } from "../../lib/draftStore";
-import { generateFollowUpQuestions, generateProjectPlan, isAbort } from "../../lib/generate";
+import { generateFollowUpQuestions, generateProjectPlan, isAbort, usePipelineTarget } from "../../lib/generate";
 import {
   createFollowUpState,
   getFollowUpOptions,
@@ -52,6 +52,7 @@ export const PlanIntake: React.FC<PlanIntakeProps> = ({
   onCancel,
 }) => {
   const { t, lang } = useT();
+  const pipelineTarget = usePipelineTarget();
   const [title, setTitle, clearTitleDraft] = useDraft(
     { sessionId: session.id, name: "plan-title" },
     session.input.title || "",
@@ -112,7 +113,7 @@ export const PlanIntake: React.FC<PlanIntakeProps> = ({
         round: nextRound,
         llmConfig: session.llmConfig,
         language: lang,
-      }, lang, controller.signal, setGenerationChars);
+      }, lang, controller.signal, setGenerationChars, pipelineTarget);
 
       const newQuestions: FollowUpQuestion[] = data.questions || [];
       const nextState = isFirstRound
@@ -168,7 +169,7 @@ export const PlanIntake: React.FC<PlanIntakeProps> = ({
         answers: toTransportAnswers(questions, answers),
         llmConfig: session.llmConfig,
         language: lang,
-      }, lang, controller.signal, setGenerationChars);
+      }, lang, controller.signal, setGenerationChars, pipelineTarget);
 
       const resolvedTitle = title.trim() || (data.suggestedTitle || "").trim() || provisionalTitle(description);
       onUpdateSession({

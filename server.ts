@@ -20,6 +20,9 @@ import { generateFollowups } from "./server/pipeline/followups.ts";
 import { generatePlan } from "./server/pipeline/plan.ts";
 import { generatePrd } from "./server/pipeline/prd.ts";
 import { generateTasks } from "./server/pipeline/tasks.ts";
+import { RUNTIME_CONNECTION } from "./server/pipeline/llm.ts";
+import { parseRuntimeTarget, type RuntimeTextTarget } from "./server/pipeline/runtimeText.ts";
+import type { Connection } from "./server/llm/types.ts";
 import { acceptsEventStream, streamGeneration } from "./server/streaming.ts";
 
 dotenv.config();
@@ -55,6 +58,14 @@ async function callLlm(
   const { conn, model } = resolveFor(role, { ...requestBody, llmConfig }, lang);
   if (!conn.baseUrl) throw new Error(msg(lang, "baseUrlRequired"));
   return callLlmCore({ prompt, system: systemInstruction, conn, model, lang, jsonMode: conn.jsonMode });
+}
+
+// A step the user sent to a runtime (runtimeTarget) skips the HTTP connection;
+// every other request resolves its role's connection as before.
+function pipelineModel(role: Role, body: any, lang: Lang): { conn: Connection; model: string; runtime?: RuntimeTextTarget } {
+  const runtime = parseRuntimeTarget(body?.runtimeTarget);
+  if (runtime) return { conn: RUNTIME_CONNECTION, model: runtime.model, runtime };
+  return resolveFor(role, body, lang);
 }
 
 // API Routes
@@ -136,15 +147,15 @@ app.post("/api/followup-questions", async (req, res) => {
   if (acceptsEventStream(req)) {
     await streamGeneration(req, res, ({ signal, onProgress }) => {
       const lang = langOf(req);
-      const { conn, model } = resolveFor("plan", req.body, lang);
-      return generateFollowups(req.body, conn, model, lang, { signal, onProgress });
+      const { conn, model, runtime } = pipelineModel("plan", req.body, lang);
+      return generateFollowups(req.body, conn, model, lang, { signal, onProgress, runtime });
     });
     return;
   }
   try {
     const lang = langOf(req);
-    const { conn, model } = resolveFor("plan", req.body, lang);
-    const data = await generateFollowups(req.body, conn, model, lang);
+    const { conn, model, runtime } = pipelineModel("plan", req.body, lang);
+    const data = await generateFollowups(req.body, conn, model, lang, { runtime });
     res.json(data);
   } catch (err: any) {
     console.error("Error /api/followup-questions:", err);
@@ -157,15 +168,15 @@ app.post("/api/generate-plan", async (req, res) => {
   if (acceptsEventStream(req)) {
     await streamGeneration(req, res, ({ signal, onProgress }) => {
       const lang = langOf(req);
-      const { conn, model } = resolveFor("plan", req.body, lang);
-      return generatePlan(req.body, conn, model, lang, req.body?.lockedFeatures, { signal, onProgress });
+      const { conn, model, runtime } = pipelineModel("plan", req.body, lang);
+      return generatePlan(req.body, conn, model, lang, req.body?.lockedFeatures, { signal, onProgress, runtime });
     });
     return;
   }
   try {
     const lang = langOf(req);
-    const { conn, model } = resolveFor("plan", req.body, lang);
-    const data = await generatePlan(req.body, conn, model, lang, req.body?.lockedFeatures);
+    const { conn, model, runtime } = pipelineModel("plan", req.body, lang);
+    const data = await generatePlan(req.body, conn, model, lang, req.body?.lockedFeatures, { runtime });
     res.json(data);
   } catch (err: any) {
     console.error("Error /api/generate-plan:", err);
@@ -179,16 +190,16 @@ app.post("/api/generate-prd", async (req, res) => {
     await streamGeneration(req, res, ({ signal, onProgress }) => {
       const { title, plan, description } = req.body;
       const lang = langOf(req);
-      const { conn, model } = resolveFor("prd", req.body, lang);
-      return generatePrd(title, plan, conn, model, lang, { signal, onProgress }, description);
+      const { conn, model, runtime } = pipelineModel("prd", req.body, lang);
+      return generatePrd(title, plan, conn, model, lang, { signal, onProgress, runtime }, description);
     });
     return;
   }
   try {
     const { title, plan, description } = req.body;
     const lang = langOf(req);
-    const { conn, model } = resolveFor("prd", req.body, lang);
-    const data = await generatePrd(title, plan, conn, model, lang, undefined, description);
+    const { conn, model, runtime } = pipelineModel("prd", req.body, lang);
+    const data = await generatePrd(title, plan, conn, model, lang, { runtime }, description);
     res.json(data);
   } catch (err: any) {
     console.error("Error /api/generate-prd:", err);
@@ -201,16 +212,16 @@ app.post("/api/generate-tasks", async (req, res) => {
     await streamGeneration(req, res, ({ signal, onProgress }) => {
       const { title, plan, prd } = req.body;
       const lang = langOf(req);
-      const { conn, model } = resolveFor("tasks", req.body, lang);
-      return generateTasks(title, plan, prd, conn, model, lang, { signal, onProgress });
+      const { conn, model, runtime } = pipelineModel("tasks", req.body, lang);
+      return generateTasks(title, plan, prd, conn, model, lang, { signal, onProgress, runtime });
     });
     return;
   }
   try {
     const { title, plan, prd } = req.body;
     const lang = langOf(req);
-    const { conn, model } = resolveFor("tasks", req.body, lang);
-    const tasks = await generateTasks(title, plan, prd, conn, model, lang);
+    const { conn, model, runtime } = pipelineModel("tasks", req.body, lang);
+    const tasks = await generateTasks(title, plan, prd, conn, model, lang, { runtime });
     res.json({ tasks });
   } catch (err: any) {
     console.error("Error /api/generate-tasks:", err);
