@@ -8,7 +8,6 @@ import test from "node:test";
 // the data directory is disposable.
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "architech-chat-workspace-test-"));
 process.env.ARCHITECH_DATA_DIR = dataDir;
-process.on("exit", () => fs.rmSync(dataDir, { recursive: true, force: true }));
 
 const {
   adoptChatWorkspace,
@@ -16,6 +15,12 @@ const {
   ensureChatWorkspace,
   removeChatWorkspaces,
 } = await import("./chatWorkspace.ts");
+const { db } = await import("../../db.ts");
+// Windows will not delete a database file that is still open.
+process.on("exit", () => {
+  db.close();
+  fs.rmSync(dataDir, { recursive: true, force: true });
+});
 
 function write(file: string, content: string): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });

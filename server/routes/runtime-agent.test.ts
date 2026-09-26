@@ -17,10 +17,14 @@ import type {
 // database is loaded dynamically, after the data directory is disposable.
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "architech-runtime-agent-test-"));
 process.env.ARCHITECH_DATA_DIR = dataDir;
-process.on("exit", () => fs.rmSync(dataDir, { recursive: true, force: true }));
 
 const express = (await import("express")).default;
-const { saveSession } = await import("../../db.ts");
+const { db, saveSession } = await import("../../db.ts");
+// Windows will not delete a database file that is still open.
+process.on("exit", () => {
+  db.close();
+  fs.rmSync(dataDir, { recursive: true, force: true });
+});
 const { listRuns, listRunEvidence } = await import("../runs/store.ts");
 const { loadConversationNotes, loadMessages } = await import("../agent/conversations.ts");
 const { createRuntimeAgentRouter } = await import("./runtime-agent.ts");

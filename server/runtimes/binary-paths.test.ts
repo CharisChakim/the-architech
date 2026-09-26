@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import path from "node:path";
 import test from "node:test";
 
 import { parseRuntimeBinaryPathInput, RuntimeBinaryPathError } from "./binary-paths.ts";
@@ -43,14 +44,15 @@ test("a path with nothing executable behind it is rejected", () => {
   );
   // A directory resolves on the filesystem but can never be spawned.
   assert.throws(
-    () => parseRuntimeBinaryPathInput({ runtime: "codex", path: "/usr/bin" }),
+    () => parseRuntimeBinaryPathInput({ runtime: "codex", path: path.dirname(process.execPath) }),
     (error: RuntimeBinaryPathError) => error.code === "PATH_NOT_EXECUTABLE",
   );
 });
 
 test("an absolute path to a real executable is accepted verbatim", () => {
-  assert.deepEqual(parseRuntimeBinaryPathInput({ runtime: "antigravity", path: "  /bin/sh  " }), {
+  // The Node binary running this test exists on every platform; /bin/sh does not on Windows.
+  assert.deepEqual(parseRuntimeBinaryPathInput({ runtime: "antigravity", path: `  ${process.execPath}  ` }), {
     runtime: "antigravity",
-    path: "/bin/sh",
+    path: process.execPath,
   });
 });

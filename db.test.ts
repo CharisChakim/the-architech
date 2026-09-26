@@ -9,7 +9,6 @@ import test from "node:test";
 // are written before the module loads and the import has to be dynamic.
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "architech-db-test-"));
 process.env.ARCHITECH_DATA_DIR = dataDir;
-process.on("exit", () => fs.rmSync(dataDir, { recursive: true, force: true }));
 
 const seed = new DatabaseSync(path.join(dataDir, "architech.db"));
 seed.exec(`
@@ -43,7 +42,12 @@ insert.run("odd", "Odd project", "2026-09-02T00:00:00.000Z", 1, JSON.stringify({
 }));
 seed.close();
 
-const { listSessions } = await import("./db.ts");
+const { db, listSessions } = await import("./db.ts");
+// Windows will not delete a database file that is still open.
+process.on("exit", () => {
+  db.close();
+  fs.rmSync(dataDir, { recursive: true, force: true });
+});
 
 test("a session saved before workspaces existed still lists, with nothing invented", () => {
   const legacy = listSessions().find((row) => row.id === "legacy");

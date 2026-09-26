@@ -10,9 +10,14 @@ import type { RunCreateInput } from "./store.ts";
 // loaded dynamically, after the data directory is pointed somewhere disposable.
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "architech-store-test-"));
 process.env.ARCHITECH_DATA_DIR = dataDir;
-process.on("exit", () => fs.rmSync(dataDir, { recursive: true, force: true }));
 
 const store = await import("./store.ts");
+const { db } = await import("../../db.ts");
+// Windows will not delete a database file that is still open.
+process.on("exit", () => {
+  db.close();
+  fs.rmSync(dataDir, { recursive: true, force: true });
+});
 
 // Reloading the module re-runs its startup reconciliation against the same
 // database file, which is what a server restart does to runs left behind by
