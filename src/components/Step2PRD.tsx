@@ -150,7 +150,7 @@ const PrdSection: React.FC<{
       </span>
       {title}
       {isExtra && (
-        <span className="text-[11px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-subtle text-muted">
+        <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded bg-subtle text-muted">
           {t("Extra point")}
         </span>
       )}

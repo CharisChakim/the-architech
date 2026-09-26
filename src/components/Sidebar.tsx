@@ -213,7 +213,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         ) : (
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-2.5 pb-3">
             <div className="flex shrink-0 items-center gap-1.5 px-2 py-1.5">
-              <span className="flex-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-faint">{t("Chats")}</span>
+              <span className="flex-1 text-[11px] font-semibold text-faint">{t("Chats")}</span>
               <div ref={sortRef} className="relative">
                 <button
                   type="button"
@@ -351,6 +351,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                   >
                                     <FolderKanban className="h-3.5 w-3.5 shrink-0" aria-hidden /><span className="flex-1 truncate">{t("Kanban")}</span>
                                     {!chat.taskCount && <span className="shrink-0 text-[10px] text-faint">{t("empty")}</span>}
+                                    {isActive && Boolean(session.tasks?.length) && (
+                                      <span className="shrink-0 text-[10px] tabular-nums text-faint">
+                                        {session.tasks!.filter((task) => task.status === "done").length}/{session.tasks!.length}
+                                      </span>
+                                    )}
                                   </button>
                                 </div>
                               )}

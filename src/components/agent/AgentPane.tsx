@@ -392,7 +392,7 @@ export const AgentPane: React.FC<AgentPaneProps> = ({
         {entries.length === 0 && !hasPlan && (
           <div ref={composerRegion} className="mx-auto flex h-full min-h-64 max-w-3xl flex-col justify-center px-2 py-8">
             <div className="mb-1 max-w-2xl">
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent-soft px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-accent-ink">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent-soft px-2.5 py-1 text-[11px] font-semibold text-accent-ink">
                 <Sparkles className="h-3 w-3" aria-hidden />
                 The Architech
               </div>

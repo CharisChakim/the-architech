@@ -101,8 +101,10 @@ export const Composer: React.FC<ComposerProps> = ({
           className={`block w-full resize-none border-0 bg-transparent px-4 py-3 text-ink outline-hidden placeholder:text-faint disabled:opacity-60 ${contextControls ? "" : "rounded-t-2xl"} ${variant === "hero" ? "min-h-24" : "min-h-16"}`}
         />
 
-        <div className="flex min-w-0 flex-wrap items-center gap-2 px-2 py-2">
-          <div className="flex min-w-0 items-center gap-1">
+        <div className="flex min-w-0 items-end gap-2 px-2 py-2">
+          {/* Semua pilihan untuk giliran ini berkumpul di kiri, tombol kirim
+              sendiri di kanan; kalau tidak muat, pilihanlah yang turun baris. */}
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
             {controls}
             <label className="sr-only" htmlFor="agent-composer-permission">{t("Permission mode")}</label>
             <select
@@ -117,13 +119,11 @@ export const Composer: React.FC<ComposerProps> = ({
               <option value="auto">{t("Auto mode")}</option>
               <option value="full">{t("Full access")}</option>
             </select>
+            {secondaryControls && <span className="mx-0.5 h-4 w-px shrink-0 bg-line" aria-hidden />}
+            {secondaryControls}
           </div>
 
-          <div className="min-w-2 flex-1" />
-
-          <div className="flex min-w-0 items-center gap-1">
-            {secondaryControls}
-
+          <div className="flex shrink-0 items-center gap-1">
             {retryHandler && !busy && (
               <button type="button" onClick={() => void retryHandler()} disabled={disabled} aria-label={t("Retry")} title={t("Retry")} className="shrink-0 rounded-lg border border-line p-2 text-muted hover:bg-subtle hover:text-ink disabled:opacity-40">
                 <RotateCcw className="h-4 w-4" aria-hidden />

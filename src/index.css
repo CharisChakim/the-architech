@@ -581,17 +581,18 @@ html.dark {
   color: var(--app-accent-ink);
 }
 
-/* Memulai chat adalah satu-satunya tindakan utama di sidebar, jadi tombolnya
-   memakai aksen penuh dan bukan versi lembutnya. */
+/* Tombol garis, bukan aksen penuh: aksen disimpan untuk tindakan utama di
+   halaman (kirim, tambah task), dan sidebar tetap menjadi latar yang tenang. */
 .shell-new-chat {
-  background: var(--app-accent);
-  color: var(--app-accent-fg);
-  font-weight: 600;
+  border: 1px solid var(--app-line);
+  background: var(--app-surface);
+  color: var(--app-ink);
+  font-weight: 500;
 }
 
 .shell-new-chat:hover {
-  background: var(--app-accent);
-  color: var(--app-accent-fg);
+  border-color: var(--app-strong);
+  box-shadow: none;
 }
 
 .shell-history-row {
@@ -756,22 +757,7 @@ html.dark {
   background: var(--app-surface);
 }
 
-.shell-chat-pane [aria-label="Agent runtime controls"] {
-  padding: 8px 16px;
-  background: var(--app-surface);
-}
-
-.shell-chat-pane [aria-label="Agent runtime controls"] .field {
-  min-height: 30px;
-  border-radius: var(--r-sm);
-  background: var(--app-canvas);
-}
-
 .shell-chat-pane form {
-  background: var(--app-surface);
-}
-
-.shell-context-bar {
   background: var(--app-surface);
 }
 
@@ -803,18 +789,10 @@ html.dark {
     padding: 20px 16px;
   }
 
-  .shell-chat-pane [aria-label="Agent runtime controls"] {
-    padding-inline: 16px;
-  }
-
   .shell-chat-pane [role="log"] > [class*="mx-auto"] {
     min-height: 0;
     padding-top: 24px;
     padding-bottom: 24px;
-  }
-
-  .shell-context-bar {
-    padding-inline: 16px;
   }
 
   .shell-project-content {

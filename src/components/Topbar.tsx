@@ -1,6 +1,6 @@
 import React, { useLayoutEffect, useRef, useState } from "react";
 import { ProjectSession } from "../types";
-import { Check, ChevronDown, Download, Folder, Layers, Menu, MessageSquare, Moon, Plug, Settings2, Sun } from "lucide-react";
+import { Check, Download, Folder, Layers, Menu, MessageSquare, Moon, Plug, Settings2, Sun } from "lucide-react";
 import { useT, type Language } from "../lib/i18n";
 import { useConnections } from "../lib/connections";
 import { useDismissable } from "../lib/dismissable";
@@ -27,24 +27,6 @@ export interface TopbarProps {
   onSelectLanguage: (lang: Language) => void;
 }
 
-const FLAGS: Record<Language, React.ReactNode> = {
-  en: (
-    <svg width="20" height="14" viewBox="0 0 60 42" className="block rounded-[2px]" aria-hidden>
-      <rect width="60" height="42" fill="#012169" />
-      <path d="M0 0 60 42M60 0 0 42" stroke="#ffffff" strokeWidth="8" />
-      <path d="M0 0 60 42M60 0 0 42" stroke="#c8102e" strokeWidth="4" />
-      <path d="M30 0v42M0 21h60" stroke="#ffffff" strokeWidth="14" />
-      <path d="M30 0v42M0 21h60" stroke="#c8102e" strokeWidth="8" />
-    </svg>
-  ),
-  id: (
-    <svg width="20" height="14" viewBox="0 0 60 42" className="block rounded-[2px]" aria-hidden>
-      <rect width="60" height="21" fill="#ce1126" />
-      <rect y="21" width="60" height="21" fill="#f5f5f7" />
-    </svg>
-  ),
-};
-
 const LANGUAGE_NAMES: Record<Language, string> = { en: "English", id: "Bahasa Indonesia" };
 
 export const Topbar: React.FC<TopbarProps> = ({
@@ -65,7 +47,7 @@ export const Topbar: React.FC<TopbarProps> = ({
 }) => {
   const { lang, t } = useT();
   const { connections } = useConnections();
-  const [openMenu, setOpenMenu] = useState<"templates" | "language" | null>(null);
+  const [openMenu, setOpenMenu] = useState<"templates" | "settings" | null>(null);
   // Tombol yang membuka menu, supaya Escape mengembalikan fokus ke sana.
   const menuTrigger = useRef<HTMLButtonElement | null>(null);
   const menuRef = useDismissable<HTMLDivElement>((reason) => {
@@ -91,7 +73,7 @@ export const Topbar: React.FC<TopbarProps> = ({
     if (shift) popup.style.translate = `${shift}px 0`;
   }, [openMenu]);
 
-  const toggleMenu = (menu: "templates" | "language", trigger: HTMLButtonElement) => {
+  const toggleMenu = (menu: "templates" | "settings", trigger: HTMLButtonElement) => {
     menuTrigger.current = trigger;
     setOpenMenu((open) => (open === menu ? null : menu));
   };
@@ -197,7 +179,7 @@ export const Topbar: React.FC<TopbarProps> = ({
               className="shell-icon-button"
               title={t("Templates")}
             >
-              <Layers className="h-4 w-4 text-accent-ink" aria-hidden />
+              <Layers className="h-4 w-4 text-faint" aria-hidden />
               <span className="hidden lg:inline">{t("Templates")}</span>
             </button>
             {openMenu === "templates" && (
@@ -218,26 +200,29 @@ export const Topbar: React.FC<TopbarProps> = ({
           </div>
 
           <button type="button" onClick={onOpenConnections} className="shell-icon-button" title={t("Connections")}>
-            <Plug className="h-4 w-4 text-ok" aria-hidden />
+            <Plug className="h-4 w-4 text-faint" aria-hidden />
             <span className="hidden lg:inline">{t("Connections")}</span>
             {activeConnections > 0 && (
               <span className="rounded bg-ok-soft px-1.5 text-[10px] font-semibold text-ok-ink">{activeConnections}</span>
             )}
           </button>
 
+          {/* Bahasa, tema, dan pengaturan agent jarang diubah, jadi ketiganya
+              dikumpulkan di satu menu supaya topbar hanya memuat kerja harian. */}
           <div className="relative">
             <button
               type="button"
-              onClick={(event) => toggleMenu("language", event.currentTarget)}
-              aria-expanded={openMenu === "language"}
-              className="flex items-center gap-1.5 rounded-lg border border-line bg-subtle px-1.5 py-1.5"
-              aria-label={t("Language: {name}", { name: LANGUAGE_NAMES[lang] })}
+              onClick={(event) => toggleMenu("settings", event.currentTarget)}
+              aria-expanded={openMenu === "settings"}
+              className="shell-settings-button"
+              title={t("Settings")}
             >
-              {FLAGS[lang]}
-              <ChevronDown className="h-3 w-3 text-faint" aria-hidden />
+              <Settings2 className="h-4 w-4" aria-hidden />
+              <span className="sr-only">{t("Settings")}</span>
             </button>
-            {openMenu === "language" && (
-              <div ref={menuPopup} className="absolute right-0 top-full z-40 mt-1.5 w-44 rounded-lg border border-line bg-surface p-1 shadow-elev-2">
+            {openMenu === "settings" && (
+              <div ref={menuPopup} className="absolute right-0 top-full z-40 mt-1.5 w-56 rounded-lg border border-line bg-surface p-1 shadow-elev-2">
+                <p className="px-2 pb-1 pt-1.5 text-[11px] font-medium text-faint">{t("Language")}</p>
                 {(["en", "id"] as const).map((code) => (
                   <button
                     key={code}
@@ -246,29 +231,32 @@ export const Topbar: React.FC<TopbarProps> = ({
                     aria-pressed={lang === code}
                     className={`flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-[12px] ${lang === code ? "bg-accent-soft font-semibold text-accent-ink" : "text-muted hover:bg-subtle hover:text-ink"}`}
                   >
-                    {FLAGS[code]}
                     <span className="flex-1">{LANGUAGE_NAMES[code]}</span>
                     {lang === code && <Check className="h-3.5 w-3.5 shrink-0" aria-hidden />}
                   </button>
                 ))}
+                <div className="my-1 h-px bg-line" aria-hidden />
+                <button
+                  type="button"
+                  onClick={onToggleTheme}
+                  className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-[12px] text-muted hover:bg-subtle hover:text-ink"
+                >
+                  {theme === "dark" ? <Sun className="h-3.5 w-3.5 shrink-0" aria-hidden /> : <Moon className="h-3.5 w-3.5 shrink-0" aria-hidden />}
+                  <span className="flex-1">{theme === "dark" ? t("Light mode") : t("Dark mode")}</span>
+                </button>
+                <button
+                  type="button"
+                  // Dialog mengembalikan fokus ke elemen yang fokus saat ia dibuka;
+                  // item menu ini langsung hilang, jadi fokus dipindah dulu ke tombolnya.
+                  onClick={() => { setOpenMenu(null); menuTrigger.current?.focus(); onOpenSettings(); }}
+                  className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-[12px] text-muted hover:bg-subtle hover:text-ink"
+                >
+                  <Settings2 className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  <span className="flex-1">{t("Agent settings")}</span>
+                </button>
               </div>
             )}
           </div>
-
-          <button
-            type="button"
-            onClick={onToggleTheme}
-            className="shell-settings-button"
-            title={theme === "dark" ? t("Light mode") : t("Dark mode")}
-          >
-            {theme === "dark" ? <Sun className="h-4 w-4" aria-hidden /> : <Moon className="h-4 w-4" aria-hidden />}
-            <span className="sr-only">{theme === "dark" ? t("Light mode") : t("Dark mode")}</span>
-          </button>
-
-          <button type="button" onClick={onOpenSettings} className="shell-settings-button" title={t("Agent settings")}>
-            <Settings2 className="h-4 w-4" aria-hidden />
-            <span className="sr-only">{t("Agent settings")}</span>
-          </button>
         </div>
         </div>
       </div>

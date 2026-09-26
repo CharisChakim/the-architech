@@ -424,7 +424,7 @@ function featureNames(value: unknown): string[] {
 function FeatureList({ label, values }: { label: string; values: string[] }): React.ReactElement {
   return (
     <div className="min-w-0">
-      <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-faint">{label}</p>
+      <p className="mb-1 text-[11px] font-medium text-faint">{label}</p>
       <ul className="space-y-0.5 text-xs text-muted">
         {values.length ? values.map((value) => <li key={value} className="truncate">{value}</li>) : <li>—</li>}
       </ul>

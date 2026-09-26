@@ -138,12 +138,12 @@ export const QuestionsCard: React.FC<QuestionsCardProps> = ({
               <div className="space-y-1.5">
                 <div className="flex flex-wrap items-center gap-1.5">
                   {question.category && (
-                    <span className="rounded bg-accent-soft px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-accent-ink">
+                    <span className="rounded bg-accent-soft px-1.5 py-0.5 text-[11px] font-semibold text-accent-ink">
                       {question.category}
                     </span>
                   )}
                   {question.round && question.round !== round && (
-                    <span className="rounded bg-subtle px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted">
+                    <span className="rounded bg-subtle px-1.5 py-0.5 text-[11px] font-semibold text-muted">
                       {t("Round {round}", { round: question.round })}
                     </span>
                   )}

@@ -86,7 +86,7 @@ function SubFeaturesNode({ data }: NodeProps) {
     <div className={CARD}>
       <div className="flex items-center gap-2 mb-2.5">
         <Layers className="w-3.5 h-3.5 text-faint" />
-        <span className="text-xs font-medium uppercase tracking-wider text-faint">{t("Sub features")}</span>
+        <span className="text-xs font-medium text-faint">{t("Sub features")}</span>
       </div>
 
       <ul className="space-y-1.5">

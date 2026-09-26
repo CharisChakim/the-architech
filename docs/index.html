@@ -13,56 +13,62 @@
 <meta property="og:image" content="https://charischakim.github.io/the-architech/assets/board-dark.png" />
 <meta name="twitter:card" content="summary_large_image" />
 
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23713dd4'/%3E%3Cpath d='M16 7l7 18h-3.4l-1.4-3.8h-4.4L12.4 25H9l7-18zm0 5.6l-1.5 4.2h3L16 12.6z' fill='white'/%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232563eb'/%3E%3Cpath d='M16 7l7 18h-3.4l-1.4-3.8h-4.4L12.4 25H9l7-18zm0 5.6l-1.5 4.2h3L16 12.6z' fill='white'/%3E%3C/svg%3E" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400..700&display=swap" rel="stylesheet" />
 
 <style>
+/* Same palette as the app (src/index.css): neutral greys, hairline lines, one
+   accent. --accent is a fill under white text; accented text uses --accent-ink. */
 :root {
-  --canvas: #fcfcfe;
+  --canvas: #fafafa;
   --surface: #ffffff;
-  --subtle: #f4f4f8;
-  --ink: #232338;
-  --muted: #5c5e70;
-  --faint: #717387;
-  --line: #dfe0ea;
-  --strong: #c3c6d6;
-  --accent: #6d34d4;
-  --accent-ink: #5a25bb;
-  --accent-soft: #f1eaff;
-  --ok: #1d7a4c;
-  --code-bg: #f6f6fb;
+  --subtle: #f4f4f5;
+  --ink: #18181b;
+  --muted: #52525b;
+  --faint: #63636b;
+  --line: #e4e4e7;
+  --strong: #d4d4d8;
+  --accent: #2563eb;
+  --accent-ink: #1d4ed8;
+  --accent-soft: #eef3fe;
+  --ok: #15803d;
+  --code-bg: #f4f4f5;
 
-  --elev-1: 0 0 0 0.5px rgb(35 35 65 / .06), 0 1px 2px rgb(35 35 65 / .06);
-  --elev-2: 0 0 0 0.5px rgb(35 35 65 / .06), 0 2px 4px rgb(35 35 65 / .07), 0 6px 14px rgb(35 35 65 / .06);
-  --elev-3: 0 0 0 0.5px rgb(35 35 65 / .08), 0 8px 20px rgb(35 35 65 / .10), 0 20px 48px rgb(35 35 65 / .12);
-  --elev-hero: 0 0 0 0.5px rgb(35 35 65 / .10), 0 2px 6px rgb(35 35 65 / .06), 0 18px 40px rgb(35 35 65 / .13), 0 48px 96px rgb(35 35 65 / .14);
+  --elev-1: 0 1px 2px rgb(0 0 0 / .04);
+  --elev-2: 0 1px 2px rgb(0 0 0 / .05), 0 4px 12px rgb(0 0 0 / .05);
+  --elev-3: 0 0 0 1px rgb(0 0 0 / .05), 0 4px 12px rgb(0 0 0 / .06), 0 16px 40px rgb(0 0 0 / .12);
+  --elev-hero: 0 0 0 1px rgb(0 0 0 / .06), 0 18px 40px rgb(0 0 0 / .10), 0 48px 96px rgb(0 0 0 / .12);
 
-  --glow: radial-gradient(60% 50% at 50% 0%, rgb(109 52 212 / .16) 0%, transparent 70%);
+  --glow: radial-gradient(60% 50% at 50% 0%, rgb(37 99 235 / .10) 0%, transparent 70%);
   --dur: 220ms;
   --ease: cubic-bezier(.32,.72,0,1);
   --maxw: 1080px;
 }
 
 html[data-theme="dark"] {
-  --canvas: #101118;
-  --surface: #191b24;
-  --subtle: #20222c;
-  --ink: #eeedf7;
-  --muted: #b3b5c6;
-  --faint: #8e90a3;
-  --line: #2e3140;
-  --strong: #454857;
-  --accent: #b89aff;
-  --accent-ink: #cbb4ff;
-  --accent-soft: #241d3d;
-  --ok: #6ddba0;
-  --code-bg: #14161e;
+  --canvas: #0b0b0c;
+  --surface: #141416;
+  --subtle: #1d1d20;
+  --ink: #ededf0;
+  --muted: #a1a1aa;
+  --faint: #8b8b94;
+  --line: #27272b;
+  --strong: #3f3f46;
+  --accent: #2e6be6;
+  --accent-ink: #84abff;
+  --accent-soft: #15213b;
+  --ok: #4ccb82;
+  --code-bg: #111113;
 
-  --elev-1: inset 0 1px 0 rgb(255 255 255 / .04), 0 0 0 .5px rgb(0 0 0 / .55), 0 1px 2px rgb(0 0 0 / .45);
-  --elev-2: inset 0 1px 0 rgb(255 255 255 / .05), 0 0 0 .5px rgb(0 0 0 / .6), 0 2px 5px rgb(0 0 0 / .45), 0 8px 18px rgb(0 0 0 / .4);
-  --elev-3: inset 0 1px 0 rgb(255 255 255 / .07), 0 0 0 .5px rgb(0 0 0 / .65), 0 10px 24px rgb(0 0 0 / .5), 0 24px 56px rgb(0 0 0 / .55);
-  --elev-hero: inset 0 1px 0 rgb(255 255 255 / .08), 0 0 0 .5px rgb(0 0 0 / .7), 0 18px 40px rgb(0 0 0 / .55), 0 56px 110px rgb(0 0 0 / .6);
+  --elev-1: 0 1px 2px rgb(0 0 0 / .3);
+  --elev-2: 0 1px 2px rgb(0 0 0 / .3), 0 4px 12px rgb(0 0 0 / .25);
+  --elev-3: 0 0 0 1px rgb(255 255 255 / .06), 0 8px 24px rgb(0 0 0 / .45), 0 24px 56px rgb(0 0 0 / .5);
+  --elev-hero: 0 0 0 1px rgb(255 255 255 / .07), 0 18px 40px rgb(0 0 0 / .55), 0 56px 110px rgb(0 0 0 / .6);
 
-  --glow: radial-gradient(60% 50% at 50% 0%, rgb(184 154 255 / .14) 0%, transparent 70%);
+  --glow: radial-gradient(60% 50% at 50% 0%, rgb(46 107 230 / .16) 0%, transparent 70%);
 }
 
 * { box-sizing: border-box; }
@@ -75,7 +81,7 @@ body {
   margin: 0;
   background: var(--canvas);
   color: var(--ink);
-  font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font: 16px/1.6 "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -100,7 +106,7 @@ nav.scrolled { border-bottom-color: var(--line); }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 640; letter-spacing: -.015em; text-decoration: none; color: var(--ink); }
 .mark {
   width: 28px; height: 28px; border-radius: 8px; flex: none;
-  background: linear-gradient(160deg, #8b5cf6, #6d34d4);
+  background: var(--accent);
   display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 15px;
   box-shadow: var(--elev-1);
 }
@@ -176,7 +182,6 @@ h1 .em { color: var(--accent-ink); }
   transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), background var(--dur) var(--ease);
 }
 .btn-primary { background: var(--accent); color: #fff; box-shadow: var(--elev-2); }
-html[data-theme="dark"] .btn-primary { color: #1a1030; }
 .btn-primary:hover { transform: translateY(-1px); box-shadow: var(--elev-3); }
 .btn-primary:active { transform: translateY(0) scale(.985); }
 .btn-ghost { background: var(--surface); color: var(--ink); border: 1px solid var(--line); box-shadow: var(--elev-1); }

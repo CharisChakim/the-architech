@@ -1,5 +1,5 @@
 import React from "react";
-import { AlertTriangle, Bot, Check } from "lucide-react";
+import { AlertTriangle, Bot } from "lucide-react";
 import type { AgentTask, PermissionMode, ProjectSession } from "../../types";
 import { isStepReachable, Step } from "../../lib/routing";
 import { LayoutMode } from "../../lib/layout";
@@ -64,7 +64,6 @@ export const Workbench: React.FC<WorkbenchProps> = ({
   harnessSettings,
 }) => {
   const { t } = useT();
-  const taskCount = session.tasks?.length ?? 0;
   const completedTasks = (session.tasks ?? []).filter((task) => task.status === "done").length;
   const [runningTaskId, setRunningTaskId] = React.useState<string | null>(null);
   // Every chat starts asking; a wider mode is chosen per chat, never carried over.
@@ -143,20 +142,6 @@ export const Workbench: React.FC<WorkbenchProps> = ({
     onSelectStep(step);
     onLayoutModeChange("split");
   };
-
-  const pipelineStrip = (
-    <div className="shell-context-bar shrink-0 overflow-x-auto border-t border-line bg-surface px-4 py-2.5">
-      <div className="flex min-w-max items-center gap-3">
-        <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-faint">{t("Project context")}</span>
-        <div className="flex items-center gap-1 rounded-lg bg-subtle p-0.5">
-          <button type="button" aria-current="page" onClick={() => onLayoutModeChange("agent")} className="rounded-md bg-surface px-2.5 py-1.5 text-[11px] font-medium text-accent-ink shadow-elev-1">{t("Chat")}</button>
-          <button type="button" onClick={() => openPipeline(2)} className="rounded-md px-2.5 py-1.5 text-[11px] font-medium text-muted hover:text-ink">{t("PRD")}</button>
-          <button type="button" onClick={() => openPipeline(3)} className="rounded-md px-2.5 py-1.5 text-[11px] font-medium text-muted hover:text-ink">{t("Kanban")} {taskCount > 0 && <span className="text-faint">{completedTasks}/{taskCount}</span>}</button>
-        </div>
-        <button type="button" onClick={() => openPipeline(1)} className="ml-auto inline-flex items-center gap-1.5 text-[11px] text-muted hover:text-accent-ink">{session.plan ? <Check className="h-3 w-3 text-ok" /> : <span className="h-1.5 w-1.5 rounded-full bg-faint" />}{t("Plan")}</button>
-      </div>
-    </div>
-  );
 
   const agentPane = (
     <div className="shell-chat-pane flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-surface [&>aside]:!static [&>aside]:!inset-auto [&>aside]:!h-full [&>aside]:!w-full [&>aside]:!max-w-none [&>aside]:!shadow-none">
@@ -249,8 +234,6 @@ export const Workbench: React.FC<WorkbenchProps> = ({
             </div>
           )}
         </div>
-
-        {layoutMode === "agent" && (session.plan || session.prd || taskCount > 0) && pipelineStrip}
 
         {layoutMode === "board" && (
           <button

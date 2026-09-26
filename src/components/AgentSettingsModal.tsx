@@ -74,7 +74,7 @@ export const AgentSettingsModal: React.FC<AgentSettingsModalProps> = ({ isOpen, 
         </div>
 
         <div className="space-y-3 p-5">
-          <p className="px-1 text-[11px] font-medium tracking-wide text-faint uppercase">{t("Efficiency stack")}</p>
+          <p className="px-1 text-[11px] font-medium text-faint">{t("Efficiency stack")}</p>
           <Toggle
             checked={settings.compactTerminal}
             title={t("RTK · Compact terminal")}
