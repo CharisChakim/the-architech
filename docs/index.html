@@ -3,17 +3,17 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>The Architech — specs your coding agent can actually run</title>
+<title>Undagi — specs your coding agent can actually run</title>
 <meta name="description" content="A local-first workbench that turns a rough idea into a dependency-ordered task board, with target files and verification steps. Export AGENTS.md for Claude Code, Codex, or Cursor. Bring your own model." />
-<link rel="canonical" href="https://charischakim.github.io/the-architech/" />
+<link rel="canonical" href="https://charischakim.github.io/undagi/" />
 
 <meta property="og:type" content="website" />
-<meta property="og:title" content="The Architech — specs your coding agent can actually run" />
+<meta property="og:title" content="Undagi — specs your coding agent can actually run" />
 <meta property="og:description" content="Turns a rough idea into a dependency-ordered task board with target files and verification steps. Runs on your laptop, against your own model." />
-<meta property="og:image" content="https://charischakim.github.io/the-architech/assets/board-dark.png" />
+<meta property="og:image" content="https://charischakim.github.io/undagi/assets/board-dark.png" />
 <meta name="twitter:card" content="summary_large_image" />
 
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232563eb'/%3E%3Cpath d='M16 7l7 18h-3.4l-1.4-3.8h-4.4L12.4 25H9l7-18zm0 5.6l-1.5 4.2h3L16 12.6z' fill='white'/%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230f766e'/%3E%3Cg transform='translate(50 50) scale(0.82) translate(-50 -49)' fill='white'%3E%3Cpath d='M30 25V73H70V35' fill='none' stroke='white' stroke-width='8' stroke-linejoin='round'/%3E%3Crect x='20' y='15' width='20' height='20' rx='5'/%3E%3Crect x='40' y='63' width='20' height='20' rx='5'/%3E%3Crect x='61.5' y='16.5' width='17' height='17' rx='4' fill='none' stroke='white' stroke-width='5'/%3E%3C/g%3E%3C/svg%3E" />
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -31,9 +31,9 @@
   --faint: #63636b;
   --line: #e4e4e7;
   --strong: #d4d4d8;
-  --accent: #2563eb;
-  --accent-ink: #1d4ed8;
-  --accent-soft: #eef3fe;
+  --accent: #0f766e;
+  --accent-ink: #115e59;
+  --accent-soft: #edf8f6;
   --ok: #15803d;
   --code-bg: #f4f4f5;
 
@@ -42,7 +42,7 @@
   --elev-3: 0 0 0 1px rgb(0 0 0 / .05), 0 4px 12px rgb(0 0 0 / .06), 0 16px 40px rgb(0 0 0 / .12);
   --elev-hero: 0 0 0 1px rgb(0 0 0 / .06), 0 18px 40px rgb(0 0 0 / .10), 0 48px 96px rgb(0 0 0 / .12);
 
-  --glow: radial-gradient(60% 50% at 50% 0%, rgb(37 99 235 / .10) 0%, transparent 70%);
+  --glow: radial-gradient(60% 50% at 50% 0%, rgb(15 118 110 / .10) 0%, transparent 70%);
   --dur: 220ms;
   --ease: cubic-bezier(.32,.72,0,1);
   --maxw: 1080px;
@@ -57,9 +57,9 @@ html[data-theme="dark"] {
   --faint: #8b8b94;
   --line: #27272b;
   --strong: #3f3f46;
-  --accent: #2e6be6;
-  --accent-ink: #84abff;
-  --accent-soft: #15213b;
+  --accent: #0f766e;
+  --accent-ink: #5eead4;
+  --accent-soft: #0c2623;
   --ok: #4ccb82;
   --code-bg: #111113;
 
@@ -68,7 +68,7 @@ html[data-theme="dark"] {
   --elev-3: 0 0 0 1px rgb(255 255 255 / .06), 0 8px 24px rgb(0 0 0 / .45), 0 24px 56px rgb(0 0 0 / .5);
   --elev-hero: 0 0 0 1px rgb(255 255 255 / .07), 0 18px 40px rgb(0 0 0 / .55), 0 56px 110px rgb(0 0 0 / .6);
 
-  --glow: radial-gradient(60% 50% at 50% 0%, rgb(46 107 230 / .16) 0%, transparent 70%);
+  --glow: radial-gradient(60% 50% at 50% 0%, rgb(15 118 110 / .18) 0%, transparent 70%);
 }
 
 * { box-sizing: border-box; }
@@ -306,13 +306,13 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
 
 <nav id="nav">
   <div class="wrap nav-in">
-    <a class="brand" href="#top"><span class="mark">A</span> The Architech</a>
+    <a class="brand" href="#top"><span class="mark"><svg viewBox="0 0 100 100" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M30 25V73H70V35" fill="none" stroke="currentColor" stroke-width="8" stroke-linejoin="round"/><rect x="20" y="15" width="20" height="20" rx="5"/><rect x="40" y="63" width="20" height="20" rx="5"/><rect x="61.5" y="16.5" width="17" height="17" rx="4" fill="none" stroke="currentColor" stroke-width="5"/></svg></span> Undagi</a>
     <span class="nav-sp"></span>
     <a class="nav-link nav-hide" href="#how">How it works</a>
     <a class="nav-link nav-hide" href="#models">Models</a>
     <a class="nav-link nav-hide" href="#trust">Boundaries</a>
     <a class="nav-link nav-hide" href="#install">Install</a>
-    <a class="nav-link" href="https://github.com/CharisChakim/the-architech">GitHub</a>
+    <a class="nav-link" href="https://github.com/CharisChakim/undagi">GitHub</a>
     <button class="icon-btn" id="theme" aria-label="Toggle dark mode" title="Toggle dark mode">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
     </button>
@@ -326,7 +326,7 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
     <h1>Your coding agent deserves a better spec than <span class="em">one paragraph</span>.</h1>
 
     <p class="lede">
-      The Architech interviews you about the idea until the gaps are closed, drafts the architecture,
+      Undagi interviews you about the idea until the gaps are closed, drafts the architecture,
       then splits it into atomic tasks — each with target files, dependencies, and verification steps.
       Download <code>AGENTS.md</code> and hand it to Claude Code, Codex, or Cursor.
     </p>
@@ -335,9 +335,9 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
       <div class="cmd">
         <span class="p mono">$</span>
         <span class="t mono" id="cmd">bash install.sh</span>
-        <button class="copy" id="copy" data-full="curl -fsSLO https://raw.githubusercontent.com/CharisChakim/the-architech/main/install.sh &amp;&amp; bash install.sh">Copy</button>
+        <button class="copy" id="copy" data-full="curl -fsSLO https://raw.githubusercontent.com/CharisChakim/undagi/main/install.sh &amp;&amp; bash install.sh">Copy</button>
       </div>
-      <a class="btn btn-ghost" href="https://github.com/CharisChakim/the-architech">
+      <a class="btn btn-ghost" href="https://github.com/CharisChakim/undagi">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.4 7.4 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
         View source
       </a>
@@ -349,7 +349,7 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
     <div class="shot" id="heroShot">
       <img class="themed" data-light="assets/board-light.png" data-dark="assets/board-dark.png"
            src="assets/board-dark.png"
-           alt="The Architech kanban workspace: nine generated tasks in a To do column, each with an ID, phase, priority and target file count, plus a Download AGENTS.md button."
+           alt="Undagi kanban workspace: nine generated tasks in a To do column, each with an ID, phase, priority and target file count, plus a Download AGENTS.md button."
            width="2880" height="1800" />
     </div>
   </div>
@@ -434,7 +434,7 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
     <p class="kicker">Models</p>
     <h2>Bring your own model. Nothing is bundled.</h2>
     <p class="section-lede">
-      The Architech ships with no model and no API key. You point it at whatever you already pay for —
+      Undagi ships with no model and no API key. You point it at whatever you already pay for —
       or at something running on your own machine.
     </p>
 
@@ -545,13 +545,13 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
     <div class="grid2">
       <div>
         <p class="os">LINUX / MACOS</p>
-<pre class="block">curl -fsSLO https://raw.githubusercontent.com/CharisChakim/the-architech/main/install.sh
+<pre class="block">curl -fsSLO https://raw.githubusercontent.com/CharisChakim/undagi/main/install.sh
 bash install.sh
-the-architech</pre>
+undagi</pre>
       </div>
       <div>
         <p class="os">WINDOWS POWERSHELL</p>
-<pre class="block">Invoke-WebRequest https://raw.githubusercontent.com/CharisChakim/the-architech/main/install.ps1 -OutFile install.ps1
+<pre class="block">Invoke-WebRequest https://raw.githubusercontent.com/CharisChakim/undagi/main/install.ps1 -OutFile install.ps1
 powershell -ExecutionPolicy Bypass -File .\install.ps1</pre>
       </div>
     </div>
@@ -563,8 +563,8 @@ npm run dev   <span class="c"># http://localhost:3000</span></pre>
     </div>
 
     <div style="margin-top:34px; display:flex; gap:12px; flex-wrap:wrap">
-      <a class="btn btn-primary" href="https://github.com/CharisChakim/the-architech">Open the repository</a>
-      <a class="btn btn-ghost" href="https://github.com/CharisChakim/the-architech#readme">Read the docs</a>
+      <a class="btn btn-primary" href="https://github.com/CharisChakim/undagi">Open the repository</a>
+      <a class="btn btn-ghost" href="https://github.com/CharisChakim/undagi#readme">Read the docs</a>
     </div>
   </div>
 </section>
@@ -572,10 +572,10 @@ npm run dev   <span class="c"># http://localhost:3000</span></pre>
 <footer>
   <div class="wrap foot-in">
     <span class="mark" style="width:22px;height:22px;border-radius:7px;font-size:12px">A</span>
-    <span>The Architech</span>
+    <span>Undagi</span>
     <span class="nav-sp"></span>
-    <a href="https://github.com/CharisChakim/the-architech">GitHub</a>
-    <a href="https://github.com/CharisChakim/the-architech/issues">Issues</a>
+    <a href="https://github.com/CharisChakim/undagi">GitHub</a>
+    <a href="https://github.com/CharisChakim/undagi/issues">Issues</a>
   </div>
 </footer>
 

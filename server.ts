@@ -252,7 +252,7 @@ async function startServer() {
     const server = app.listen(PORT, HOST, () => {
       const address = server.address();
       const port = typeof address === "object" && address ? address.port : PORT;
-      console.log(`The Architech server listening on http://localhost:${port}`);
+      console.log(`Undagi server listening on http://localhost:${port}`);
       resolve(port);
     });
     server.on("error", reject);

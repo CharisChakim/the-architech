@@ -1,6 +1,6 @@
 # Menghubungkan runtime dan endpoint
 
-Dokumen ini menjelaskan cara The Architech menemukan runtime agent, apa yang
+Dokumen ini menjelaskan cara Undagi menemukan runtime agent, apa yang
 harus dipasang agar sebuah runtime terpakai, dan bagaimana membaca kegagalan
 yang muncul di kartu runtime. Untuk kontrak discovery tingkat protokol —
 antarmuka metadata apa yang dipanggil dan apa batas kapabilitasnya — lihat

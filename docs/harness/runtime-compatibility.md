@@ -50,7 +50,7 @@ a login is still valid.
   The detector never infers low/medium/high from a model name or suffix.
 - `defaultModel`, `defaultEffort`, and `defaultSource` remain explicit
   `null`/`unknown` when configuration cannot be read. A runtime default is
-  kept separate from an Architech override for later run resolution.
+  kept separate from an Undagi override for later run resolution.
 - Capability fields are `supported`, `unsupported`, or `unknown`. Discovery
   only changes `unknown` when the provider metadata explicitly reports a
   capability.

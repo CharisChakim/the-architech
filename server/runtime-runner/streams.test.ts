@@ -425,7 +425,7 @@ test("claude: a Bash result carries the exit code its output starts with, and 0 
     yield { type: "user", session_id: SESSION, message: { role: "user", content: [
       { type: "tool_result", tool_use_id: "toolu_ok", content: "README.md" },
       { type: "tool_result", tool_use_id: "toolu_bad", content: "Exit code 2\n/usr/bin/ls: cannot access 'missing-dir': No such file or directory", is_error: true },
-      { type: "tool_result", tool_use_id: "toolu_denied", content: "Permission denied by Architech.", is_error: true },
+      { type: "tool_result", tool_use_id: "toolu_denied", content: "Permission denied by Undagi.", is_error: true },
     ] } };
     yield success;
   });

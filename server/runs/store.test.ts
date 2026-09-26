@@ -8,7 +8,7 @@ import type { RunCreateInput } from "./store.ts";
 
 // db.ts reads this when it is first imported, so the store below has to be
 // loaded dynamically, after the data directory is pointed somewhere disposable.
-const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "architech-store-test-"));
+const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "undagi-store-test-"));
 process.env.ARCHITECH_DATA_DIR = dataDir;
 
 const store = await import("./store.ts");
@@ -105,7 +105,7 @@ test("an interrupted run cannot be resumed in place, so a reconnect cannot reviv
 });
 
 test("repeating a start request returns the original run instead of starting a second one", () => {
-  const input = createInput({ workspace: "/tmp/architech-idempotent" });
+  const input = createInput({ workspace: "/tmp/undagi-idempotent" });
 
   const first = store.createRun(input);
   const second = store.createRun(input);
@@ -113,7 +113,7 @@ test("repeating a start request returns the original run instead of starting a s
   assert.equal(first.created, true);
   assert.equal(second.created, false);
   assert.equal(second.run.id, first.run.id);
-  assert.equal(store.listRuns({ workspace: "/tmp/architech-idempotent" }).length, 1);
+  assert.equal(store.listRuns({ workspace: "/tmp/undagi-idempotent" }).length, 1);
 });
 
 test("reusing a key for a different request is refused rather than silently answered with the old run", () => {
@@ -127,7 +127,7 @@ test("reusing a key for a different request is refused rather than silently answ
 });
 
 test("a second run cannot start in a workspace another run is already writing to", () => {
-  const workspace = "/tmp/architech-single-writer";
+  const workspace = "/tmp/undagi-single-writer";
   const first = store.createRun(createInput({ workspace })).run;
   const second = store.createRun(createInput({ workspace })).run;
 

@@ -47,7 +47,7 @@ export async function generateRuntimeText(options: RuntimeTextOptions): Promise<
   const detection = await (options.discover ?? discoverRuntime)(target.runtime, claudeSdk?.supportedModels
     ? { claudeSdk: { supportedModels: claudeSdk.supportedModels.bind(claudeSdk) } }
     : {});
-  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "architech-pipeline-"));
+  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "undagi-pipeline-"));
   let close: (() => Promise<void>) | null = null;
   try {
     const runner = await createRuntimeRunnerAsync({

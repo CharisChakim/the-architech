@@ -9,13 +9,13 @@ beberapa kriteria penerimaan belum dikerjakan. Daftar sisa pekerjaan ada di
 
 ## 1. Hasil yang dituju
 
-The Architech menjadi tempat berdiskusi, menyusun PRD, dan menjalankan pekerjaan menggunakan **Claude Code, Codex, atau Antigravity**. User bisa langsung mengerjakan task dari Kanban, mengikuti proses agent, menangani izin, lalu memeriksa hasilnya.
+Undagi menjadi tempat berdiskusi, menyusun PRD, dan menjalankan pekerjaan menggunakan **Claude Code, Codex, atau Antigravity**. User bisa langsung mengerjakan task dari Kanban, mengikuti proses agent, menangani izin, lalu memeriksa hasilnya.
 
 - **Chat langsung bisa dipakai.** Proyek dan PRD opsional untuk percakapan atau pekerjaan coding sederhana.
 - **PRD Builder + Kanban eksekusi tetap pusat nilai produk.** Percakapan bisa menjadi proyek tanpa kehilangan konteks.
 - **Koneksi mudah:** deteksi runtime → hubungkan melalui metode resmi → muat model → gunakan default koneksi.
 - **Model dan effort mengikuti kemampuan koneksi.** User bisa override per percakapan atau run.
-- **Dua jalur pekerjaan:** eksekusi di Architech dan paket konteks untuk dilanjutkan di tool lain.
+- **Dua jalur pekerjaan:** eksekusi di Undagi dan paket konteks untuk dilanjutkan di tool lain.
 
 Asumsi awal: aplikasi lokal, satu user, backend berjalan pada mesin workspace. Deteksi instalasi terjadi di mesin backend; browser tidak bisa mendeteksi CLI di komputer lain. Deployment remote memerlukan koneksi host tersendiri dan berada di luar rilis ini.
 
@@ -108,8 +108,8 @@ Stack tetap React/Vite/Express/SQLite. Dokumen `PLAN.md` dan fase 0–11 adalah 
 
 **Pisahkan dua jenis koneksi:**
 
-- **Model API:** Architech memiliki loop dan tool; adapter HTTP yang ada tetap dipakai.
-- **Agent runtime:** Claude Code/Codex/Antigravity memiliki loop dan tool; Architech mengirim konteks, mengatur lifecycle, dan menerjemahkan event.
+- **Model API:** Undagi memiliki loop dan tool; adapter HTTP yang ada tetap dipakai.
+- **Agent runtime:** Claude Code/Codex/Antigravity memiliki loop dan tool; Undagi mengirim konteks, mengatur lifecycle, dan menerjemahkan event.
 
 Satu run hanya memiliki satu pemilik eksekusi tool. Ini mencegah perintah/file edit dijalankan dua kali. MCP/tool proyek diberikan hanya melalui mekanisme runtime yang memang didukung.
 
@@ -163,7 +163,7 @@ Untuk katalog tanpa metadata effort: gunakan informasi resmi yang cocok dengan v
 
 ### Aturan default dan override
 
-Urutan preferensi Architech: **override run → pilihan percakapan/profil → default koneksi Architech → default runtime untuk workspace tersebut → default model**. Kebijakan organisasi/runtime tetap membatasi semuanya.
+Urutan preferensi Undagi: **override run → pilihan percakapan/profil → default koneksi Undagi → default runtime untuk workspace tersebut → default model**. Kebijakan organisasi/runtime tetap membatasi semuanya.
 
 - Simpan `inherit` sebagai pilihan asli, terpisah dari nilai efektif. Jangan menyimpan hasil resolusi `medium` sebagai override permanen ketika user memilih Ikuti koneksi.
 - Resolve pada awal run/turn; simpan snapshot model, effort, sumber, versi, workspace, dan runtime session ID.
@@ -171,7 +171,7 @@ Urutan preferensi Architech: **override run → pilihan percakapan/profil → de
 - Nilai aktual yang tidak dilaporkan runtime tetap unknown. Simpan requested dan reported secara terpisah.
 - Model baru memicu validasi ulang effort. Override yang tidak cocok meminta pilihan baru sebelum run; jangan diam-diam menurunkannya.
 - Perubahan picker saat run aktif berlaku pada run/turn berikutnya, dengan label yang jelas.
-- Default disimpan di Architech; tidak mengubah konfigurasi global CLI tanpa tindakan khusus user.
+- Default disimpan di Undagi; tidak mengubah konfigurasi global CLI tanpa tindakan khusus user.
 - Nama effort tetap native. `high` di dua provider tidak menyiratkan biaya/kekuatan yang sama. Effort, token limit, tampilan reasoning, dan izin eksekusi adalah pengaturan berbeda.
 
 ## 6. Data dan lifecycle run

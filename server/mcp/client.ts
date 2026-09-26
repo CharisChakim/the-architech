@@ -163,7 +163,7 @@ export class DefaultMcpClient implements McpClient {
         {
           protocolVersion: "2025-06-18",
           capabilities: {},
-          clientInfo: { name: "the-architech", version: "1.0.0" },
+          clientInfo: { name: "undagi", version: "1.0.0" },
         },
         { timeoutMs: INITIALIZE_TIMEOUT_MS },
       );

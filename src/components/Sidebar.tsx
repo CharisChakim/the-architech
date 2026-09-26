@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, DraftingCompass, Folder, FolderKanban, ListTree, PanelLeftClose, PanelLeftOpen, Plus, Search, Trash2, X } from "lucide-react";
 import type { ProjectSession, SessionSummary } from "../types";
 import { projectNameFromWorkspaceRoot } from "../lib/workspace";
+import { LogoMark } from "./LogoMark";
 import { useT } from "../lib/i18n";
 import { useDismissable } from "../lib/dismissable";
 
@@ -177,9 +178,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       >
         <div className={`flex shrink-0 items-center gap-2 py-3 ${isRail ? "justify-center px-0" : "px-3"}`}>
           <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-accent text-accent-fg">
-            <DraftingCompass className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+            <LogoMark className="h-5 w-5" />
           </span>
-          {!isRail && <span className="min-w-0 flex-1 truncate text-[12px] font-semibold text-ink">The Architech</span>}
+          {!isRail && <span className="min-w-0 flex-1 truncate text-[12px] font-semibold text-ink">Undagi</span>}
           {!isRail && (
             <button type="button" ref={closeButton} onClick={onClose} className="rounded-md p-1.5 text-faint hover:bg-subtle hover:text-ink md:hidden" aria-label={t("Close menu")}>
               <X className="h-4 w-4" aria-hidden />

@@ -394,7 +394,7 @@ export const AgentPane: React.FC<AgentPaneProps> = ({
             <div className="mb-1 max-w-2xl">
               <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent-soft px-2.5 py-1 text-[11px] font-semibold text-accent-ink">
                 <Sparkles className="h-3 w-3" aria-hidden />
-                The Architech
+                Undagi
               </div>
               <h2 className="text-2xl font-semibold tracking-[-0.03em] text-ink">{t("Turn an idea into executable work")}</h2>
               <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">{t("Work with the coding agent, shape a plan, build a PRD, or organize tasks directly in Kanban.")}</p>

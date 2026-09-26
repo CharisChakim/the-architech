@@ -86,7 +86,7 @@ test-nya di [`store.test.ts`](../../server/runs/store.test.ts).
 
 Perlu dicatat: penandaan ini murni lokal. Aplikasi **tidak** menanyai
 Codex/Claude Code/Antigravity apakah sesi eksternalnya masih hidup, jadi sesi
-di sisi provider bisa saja masih berjalan setelah Architech menganggapnya mati.
+di sisi provider bisa saja masih berjalan setelah Undagi menganggapnya mati.
 
 ## Mundur ke versi sebelumnya
 

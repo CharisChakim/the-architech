@@ -157,7 +157,7 @@ test("approval and input callbacks decide native tool permission", async () => {
   const safeDefault = buildClaudeSdkOptions({});
   assert.deepEqual(await safeDefault.canUseTool("Bash", { command: "echo unsafe" }, {}), {
     behavior: "deny",
-    message: "Permission denied by Architech.",
+    message: "Permission denied by Undagi.",
   });
 });
 

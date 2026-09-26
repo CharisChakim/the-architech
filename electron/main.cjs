@@ -12,8 +12,31 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 const userData = app.getPath("userData");
+migrateLegacyUserData(userData);
 const dataDir = path.join(userData, "data");
 fs.mkdirSync(dataDir, { recursive: true });
+
+// Sampai setelah 1.0.1-beta aplikasi ini bernama The Architech, dan userData
+// mengikuti productName — tanpa ini, pengguna lama membuka Undagi dan
+// mendapati proyeknya hilang. Folder lama disalin, bukan dipindah, supaya
+// kegagalan di tengah jalan tidak merusak apa pun; salinan hanya dibuat
+// selama folder baru belum punya database. Berkas kunci Chromium dilewati
+// karena instance ini sudah memegang kuncinya sendiri.
+function migrateLegacyUserData(target) {
+  const legacy = path.join(app.getPath("appData"), "The Architech");
+  if (path.resolve(legacy) === path.resolve(target) || !fs.existsSync(legacy)) return;
+  if (fs.existsSync(path.join(target, "data", "architech.db"))) return;
+  try {
+    fs.cpSync(legacy, target, {
+      recursive: true,
+      force: false,
+      errorOnExist: false,
+      filter: (source) => !/^(Singleton|lockfile$)/.test(path.basename(source)),
+    });
+  } catch (error) {
+    console.error("Could not copy data from The Architech:", error);
+  }
+}
 
 // Server dan beberapa default-nya membaca cwd. Direktori instalasi sering
 // read-only, jadi cwd dipindah ke folder data pengguna sebelum server dimuat:
@@ -91,7 +114,7 @@ app.whenReady().then(async () => {
     createWindow(port);
   } catch (error) {
     dialog.showErrorBox(
-      "The Architech could not start",
+      "Undagi could not start",
       `The local server failed to start.\n\n${error && error.stack ? error.stack : String(error)}`
     );
     app.quit();

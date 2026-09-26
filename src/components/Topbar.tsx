@@ -6,7 +6,7 @@ import { useConnections } from "../lib/connections";
 import { useDismissable } from "../lib/dismissable";
 import { SAMPLE_PROJECTS, sampleText, type SampleProject } from "../lib/sampleData";
 import { projectNameFromWorkspaceRoot } from "../lib/workspace";
-import type { Theme } from "../lib/theme";
+import { ACCENTS, type Accent, type Theme } from "../lib/theme";
 
 export type LayoutMode = "agent" | "split" | "board";
 
@@ -24,10 +24,20 @@ export interface TopbarProps {
   onSelectSample: (sample: SampleProject) => void;
   theme: Theme;
   onToggleTheme: () => void;
+  accent: Accent;
+  onSelectAccent: (accent: Accent) => void;
   onSelectLanguage: (lang: Language) => void;
 }
 
 const LANGUAGE_NAMES: Record<Language, string> = { en: "English", id: "Bahasa Indonesia" };
+
+// Contoh warna di pemilih memakai nilai mode terang; nilai sebenarnya ada di
+// index.css. Tinta mengikuti warna teks, jadi contohnya pun ikut berbalik.
+const ACCENT_SWATCHES: Record<Accent, { name: string; color: string }> = {
+  teal: { name: "Teal", color: "#0f766e" },
+  blue: { name: "Blue", color: "#2563eb" },
+  ink: { name: "Ink", color: "var(--app-ink)" },
+};
 
 export const Topbar: React.FC<TopbarProps> = ({
   session,
@@ -43,6 +53,8 @@ export const Topbar: React.FC<TopbarProps> = ({
   onSelectSample,
   theme,
   onToggleTheme,
+  accent,
+  onSelectAccent,
   onSelectLanguage,
 }) => {
   const { lang, t } = useT();
@@ -236,6 +248,22 @@ export const Topbar: React.FC<TopbarProps> = ({
                   </button>
                 ))}
                 <div className="my-1 h-px bg-line" aria-hidden />
+                <p className="px-2 pb-1 pt-1.5 text-[11px] font-medium text-faint">{t("Accent colour")}</p>
+                <div className="flex items-center gap-1.5 px-2 pb-1.5">
+                  {ACCENTS.map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => onSelectAccent(option)}
+                      aria-pressed={accent === option}
+                      aria-label={t(ACCENT_SWATCHES[option].name)}
+                      title={t(ACCENT_SWATCHES[option].name)}
+                      className={`grid h-7 w-7 place-items-center rounded-full ring-offset-2 ring-offset-surface ${accent === option ? "ring-2 ring-strong" : "hover:ring-2 hover:ring-line"}`}
+                    >
+                      <span className="h-5 w-5 rounded-full border border-white/20" style={{ backgroundColor: ACCENT_SWATCHES[option].color }} />
+                    </button>
+                  ))}
+                </div>
                 <button
                   type="button"
                   onClick={onToggleTheme}

@@ -6,7 +6,7 @@ import test from "node:test";
 
 // db.ts reads this when it is first imported, so the module is loaded after
 // the data directory is disposable.
-const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "architech-chat-workspace-test-"));
+const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "undagi-chat-workspace-test-"));
 process.env.ARCHITECH_DATA_DIR = dataDir;
 
 const {

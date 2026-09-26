@@ -280,7 +280,7 @@ export class CodexAppServerTransport implements AppServerTransport {
       initializeResult = await this.requestBeforeInitialized(
         "initialize",
         {
-          clientInfo: this.options.clientInfo ?? { name: "architech", version: "0.1.0" },
+          clientInfo: this.options.clientInfo ?? { name: "undagi", version: "0.1.0" },
           capabilities: this.options.capabilities ?? {},
         },
         this.options.initializeTimeoutMs ?? DEFAULT_INITIALIZE_TIMEOUT_MS,

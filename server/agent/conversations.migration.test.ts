@@ -23,7 +23,7 @@ function loadConversationsAgainst(dataDir: string): void {
 }
 
 function freshDataDir(): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "architech-migration-test-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "undagi-migration-test-"));
   process.on("exit", () => fs.rmSync(dir, { recursive: true, force: true }));
   return dir;
 }

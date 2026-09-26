@@ -9,7 +9,7 @@ import {
   saveSidebarCollapsed,
 } from "./lib/localStorage";
 import { fetchSessionList, fetchSession, persistSession, removeSession } from "./lib/sessionStore";
-import { Theme, loadTheme, saveTheme, applyTheme } from "./lib/theme";
+import { Accent, Theme, applyAccent, loadAccent, loadTheme, saveAccent, saveTheme, applyTheme } from "./lib/theme";
 import { Language, loadLanguage, saveLanguage, makeT, LanguageProvider } from "./lib/i18n";
 import { AGENT_PATH, STEP_PATHS, pathToStep, isStepReachable, Step } from "./lib/routing";
 import { LayoutMode, loadLayout, saveLayout } from "./lib/layout";
@@ -45,6 +45,7 @@ export default function App() {
   const lastSingleMode = useRef<Exclude<LayoutMode, "split">>(layout.mode === "board" ? "board" : "agent");
 
   const [theme, setTheme] = useState<Theme>(loadTheme);
+  const [accent, setAccent] = useState<Accent>(loadAccent);
   const [lang, setLang] = useState<Language>(loadLanguage);
 
   // App ikut memakai t untuk teksnya sendiri, jadi fungsinya dibuat di sini dan
@@ -73,6 +74,11 @@ export default function App() {
     applyTheme(theme);
     saveTheme(theme);
   }, [theme]);
+
+  useEffect(() => {
+    applyAccent(accent);
+    saveAccent(accent);
+  }, [accent]);
 
   // Dipakai pembaca layar untuk memilih pelafalan, dan browser untuk tawaran
   // terjemahan otomatis.
@@ -352,6 +358,8 @@ export default function App() {
           onSelectSample={handleSelectSample}
           theme={theme}
           onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
+          accent={accent}
+          onSelectAccent={setAccent}
           onSelectLanguage={selectLanguage}
         />
 

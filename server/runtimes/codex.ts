@@ -191,7 +191,7 @@ export function queryCodexAppServer(
     // The initialize clientInfo is identifying metadata only; no credentials or
     // workspace contents are sent during discovery.
     send(1, "initialize", {
-      clientInfo: { name: "the-architech-runtime-discovery", version: "0.1.0" },
+      clientInfo: { name: "undagi-runtime-discovery", version: "0.1.0" },
       capabilities: {},
     });
     timer = setTimeout(() => {

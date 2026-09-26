@@ -1,9 +1,13 @@
 param(
-  [string]$InstallDir = "$env:LOCALAPPDATA\TheArchitech"
+  [string]$InstallDir = "$env:LOCALAPPDATA\Undagi"
 )
 
 $ErrorActionPreference = "Stop"
-$Repository = "CharisChakim/the-architech"
+$Repository = "CharisChakim/undagi"
+# Until after 1.0.1-beta the app was called The Architech and installed here.
+# Its data/ and .env live in the install directory, so the old one is moved
+# to the new name rather than left behind.
+$LegacyInstallDir = "$env:LOCALAPPDATA\TheArchitech"
 $ArchiveUrl = if ($env:ARCHITECH_ARCHIVE_URL) { $env:ARCHITECH_ARCHIVE_URL } else { "https://github.com/$Repository/archive/refs/heads/main.zip" }
 
 foreach ($CommandName in @("node", "npm")) {
@@ -19,15 +23,22 @@ if (($NodeMajor -lt 22) -or (($NodeMajor -eq 22) -and ($NodeMinor -lt 14))) {
   throw "Node.js 22.14 or newer is required. Current version: $(& node --version)"
 }
 
-$TempDir = Join-Path ([System.IO.Path]::GetTempPath()) ("the-architech-" + [guid]::NewGuid())
+if (-not $PSBoundParameters.ContainsKey("InstallDir") -and (Test-Path $LegacyInstallDir) -and -not (Test-Path $InstallDir)) {
+  Write-Host "Moving The Architech install to $InstallDir..."
+  Move-Item -Path $LegacyInstallDir -Destination $InstallDir
+  $LegacyLauncher = Join-Path $InstallDir "start-the-architech.cmd"
+  if (Test-Path $LegacyLauncher) { Remove-Item -Path $LegacyLauncher }
+}
+
+$TempDir = Join-Path ([System.IO.Path]::GetTempPath()) ("undagi-" + [guid]::NewGuid())
 $ArchivePath = Join-Path $TempDir "source.zip"
 
 try {
   New-Item -ItemType Directory -Path $TempDir -Force | Out-Null
-  Write-Host "Downloading The Architech..."
+  Write-Host "Downloading Undagi..."
   Invoke-WebRequest -Uri $ArchiveUrl -OutFile $ArchivePath
   Expand-Archive -Path $ArchivePath -DestinationPath $TempDir -Force
-  $SourceDir = Get-ChildItem -Path $TempDir -Directory | Where-Object { $_.Name -like "the-architech-*" } | Select-Object -First 1
+  $SourceDir = Get-ChildItem -Path $TempDir -Directory | Where-Object { $_.Name -like "undagi-*" } | Select-Object -First 1
   if (-not $SourceDir) {
     throw "Downloaded archive did not contain the application."
   }
@@ -51,7 +62,7 @@ try {
     Pop-Location
   }
 
-  $Launcher = Join-Path $InstallDir "start-the-architech.cmd"
+  $Launcher = Join-Path $InstallDir "start-undagi.cmd"
   "@echo off`r`ncd /d `"%~dp0`"`r`nnode dist\server.cjs --production`r`n" | Set-Content -Path $Launcher -Encoding Ascii
 
   Write-Host ""

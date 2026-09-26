@@ -46,10 +46,12 @@
   --app-muted: #52525b;
   --app-faint: #63636b;
 
-  --app-accent: #2563eb;
+  /* Teal adalah warna brand; preset lain ada di bawah (data-accent). Oranye
+     sengaja dihindari: itu warna pesaing terdekat di pasar yang sama. */
+  --app-accent: #0f766e;
   --app-accent-fg: #ffffff;
-  --app-accent-soft: #eef3fe;
-  --app-accent-ink: #1d4ed8;
+  --app-accent-soft: #edf8f6;
+  --app-accent-ink: #115e59;
 
   --app-ok: #15803d;
   --app-ok-soft: #effaf3;
@@ -83,10 +85,10 @@
   --app-muted: #a1a1aa;
   --app-faint: #8b8b94;
 
-  --app-accent: #2e6be6;
+  --app-accent: #0f766e;
   --app-accent-fg: #ffffff;
-  --app-accent-soft: #15213b;
-  --app-accent-ink: #84abff;
+  --app-accent-soft: #0c2623;
+  --app-accent-ink: #5eead4;
 
   --app-ok: #4ccb82;
   --app-ok-soft: #0f2419;
@@ -103,6 +105,39 @@
 
   --app-code: #0b0b0c;
   --app-code-ink: #e4e4e7;
+}
+
+/* Preset aksen pilihan pengguna, dipasang sebagai data-accent pada <html>.
+   Varian gelap ditulis dengan .dark supaya spesifisitasnya (0,3,0) mengalahkan
+   varian terang (0,2,0); kalau tidak, nilai terang ikut menimpa mode gelap.
+   Semua pasangan lolos kriteria yang sama dengan token di atas. */
+:root[data-accent="blue"] {
+  --app-accent: #2563eb;
+  --app-accent-fg: #ffffff;
+  --app-accent-soft: #eef3fe;
+  --app-accent-ink: #1d4ed8;
+}
+
+:root.dark[data-accent="blue"] {
+  --app-accent: #2e6be6;
+  --app-accent-fg: #ffffff;
+  --app-accent-soft: #15213b;
+  --app-accent-ink: #84abff;
+}
+
+/* Tinta: aksen mengikuti warna teks, jadi di mode gelap tombolnya terang. */
+:root[data-accent="ink"] {
+  --app-accent: #18181b;
+  --app-accent-fg: #ffffff;
+  --app-accent-soft: #f4f4f5;
+  --app-accent-ink: #18181b;
+}
+
+:root.dark[data-accent="ink"] {
+  --app-accent: #ededf0;
+  --app-accent-fg: #0b0b0c;
+  --app-accent-soft: #1d1d20;
+  --app-accent-ink: #ededf0;
 }
 
 /* ---------------------------------------------------------------------------

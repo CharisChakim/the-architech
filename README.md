@@ -1,8 +1,8 @@
-# The Architech
+# Undagi
 
 **Turn a rough idea into a buildable project.**
 
-The Architech is a local-first AI workbench for moving from product intuition to an executable delivery plan:
+Undagi is a local-first AI workbench for moving from product intuition to an executable delivery plan:
 
 ```text
 Idea → Plan → PRD → Agent-ready tasks → Implementation
@@ -125,13 +125,16 @@ The current scope is `initialize`, `tools/list`, and `tools/call`. MCP `sampling
 
 ### Desktop app
 
-Download an installer from the [v1.0.1-beta release](https://github.com/CharisChakim/the-architech/releases/tag/v1.0.1-beta):
+Download an installer from the [v1.0.1-beta release](https://github.com/CharisChakim/undagi/releases/tag/v1.0.1-beta):
 
 | Platform | File | Notes |
 | --- | --- | --- |
-| Windows | `TheArchitech-Setup-<version>-x64.exe` | Installs per user; you can pick the directory. |
-| Linux | `TheArchitech-<version>-x86_64.AppImage` | Portable. `chmod +x` it, then run it. |
-| Linux (Debian/Ubuntu) | `TheArchitech-<version>-amd64.deb` | `sudo apt install ./<file>.deb` |
+| Windows | `Undagi-Setup-<version>-x64.exe` | Installs per user; you can pick the directory. |
+| Linux | `Undagi-<version>-x86_64.AppImage` | Portable. `chmod +x` it, then run it. |
+| Linux (Debian/Ubuntu) | `Undagi-<version>-amd64.deb` | `sudo apt install ./<file>.deb` |
+
+Undagi was called The Architech until after 1.0.1-beta, so that release's files
+are still named `TheArchitech-*`.
 
 The desktop build runs the same local server, picks a free port instead of
 3000, and listens on `127.0.0.1` only. It keeps its data outside the install
@@ -139,11 +142,16 @@ directory:
 
 | Platform | Data and `.env` location |
 | --- | --- |
-| Windows | `%APPDATA%\The Architech` |
-| Linux | `~/.config/The Architech` |
+| Windows | `%APPDATA%\Undagi` |
+| Linux | `~/.config/Undagi` |
 
 The database is at `data/architech.db` inside that folder. To supply API keys
 through environment variables rather than the UI, put a `.env` file there.
+
+On first launch, if that folder is empty and a folder from The Architech
+(`%APPDATA%\The Architech` or `~/.config/The Architech`) exists, Undagi copies
+it over, so projects and settings carry across. The old folder is left in place;
+delete it once you have checked your projects.
 
 No agent CLI is bundled. Codex, Claude Code, and Antigravity are detected on
 your machine and driven from there, so the version the app reports is the one
@@ -159,19 +167,24 @@ the AppImage is executable.
 **Linux / macOS**
 
 ```bash
-curl -fsSLO https://raw.githubusercontent.com/CharisChakim/the-architech/main/install.sh
+curl -fsSLO https://raw.githubusercontent.com/CharisChakim/undagi/main/install.sh
 bash install.sh
-the-architech
+undagi
 ```
 
 **Windows PowerShell**
 
 ```powershell
-Invoke-WebRequest https://raw.githubusercontent.com/CharisChakim/the-architech/main/install.ps1 -OutFile install.ps1
+Invoke-WebRequest https://raw.githubusercontent.com/CharisChakim/undagi/main/install.ps1 -OutFile install.ps1
 powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
-Then run `%LOCALAPPDATA%\TheArchitech\start-the-architech.cmd`.
+Then run `%LOCALAPPDATA%\Undagi\start-undagi.cmd`.
+
+If an install from before the rename exists (`%LOCALAPPDATA%\TheArchitech` or
+`~/.local/share/the-architech`), the installer moves it to the new location
+first, so its `data/` and `.env` come along. The old `the-architech` launcher is
+removed.
 
 For development from an existing checkout:
 

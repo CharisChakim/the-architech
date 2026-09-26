@@ -61,7 +61,7 @@ export interface RuntimeEffortOption {
 }
 
 export interface RuntimeModel {
-  /** Architech connection identity; model IDs are only unique within a connection. */
+  /** Undagi connection identity; model IDs are only unique within a connection. */
   connectionId: string;
   modelId: string;
   label: string;

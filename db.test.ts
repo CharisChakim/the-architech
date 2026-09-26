@@ -7,7 +7,7 @@ import test from "node:test";
 
 // db.ts reads the data directory when it is first imported, so the fixture rows
 // are written before the module loads and the import has to be dynamic.
-const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "architech-db-test-"));
+const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "undagi-db-test-"));
 process.env.ARCHITECH_DATA_DIR = dataDir;
 
 const seed = new DatabaseSync(path.join(dataDir, "architech.db"));

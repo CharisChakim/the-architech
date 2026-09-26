@@ -25,3 +25,32 @@ export function saveTheme(theme: Theme): void {
 export function applyTheme(theme: Theme): void {
   document.documentElement.classList.toggle("dark", theme === "dark");
 }
+
+// Warna aksen terpisah dari terang/gelap: keduanya bisa dipadukan bebas.
+// Nilainya dibaca juga oleh skrip inline di index.html sebelum React mount.
+export type Accent = "teal" | "blue" | "ink";
+export const ACCENTS: Accent[] = ["teal", "blue", "ink"];
+
+const ACCENT_KEY = "ai_plan_architect_accent";
+
+export function loadAccent(): Accent {
+  try {
+    const saved = localStorage.getItem(ACCENT_KEY);
+    if (ACCENTS.includes(saved as Accent)) return saved as Accent;
+  } catch (e) {
+    console.warn("Failed to load accent:", e);
+  }
+  return "teal";
+}
+
+export function saveAccent(accent: Accent): void {
+  try {
+    localStorage.setItem(ACCENT_KEY, accent);
+  } catch (e) {
+    console.warn("Failed to save accent:", e);
+  }
+}
+
+export function applyAccent(accent: Accent): void {
+  document.documentElement.dataset.accent = accent;
+}

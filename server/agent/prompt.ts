@@ -19,7 +19,7 @@ Semua path pada tool berkas relatif terhadap folder itu, dan tidak ada yang bisa
   }`;
 }
 
-export const SYSTEM_PROMPT = `Anda asisten di dalam The Architech, aplikasi perencanaan proyek perangkat lunak.
+export const SYSTEM_PROMPT = `Anda asisten di dalam Undagi, aplikasi perencanaan proyek perangkat lunak.
 
 Pengguna sedang membuka satu proyek. Anda punya tool untuk membaca dan mengubah isi proyek itu secara langsung.
 
@@ -37,7 +37,7 @@ Perencanaan:
 
 Jawab dalam bahasa yang dipakai pengguna.`;
 
-export const STANDALONE_SYSTEM_PROMPT = `Anda asisten umum di dalam The Architech.
+export const STANDALONE_SYSTEM_PROMPT = `Anda asisten umum di dalam Undagi.
 
 Percakapan ini belum ditautkan ke proyek. Bantu pengguna berdiskusi, memahami
 masalah, menulis atau meninjau teks dan kode, serta merencanakan langkah kerja.

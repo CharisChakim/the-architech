@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-REPOSITORY="CharisChakim/the-architech"
-INSTALL_DIR="${ARCHITECH_INSTALL_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/the-architech}"
+REPOSITORY="CharisChakim/undagi"
+INSTALL_DIR="${ARCHITECH_INSTALL_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/undagi}"
 BIN_DIR="${ARCHITECH_BIN_DIR:-$HOME/.local/bin}"
+# Until after 1.0.1-beta the app was called The Architech and installed here.
+# Its data/ and .env live in the install directory, so the old one is moved
+# to the new name rather than left behind.
+LEGACY_INSTALL_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/the-architech"
 ARCHIVE_URL="${ARCHITECH_ARCHIVE_URL:-https://github.com/${REPOSITORY}/archive/refs/heads/main.tar.gz}"
 
 for command_name in node npm curl tar; do
@@ -18,16 +22,23 @@ if ! node -e 'const [major, minor] = process.versions.node.split(".").map(Number
   exit 1
 fi
 
+if [[ -z "${ARCHITECH_INSTALL_DIR:-}" && -d "$LEGACY_INSTALL_DIR" && ! -e "$INSTALL_DIR" ]]; then
+  printf 'Moving The Architech install to %s...\n' "$INSTALL_DIR"
+  mv "$LEGACY_INSTALL_DIR" "$INSTALL_DIR"
+  # The old launcher still points at the directory that was just moved.
+  rm -f "$BIN_DIR/the-architech"
+fi
+
 temp_dir="$(mktemp -d)"
 cleanup() {
   rm -rf "$temp_dir"
 }
 trap cleanup EXIT
 
-printf 'Downloading The Architech...\n'
+printf 'Downloading Undagi...\n'
 curl -fsSL "$ARCHIVE_URL" -o "$temp_dir/source.tar.gz"
 tar -xzf "$temp_dir/source.tar.gz" -C "$temp_dir"
-source_dir="$(find "$temp_dir" -mindepth 1 -maxdepth 1 -type d -name 'the-architech-*' -print -quit)"
+source_dir="$(find "$temp_dir" -mindepth 1 -maxdepth 1 -type d -name 'undagi-*' -print -quit)"
 if [[ -z "$source_dir" ]]; then
   printf 'Downloaded archive did not contain the application.\n' >&2
   exit 1
@@ -49,7 +60,7 @@ printf 'Installing dependencies and building production files...\n'
   fi
 )
 
-launcher="$BIN_DIR/the-architech"
+launcher="$BIN_DIR/undagi"
 {
   printf '#!/usr/bin/env bash\n'
   printf 'cd %q\n' "$INSTALL_DIR"
@@ -60,6 +71,6 @@ chmod +x "$launcher"
 printf '\nInstalled in: %s\n' "$INSTALL_DIR"
 printf 'Start with: %s\n' "$launcher"
 if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
-  printf 'Add %s to PATH to run: the-architech\n' "$BIN_DIR"
+  printf 'Add %s to PATH to run: undagi\n' "$BIN_DIR"
 fi
 printf 'Then open http://localhost:3000\n'

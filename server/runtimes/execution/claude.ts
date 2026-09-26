@@ -594,7 +594,7 @@ export function normalizeClaudeSdkMessage(value: unknown): ClaudeExecutionEvent[
     }];
   }
 
-  // ping, user, and future SDK messages carry no Architech execution event.
+  // ping, user, and future SDK messages carry no Undagi execution event.
   return [];
 }
 
@@ -615,22 +615,22 @@ function approvalResult(
   input: unknown,
 ): ClaudeSdkPermissionResult {
   if (response === true) return { behavior: "allow", updatedInput: input };
-  if (response === false || response === undefined) return { behavior: "deny", message: "Permission denied by Architech." };
+  if (response === false || response === undefined) return { behavior: "deny", message: "Permission denied by Undagi." };
   if (response && typeof response === "object" && "behavior" in response) {
     if (response.behavior === "allow") return { behavior: "allow", updatedInput: response.updatedInput ?? input };
-    return { behavior: "deny", message: response.message || "Permission denied by Architech." };
+    return { behavior: "deny", message: response.message || "Permission denied by Undagi." };
   }
   if (response && typeof response === "object" && "approved" in response) {
     return response.approved
       ? { behavior: "allow", updatedInput: response.updatedInput ?? input }
-      : { behavior: "deny", message: response.message || "Permission denied by Architech." };
+      : { behavior: "deny", message: response.message || "Permission denied by Undagi." };
   }
   if (response && typeof response === "object" && "decision" in response) {
     return response.decision === "allow"
       ? { behavior: "allow", updatedInput: response.updatedInput ?? input }
-      : { behavior: "deny", message: response.message || "Permission denied by Architech." };
+      : { behavior: "deny", message: response.message || "Permission denied by Undagi." };
   }
-  return { behavior: "deny", message: "Permission denied by Architech." };
+  return { behavior: "deny", message: "Permission denied by Undagi." };
 }
 
 function inputResult(response: ClaudeInputCallbackResponse, input: unknown): ClaudeSdkPermissionResult {
@@ -689,7 +689,7 @@ export function buildClaudeSdkOptions(
         }
       }
       const handler = callbacks.onApproval ?? callbacks.onApprovalRequest;
-      if (!handler) return { behavior: "deny", message: "Permission denied by Architech." };
+      if (!handler) return { behavior: "deny", message: "Permission denied by Undagi." };
       try {
         return approvalResult(await handler({
           kind: "approval",
