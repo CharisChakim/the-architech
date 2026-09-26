@@ -7,6 +7,6 @@ coverage/
 .env*
 !.env.example
 ai-plan-architect.zip
-.claude/settings.local.json
+.claude/
 data/
 release/
