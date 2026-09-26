@@ -618,7 +618,7 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
                                   e.stopPropagation();
                                   handleTaskStatusChange(task.id, "in_progress");
                                 }}
-                                className="font-medium text-accent hover:brightness-110 flex items-center gap-1 shrink-0"
+                                className="font-medium text-accent-ink hover:brightness-110 flex items-center gap-1 shrink-0"
                               >
                                 {t("Start")} <ArrowRight className="w-3 h-3" />
                               </button>
@@ -792,7 +792,7 @@ export const Step3AgentTasks: React.FC<Step3AgentTasksProps> = ({ session, onUpd
 
                         <div>
                           <span className="text-xs font-medium text-muted flex items-center gap-1.5 mb-1.5">
-                            <Code2 className="w-3.5 h-3.5 text-accent" /> {t("Prompt instructions for the AI agent")}
+                            <Code2 className="w-3.5 h-3.5 text-accent-ink" /> {t("Prompt instructions for the AI agent")}
                           </span>
                           <div className="bg-code text-code-ink font-mono text-xs leading-relaxed p-4 rounded-lg overflow-x-auto whitespace-pre-wrap select-all">
                             {task.promptInstructions}

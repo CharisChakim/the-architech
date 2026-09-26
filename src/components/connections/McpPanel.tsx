@@ -143,7 +143,7 @@ export const McpPanel: React.FC = () => {
       <div className="flex max-h-48 shrink-0 flex-col border-b border-line p-3 sm:max-h-none sm:w-56 sm:border-b-0 sm:border-r">
         <div className="mb-2 flex items-center justify-between gap-2">
           <span className="text-xs font-semibold text-ink">{t("MCP servers")}</span>
-          <button type="button" onClick={newServer} title={t("Add MCP server")} className="rounded-md p-1 text-accent hover:bg-accent-soft"><Plus className="h-4 w-4" /></button>
+          <button type="button" onClick={newServer} title={t("Add MCP server")} className="rounded-md p-1 text-accent-ink hover:bg-accent-soft"><Plus className="h-4 w-4" /></button>
         </div>
         <div className="min-h-0 space-y-1 overflow-y-auto">
           {servers.map((server) => (
@@ -188,7 +188,7 @@ export const McpPanel: React.FC = () => {
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-4"><button type="button" onClick={() => void handleTest()} disabled={testing || !name.trim()} className="btn-ghost"><RefreshCw className={`h-4 w-4 ${testing ? "animate-spin" : ""}`} />{testing ? t("Testing...") : t("Test server")}</button><div className="flex gap-2"><button type="button" onClick={newServer} className="btn-ghost"><X className="h-4 w-4" />{t("Clear")}</button><button type="button" onClick={() => void handleSave()} disabled={saving || !name.trim()} className="btn-primary"><Save className="h-4 w-4" />{saving ? t("Saving...") : t("Save")}</button></div></div>
         </div>
       </div>
-      {loading && <div className="absolute inset-0 grid place-items-center bg-surface/70"><RefreshCw className="h-4 w-4 animate-spin text-accent" /></div>}
+      {loading && <div className="absolute inset-0 grid place-items-center bg-surface/70"><RefreshCw className="h-4 w-4 animate-spin text-accent-ink" /></div>}
     </div>
   );
 };

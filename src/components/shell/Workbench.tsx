@@ -258,7 +258,7 @@ export const Workbench: React.FC<WorkbenchProps> = ({
             onClick={() => onLayoutModeChange("agent")}
             className="lift absolute bottom-4 right-4 z-20 inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-2 text-xs font-medium text-ink shadow-elev-3 hover:border-accent"
           >
-            <Bot className="h-3.5 w-3.5 text-accent" />
+            <Bot className="h-3.5 w-3.5 text-accent-ink" />
             {t("Agent")} · {completedTasks} {t("In progress")}
           </button>
         )}

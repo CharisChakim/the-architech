@@ -65,7 +65,7 @@ export const AgentSettingsModal: React.FC<AgentSettingsModalProps> = ({ isOpen, 
       <div role="dialog" aria-modal="true" aria-labelledby="agent-settings-title" className="card w-full max-w-lg overflow-hidden shadow-lg" onMouseDown={(event) => event.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-line px-5 py-4">
           <div className="flex items-center gap-2.5">
-            <Settings2 className="h-4 w-4 text-accent" aria-hidden />
+            <Settings2 className="h-4 w-4 text-accent-ink" aria-hidden />
             <h3 id="agent-settings-title" className="font-semibold text-ink">{t("Agent settings")}</h3>
           </div>
           <button ref={closeButton} type="button" onClick={onClose} aria-label={t("Close")} className="rounded-lg p-1.5 text-faint hover:bg-subtle hover:text-ink">

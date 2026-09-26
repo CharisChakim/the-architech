@@ -197,7 +197,7 @@ export const Topbar: React.FC<TopbarProps> = ({
               className="shell-icon-button"
               title={t("Templates")}
             >
-              <Layers className="h-4 w-4 text-accent" aria-hidden />
+              <Layers className="h-4 w-4 text-accent-ink" aria-hidden />
               <span className="hidden lg:inline">{t("Templates")}</span>
             </button>
             {openMenu === "templates" && (

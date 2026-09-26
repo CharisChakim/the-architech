@@ -287,7 +287,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left hover:bg-subtle"
                     >
                       <ChevronDown className={`h-3 w-3 shrink-0 text-faint transition-transform ${isCollapsed ? "-rotate-90" : ""}`} aria-hidden />
-                      <Folder className={`h-3.5 w-3.5 shrink-0 ${group.key ? "text-accent" : "text-faint"}`} aria-hidden />
+                      <Folder className={`h-3.5 w-3.5 shrink-0 ${group.key ? "text-accent-ink" : "text-faint"}`} aria-hidden />
                       <span className="min-w-0 flex-1 truncate text-[11px] font-bold text-ink">{group.name}</span>
                       <span className="shrink-0 text-[10px] text-faint">{activityLabel(new Date(group.latest).toISOString(), lang)}</span>
                     </button>

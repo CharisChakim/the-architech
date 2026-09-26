@@ -313,7 +313,7 @@ export default function App() {
     return (
       <div className="min-h-screen bg-canvas flex items-center justify-center">
         <div className="flex items-center gap-3 text-sm text-muted">
-          <RefreshCw className="w-4 h-4 animate-spin text-accent" />
+          <RefreshCw className="w-4 h-4 animate-spin text-accent-ink" />
           {t("Loading project history...")}
         </div>
       </div>

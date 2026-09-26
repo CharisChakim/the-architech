@@ -38,7 +38,7 @@ function createWindow(port) {
     height: 900,
     minWidth: 760,
     minHeight: 600,
-    backgroundColor: "#101118",
+    backgroundColor: "#0b0b0c",
     show: false,
     autoHideMenuBar: true,
     // Tanpa ini jendela tidak membawa _NET_WM_ICON, dan desktop Linux jatuh ke

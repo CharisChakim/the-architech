@@ -333,7 +333,7 @@ export const AgentPane: React.FC<AgentPaneProps> = ({
         title={workspaceRoot || t("Choose folder")}
         className="inline-flex h-7 min-w-0 max-w-48 items-center gap-1.5 rounded-md px-1.5 text-[11px] font-medium text-ink hover:bg-surface disabled:cursor-wait disabled:opacity-70"
       >
-        <Folder className="h-3.5 w-3.5 shrink-0 text-accent" aria-hidden />
+        <Folder className="h-3.5 w-3.5 shrink-0 text-accent-ink" aria-hidden />
         <span className="truncate">{folderName(workspaceRoot, t("Choose folder"))}</span>
         {allowShell && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-ok" title={t("Shell enabled")} aria-label={t("Shell enabled")} />}
         <ChevronDown className="h-3 w-3 shrink-0" aria-hidden />
@@ -401,22 +401,22 @@ export const AgentPane: React.FC<AgentPaneProps> = ({
             </div>
             <div className="mt-5 grid grid-cols-2 gap-2 lg:grid-cols-4" aria-label={t("Start a workflow")}>
               <button type="button" onClick={focusComposer} className="group lift rounded-xl border border-line bg-surface p-3 text-left hover:border-accent/40 hover:bg-accent-soft/40">
-                <Code2 className="h-4 w-4 text-accent" aria-hidden />
+                <Code2 className="h-4 w-4 text-accent-ink" aria-hidden />
                 <span className="mt-2 block text-xs font-medium text-ink">{t("Build a feature")}</span>
                 <span className="mt-0.5 block text-[10px] text-faint">{t("Agent chat")}</span>
               </button>
               <button type="button" onClick={openPlanPanel} className="group lift rounded-xl border border-line bg-surface p-3 text-left hover:border-accent/40 hover:bg-accent-soft/40">
-                <ListChecks className="h-4 w-4 text-accent" aria-hidden />
+                <ListChecks className="h-4 w-4 text-accent-ink" aria-hidden />
                 <span className="mt-2 block text-xs font-medium text-ink">{t("Plan a project")}</span>
                 <span className="mt-0.5 block text-[10px] text-faint">{t("Guided planning")}</span>
               </button>
               <button type="button" onClick={() => onNavigatePipeline?.(2)} className="group lift rounded-xl border border-line bg-surface p-3 text-left hover:border-accent/40 hover:bg-accent-soft/40">
-                <FileText className="h-4 w-4 text-accent" aria-hidden />
+                <FileText className="h-4 w-4 text-accent-ink" aria-hidden />
                 <span className="mt-2 block text-xs font-medium text-ink">{t("Create a PRD")}</span>
                 <span className="mt-0.5 block text-[10px] text-faint">{t("PRD builder")}</span>
               </button>
               <button type="button" onClick={() => onNavigatePipeline?.(3)} className="group lift rounded-xl border border-line bg-surface p-3 text-left hover:border-accent/40 hover:bg-accent-soft/40">
-                <Kanban className="h-4 w-4 text-accent" aria-hidden />
+                <Kanban className="h-4 w-4 text-accent-ink" aria-hidden />
                 <span className="mt-2 block text-xs font-medium text-ink">{t("Open Kanban")}</span>
                 <span className="mt-0.5 block text-[10px] text-faint">{t("Plan manually")}</span>
               </button>
@@ -426,13 +426,13 @@ export const AgentPane: React.FC<AgentPaneProps> = ({
         )}
         {entries.length === 0 && hasPlan && (
           <div className="flex h-full min-h-48 flex-col items-center justify-center px-4 text-center">
-            <Bot className="mb-3 h-7 w-7 text-accent" />
+            <Bot className="mb-3 h-7 w-7 text-accent-ink" />
             <p className="text-sm font-medium text-ink">{t("What should we build?")}</p>
             <p className="mt-1 max-w-xs text-xs leading-relaxed text-faint">{t("Ask for a change to this project — the agent can read it and edit the project directly.")}</p>
           </div>
         )}
         <div className="space-y-3">{entries.map(renderEntry)}</div>
-        {busy && <div className="mt-3 flex items-center gap-2 px-1 text-xs text-muted" aria-live="polite"><Circle className="h-2.5 w-2.5 animate-pulse fill-accent text-accent" />{t("Working...")}</div>}
+        {busy && <div className="mt-3 flex items-center gap-2 px-1 text-xs text-muted" aria-live="polite"><Circle className="h-2.5 w-2.5 animate-pulse fill-accent text-accent-ink" />{t("Working...")}</div>}
         {error && !entries.some((entry) => entry.kind === "error" && entry.message === error) && (
           <div className="mt-3 rounded-xl border border-danger/30 bg-danger-soft px-3 py-2 text-xs text-danger-ink">
             <div className="flex items-start gap-2"><AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" /><span className="min-w-0 flex-1 whitespace-pre-wrap">{t(error)}</span><button type="button" onClick={() => void onRetry()} disabled={busy || !entries.some((entry) => entry.kind === "user")} className="shrink-0 font-medium hover:underline disabled:opacity-50">{t("Try again")}</button></div>

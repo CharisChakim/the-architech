@@ -275,7 +275,7 @@ export const ConnectionsModal: React.FC<ConnectionsModalProps> = ({ isOpen, onCl
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-xs">
       <div ref={modalRef} role="dialog" aria-modal="true" aria-labelledby="connections-modal-title" className="card flex min-w-0 max-h-[min(760px,calc(100vh-2rem))] w-full max-w-4xl flex-col overflow-hidden shadow-elev-3">
         <div className="flex items-center justify-between border-b border-line px-5 py-4">
-          <div className="flex min-w-0 items-center gap-2.5"><Cpu className="h-4 w-4 shrink-0 text-accent" /><h3 id="connections-modal-title" className="truncate font-semibold text-ink">{t("Connections")}</h3></div>
+          <div className="flex min-w-0 items-center gap-2.5"><Cpu className="h-4 w-4 shrink-0 text-accent-ink" /><h3 id="connections-modal-title" className="truncate font-semibold text-ink">{t("Connections")}</h3></div>
           <button ref={closeButtonRef} type="button" onClick={onClose} aria-label={t("Close")} className="shrink-0 rounded-lg p-1.5 text-faint hover:bg-subtle hover:text-ink"><X className="h-4 w-4" aria-hidden /></button>
         </div>
 
@@ -338,7 +338,7 @@ export const ConnectionsModal: React.FC<ConnectionsModalProps> = ({ isOpen, onCl
                 </div>
 
                 <div className="min-h-0">
-                <div className="mb-2 flex items-center justify-between"><span className="text-xs font-semibold text-ink">{t("Custom endpoints")}</span><button type="button" onClick={() => { setShowPresets((value) => !value); setSelectedRuntime(null); }} aria-expanded={showPresets} aria-controls="connection-preset-list" title={t("Add connection")} aria-label={t("Add connection")} className="rounded-md p-1 text-accent hover:bg-accent-soft"><Plus className="h-4 w-4" aria-hidden /></button></div>
+                <div className="mb-2 flex items-center justify-between"><span className="text-xs font-semibold text-ink">{t("Custom endpoints")}</span><button type="button" onClick={() => { setShowPresets((value) => !value); setSelectedRuntime(null); }} aria-expanded={showPresets} aria-controls="connection-preset-list" title={t("Add connection")} aria-label={t("Add connection")} className="rounded-md p-1 text-accent-ink hover:bg-accent-soft"><Plus className="h-4 w-4" aria-hidden /></button></div>
                 {showPresets ? (
                   <div id="connection-preset-list" className="min-h-0 space-y-1 overflow-y-auto">
                     {CUSTOM_CONNECTION_PRESET && <button type="button" onClick={() => void choosePreset(CUSTOM_CONNECTION_PRESET)} className="lift mb-1 flex w-full items-center gap-2 rounded-lg border border-dashed border-line px-2.5 py-2 text-left text-xs text-muted hover:border-accent hover:text-ink"><Plus className="h-3.5 w-3.5" />{t("Custom connection")}</button>}

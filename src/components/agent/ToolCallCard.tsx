@@ -52,7 +52,7 @@ export const ToolCallCard: React.FC<ToolCallCardProps> = ({ entry, onNavigatePip
         className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-subtle"
       >
         {entry.state === "running" ? (
-          <LoaderCircle className="h-3.5 w-3.5 shrink-0 animate-spin text-accent" aria-hidden />
+          <LoaderCircle className="h-3.5 w-3.5 shrink-0 animate-spin text-accent-ink" aria-hidden />
         ) : entry.state === "error" ? (
           <CircleAlert className="h-3.5 w-3.5 shrink-0 text-danger-ink" aria-hidden />
         ) : (
